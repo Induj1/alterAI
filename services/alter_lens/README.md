@@ -1,7 +1,7 @@
 # ALTER Lens
 
 ALTER Lens turns phone camera captures into structured career and opportunity
-intelligence with Gemini Vision.
+intelligence with OpenAI vision models.
 
 ## Flow
 
@@ -12,7 +12,7 @@ flowchart TD
   C --> D["FastAPI upload validation"]
   D --> E{"Environment"}
   E -->|local| F["Deterministic analyzer"]
-  E -->|production| G["Gemini Vision structured output"]
+  E -->|production| G["OpenAI structured vision output"]
   G --> H["Summary"]
   G --> I["Insights"]
   G --> J["Opportunities"]
@@ -58,12 +58,12 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m uvicorn alter_lens.api:app --reload --port 8130
 ```
 
-Production Gemini mode:
+Production OpenAI mode:
 
 ```powershell
 $env:ALTER_LENS_ENV="production"
-$env:GOOGLE_API_KEY="..."
-$env:ALTER_LENS_GEMINI_MODEL="gemini-2.5-flash"
+$env:OPENAI_API_KEY="..."
+$env:ALTER_LENS_OPENAI_MODEL="gpt-4.1-mini"
 ```
 
 ## Response Contract

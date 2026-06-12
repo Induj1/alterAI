@@ -6,7 +6,7 @@ from typing import Any
 from .agents import DEFAULT_AGENT_SPECS
 from .config import Settings, get_settings
 from .graph import build_clone_council_graph, initial_state
-from .model_client import CouncilModelClient, GeminiCouncilModelClient
+from .model_client import CouncilModelClient, OpenAICouncilModelClient
 from .schemas import CloneCouncilResponse, DebateRequest
 from .testing import DeterministicCouncilModelClient
 
@@ -65,7 +65,7 @@ def create_clone_council_service(
         or (
             DeterministicCouncilModelClient()
             if resolved_settings.clone_council_env == "local"
-            else GeminiCouncilModelClient(resolved_settings)
+            else OpenAICouncilModelClient(resolved_settings)
         )
     )
     return CloneCouncilService(

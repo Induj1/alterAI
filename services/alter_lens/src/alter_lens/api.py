@@ -23,7 +23,7 @@ from .service import (
 app = FastAPI(
     title="ALTER Lens",
     version="0.1.0",
-    description="Camera intelligence service for ALTER powered by Gemini Vision.",
+    description="Camera intelligence service for ALTER powered by OpenAI vision models.",
 )
 app.add_middleware(
     CORSMiddleware,
@@ -45,7 +45,7 @@ async def healthz() -> HealthResponse:
         status="ok",
         service="alter-lens",
         environment=settings.alter_lens_env,
-        gemini_model=settings.alter_lens_gemini_model,
+        model=settings.alter_lens_openai_model,
     )
 
 
@@ -57,7 +57,7 @@ async def architecture() -> ArchitectureResponse:
             "Flutter camera capture",
             "Multipart image upload",
             "FastAPI validation",
-            "Gemini Vision analyzer",
+            "OpenAI vision analyzer",
             "Structured JSON response contract",
             "Insight, opportunity, and recommendation renderer",
         ],
@@ -66,8 +66,8 @@ async def architecture() -> ArchitectureResponse:
             "research paper, or product.",
             "Flutter captures a camera image and uploads it to ALTER Lens.",
             "Backend validates image type and size.",
-            "Gemini Vision receives inline image bytes plus scan-specific prompt guidance.",
-            "Gemini returns structured JSON: summary, insights, opportunities, recommendations.",
+            "OpenAI receives inline image bytes plus scan-specific prompt guidance.",
+            "OpenAI returns structured JSON: summary, insights, opportunities, recommendations.",
             "Flutter renders the result and can route memory candidates to Memory Graph.",
         ],
         supported_scan_types=list(LensScanType),

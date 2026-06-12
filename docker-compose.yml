@@ -49,6 +49,10 @@ services:
         SERVICE_DIR: services/clone_council
     command: python -m uvicorn alter_clone_council.api:app --host 0.0.0.0 --port 8080
     env_file: .env.example
+    environment:
+      ALTER_CLONE_COUNCIL_ENV: ${ALTER_CLONE_COUNCIL_ENV:-local}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ALTER_OPENAI_MODEL: ${ALTER_OPENAI_MODEL:-gpt-4.1}
     ports:
       - "8080:8080"
 
@@ -112,6 +116,10 @@ services:
         SERVICE_DIR: services/alter_lens
     command: python -m uvicorn alter_lens.api:app --host 0.0.0.0 --port 8130
     env_file: .env.example
+    environment:
+      ALTER_LENS_ENV: ${ALTER_LENS_ENV:-local}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ALTER_LENS_OPENAI_MODEL: ${ALTER_LENS_OPENAI_MODEL:-gpt-4.1-mini}
     ports:
       - "8130:8130"
 

@@ -28,7 +28,7 @@ async def healthz() -> HealthResponse:
         status="ok",
         service="alter-clone-council",
         environment=settings.clone_council_env,
-        model=settings.gemini_model,
+        model=settings.openai_model,
     )
 
 
@@ -40,4 +40,3 @@ async def list_agents():
 @app.post("/v1/clone-council/debate", response_model=CloneCouncilResponse)
 async def run_debate(request: DebateRequest) -> CloneCouncilResponse:
     return await get_service().debate(request)
-

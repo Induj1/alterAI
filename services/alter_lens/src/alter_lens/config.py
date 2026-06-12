@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -14,12 +14,30 @@ class Settings(BaseSettings):
     )
 
     alter_lens_env: str = Field(default="local", alias="ALTER_LENS_ENV")
-    alter_lens_gemini_model: str = Field(
-        default="gemini-2.5-flash",
-        alias="ALTER_LENS_GEMINI_MODEL",
+    openai_api_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("OPENAI_API_KEY", "ALTER_OPENAI_API_KEY"),
     )
-    google_api_key: str | None = Field(default=None, alias="GOOGLE_API_KEY")
+    alter_lens_openai_model: str = Field(
+        default="gpt-4.1-mini",
+        validation_alias=AliasChoices("ALTER_LENS_OPENAI_MODEL", "ALTER_OPENAI_MODEL"),
+    )
     alter_lens_max_upload_mb: int = Field(default=12, alias="ALTER_LENS_MAX_UPLOAD_MB")
+    openai_max_retries: int = Field(
+        default=2,
+        ge=0,
+        le=5,
+        validation_alias=AliasChoices("ALTER_OPENAI_MAX_RETRIES", "OPENAI_MAX_RETRIES"),
+    )
+    request_timeout_seconds: int = Field(
+        default=90,
+        ge=10,
+        le=240,
+        validation_alias=AliasChoices(
+            "ALTER_REQUEST_TIMEOUT_SECONDS",
+            "REQUEST_TIMEOUT_SECONDS",
+        ),
+    )
 
 
 @lru_cache(maxsize=1)

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import json
-from typing import Protocol
+from base64 import b64encode
+from typing import Any, Protocol
 from uuid import uuid4
 
 from .config import Settings
@@ -23,38 +24,56 @@ class VisionAnalyzer(Protocol):
         ...
 
 
-class GeminiVisionAnalyzer:
+class OpenAIVisionAnalyzer:
     def __init__(self, settings: Settings) -> None:
+        if not settings.openai_api_key:
+            raise RuntimeError(
+                "OPENAI_API_KEY is required when ALTER_LENS_ENV is not local."
+            )
         self._settings = settings
-        self._client = None
+        from openai import OpenAI
+
+        self._client = OpenAI(
+            api_key=settings.openai_api_key,
+            max_retries=settings.openai_max_retries,
+            timeout=settings.request_timeout_seconds,
+        )
 
     def analyze(self, scan_input: LensScanInput) -> LensScanResponse:
-        from google import genai
-        from google.genai import types
-
-        if self._client is None:
-            self._client = genai.Client(api_key=self._settings.google_api_key)
-
-        response = self._client.models.generate_content(
-            model=self._settings.alter_lens_gemini_model,
-            contents=[
-                types.Part.from_bytes(
-                    data=scan_input.image_bytes,
-                    mime_type=scan_input.mime_type,
-                ),
-                build_lens_prompt(scan_input),
-            ],
-            config={
-                "response_mime_type": "application/json",
-                "response_json_schema": LensVisionOutput.model_json_schema(),
-                "temperature": 0.2,
-            },
+        image_url = (
+            f"data:{scan_input.mime_type};base64,"
+            f"{b64encode(scan_input.image_bytes).decode('ascii')}"
         )
-        payload = response.parsed if getattr(response, "parsed", None) else response.text
+        response = self._client.responses.parse(
+            model=self._settings.alter_lens_openai_model,
+            input=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are ALTER Lens. Analyze the image for a future operating "
+                        "system and return only the requested structured output."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "input_text", "text": build_lens_prompt(scan_input)},
+                        {"type": "input_image", "image_url": image_url},
+                    ],
+                },
+            ],
+            text_format=LensVisionOutput,
+            temperature=0.2,
+        )
+        payload: Any = getattr(response, "output_parsed", None)
         if isinstance(payload, LensVisionOutput):
             output = payload
         elif isinstance(payload, dict):
             output = LensVisionOutput.model_validate(payload)
+        elif payload is None:
+            output = LensVisionOutput.model_validate_json(
+                getattr(response, "output_text", "")
+            )
         else:
             output = LensVisionOutput.model_validate(json.loads(str(payload)))
         return LensScanResponse(

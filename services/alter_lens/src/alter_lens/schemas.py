@@ -71,7 +71,7 @@ class HealthResponse(BaseModel):
     status: str
     service: str
     environment: str
-    gemini_model: str
+    model: str
 
 
 class ArchitectureResponse(BaseModel):

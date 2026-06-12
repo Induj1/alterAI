@@ -31,7 +31,7 @@ copy .env.example .env
 uvicorn alter_clone_council.api:app --reload --port 8080
 ```
 
-Set `GOOGLE_API_KEY` or `GEMINI_API_KEY` before calling the production model client.
+Set `OPENAI_API_KEY` before calling the production model client.
 
 ## API
 
@@ -52,4 +52,3 @@ flowchart LR
   Revise --> Consensus["Consensus Engine"]
   Consensus --> Response["CloneCouncilResponse"]
 ```
-

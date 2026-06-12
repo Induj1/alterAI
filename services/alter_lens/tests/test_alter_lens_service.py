@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from alter_lens.config import Settings
-from alter_lens.gemini_client import DeterministicVisionAnalyzer
+from alter_lens.openai_client import DeterministicVisionAnalyzer
 from alter_lens.schemas import LensScanInput, LensScanType
 from alter_lens.service import AlterLensService, AlterLensValidationError
 

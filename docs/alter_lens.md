@@ -5,14 +5,14 @@ sequenceDiagram
   participant U as User
   participant F as Flutter Alter Lens
   participant B as FastAPI Alter Lens
-  participant G as Gemini Vision
+  participant O as OpenAI Vision
 
   U->>F: Select scan type
   U->>F: Capture camera image
   F->>B: Multipart upload image + scan_type
   B->>B: Validate mime type and size
-  B->>G: Inline image bytes + scan prompt
-  G-->>B: Structured JSON
+  B->>O: Inline image bytes + scan prompt
+  O-->>B: Structured JSON
   B-->>F: Summary, insights, opportunities, recommendations
   F-->>U: Premium result dashboard
 ```
@@ -63,10 +63,10 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m uvicorn alter_lens.api:app --reload --port 8130
 ```
 
-Production Gemini mode:
+Production OpenAI mode:
 
 ```powershell
 $env:ALTER_LENS_ENV="production"
-$env:GOOGLE_API_KEY="..."
-$env:ALTER_LENS_GEMINI_MODEL="gemini-2.5-flash"
+$env:OPENAI_API_KEY="..."
+$env:ALTER_LENS_OPENAI_MODEL="gpt-4.1-mini"
 ```

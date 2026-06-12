@@ -494,7 +494,7 @@ class _AnalyzingPanel extends StatelessWidget {
           const SizedBox(width: 14),
           Expanded(
             child: Text(
-              'Gemini Vision is extracting summary, insights, opportunities, and recommendations.',
+              'OpenAI vision is extracting summary, insights, opportunities, and recommendations.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.4),
             ),
           ),

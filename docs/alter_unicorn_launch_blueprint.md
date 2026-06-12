@@ -73,9 +73,9 @@ flowchart TD
   API --> SOCIAL["Social Graph"]
   API --> REP["Reputation Engine"]
   API --> OFFICE["OfficeKit"]
-  COUNCIL --> GEMINI["Gemini 2.5 Reasoning"]
-  FUTURE --> GEMINI
-  LENS --> GEMINI
+  COUNCIL --> OPENAI["OpenAI Reasoning + Vision"]
+  FUTURE --> OPENAI
+  LENS --> OPENAI
   MEMORY --> PG["Supabase Postgres + pgvector"]
   MEMORY --> QD["Qdrant"]
   SOCIAL --> NEO["Neo4j"]
@@ -522,13 +522,13 @@ sequenceDiagram
   participant U as User
   participant F as Flutter Camera
   participant B as Alter Lens API
-  participant G as Gemini Vision
+  participant O as OpenAI Vision
   participant M as Memory
 
   U->>F: Scan resume, deck, poster, paper, or product
   F->>B: Multipart image upload
-  B->>G: Inline image + structured schema
-  G-->>B: Summary, insights, opportunities, recommendations
+  B->>O: Inline image + structured schema
+  O-->>B: Summary, insights, opportunities, recommendations
   B-->>F: Structured Lens result
   F->>M: Save memory candidates
 ```
@@ -596,7 +596,7 @@ flowchart TD
   API --> SUPA["Supabase"]
   API --> NEO["Neo4j Aura"]
   API --> QDR["Qdrant Cloud"]
-  API --> GEM["Gemini API"]
+  API --> OAI["OpenAI API"]
   API --> FIRE["Firecrawl"]
   K8S --> OBS["OpenTelemetry + Logs + Metrics"]
 ```

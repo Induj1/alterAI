@@ -46,7 +46,7 @@ class SettingsScreen extends ConsumerWidget {
             children: const [
               MetricTile(
                 label: 'Model routing',
-                value: 'Gemini 2.5',
+                value: 'OpenAI',
                 icon: LucideIcons.brain_circuit,
                 accent: AlterPalette.iris,
               ),
@@ -253,4 +253,3 @@ class _SystemRow extends StatelessWidget {
     );
   }
 }
-

@@ -58,14 +58,13 @@ lib/
   memory_system/          PostgreSQL and pgvector lifelong memory service
   opportunity_engine/     Crawl, rank, and recommend opportunity service
   social_graph/           Neo4j relationship intelligence service
-  alter_lens/             Gemini Vision camera intelligence service
+  alter_lens/             OpenAI vision camera intelligence service
   reputation_engine/      Trust ledger and reputation scoring service
   officekit/              Office artifact briefing and action extraction
 ```
 
 The Clone Council service exposes a FastAPI endpoint at
-`POST /v1/clone-council/debate` and uses Gemini 2.5 through
-`langchain-google-genai` in production.
+`POST /v1/clone-council/debate` and uses OpenAI structured outputs in production.
 
 The Future Simulation service exposes `POST /v1/future-simulation/simulate`
 and returns strict JSON for Future A, Future B, and Future C.

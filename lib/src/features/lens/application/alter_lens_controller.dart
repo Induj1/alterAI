@@ -91,7 +91,7 @@ LensScanResult sampleLensResult(LensScanType scanType) {
     scanId: 'preview',
     scanType: scanType,
     detectedType: scanType.label,
-    summary: 'Gemini Vision preview identified a high-signal '
+    summary: 'OpenAI vision preview identified a high-signal '
         '${scanType.label.toLowerCase()} scan with enough structure to create '
         'memory, opportunities, and next actions.',
     confidence: 0.91,

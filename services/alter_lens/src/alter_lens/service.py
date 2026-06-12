@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from .config import Settings, get_settings
-from .gemini_client import (
+from .openai_client import (
     DeterministicVisionAnalyzer,
-    GeminiVisionAnalyzer,
+    OpenAIVisionAnalyzer,
     VisionAnalyzer,
 )
 from .schemas import LensScanInput, LensScanResponse
@@ -48,5 +48,5 @@ def create_alter_lens_service(
         if resolved_settings.alter_lens_env == "local":
             resolved_analyzer = DeterministicVisionAnalyzer()
         else:
-            resolved_analyzer = GeminiVisionAnalyzer(resolved_settings)
+            resolved_analyzer = OpenAIVisionAnalyzer(resolved_settings)
     return AlterLensService(settings=resolved_settings, analyzer=resolved_analyzer)

@@ -911,7 +911,7 @@ class _ProofCapturePanelState extends ConsumerState<_ProofCapturePanel> {
       text: 'Mission Control now contains Future Twin, Decision Intelligence, Outcome Learning, and Voice Runtime connected to live backend services.',
     );
     _conversationController = TextEditingController(
-      text: 'User interviews should test whether ALTER feels more useful than Siri, Gemini, or ChatGPT for life decisions.',
+      text: 'User interviews should test whether ALTER feels more useful than existing assistants for life decisions.',
     );
     _applicationController = TextEditingController(
       text: 'Submit ALTER to one hackathon, grant, accelerator, or founder program and save the outcome.',

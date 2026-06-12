@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import json
-from typing import Protocol, TypeVar
+from typing import Any, Protocol, TypeVar
 
-from langchain_google_genai import ChatGoogleGenerativeAI
 from pydantic import BaseModel
 
 from .config import Settings
@@ -65,17 +64,21 @@ class CouncilModelClient(Protocol):
         ...
 
 
-class GeminiCouncilModelClient:
-    """Gemini 2.5 model client with native structured output."""
+class OpenAICouncilModelClient:
+    """OpenAI Responses API client with Pydantic structured output."""
 
     def __init__(self, settings: Settings) -> None:
+        if not settings.openai_api_key:
+            raise RuntimeError(
+                "OPENAI_API_KEY is required when ALTER_CLONE_COUNCIL_ENV is not local."
+            )
         self._settings = settings
-        self._llm = ChatGoogleGenerativeAI(
-            model=settings.gemini_model,
-            temperature=settings.gemini_temperature,
+        from openai import AsyncOpenAI
+
+        self._client = AsyncOpenAI(
+            api_key=settings.openai_api_key,
+            max_retries=settings.openai_max_retries,
             timeout=settings.request_timeout_seconds,
-            max_retries=settings.gemini_max_retries,
-            thinking_budget=settings.gemini_thinking_budget,
         )
 
     async def generate_initial_opinion(
@@ -189,13 +192,30 @@ class GeminiCouncilModelClient:
         schema: type[StructuredModel],
         messages: list[tuple[str, str]],
     ) -> StructuredModel:
-        structured = self._llm.with_structured_output(
-            schema,
-            method="json_schema",
+        response = await self._client.responses.parse(
+            model=self._settings.openai_model,
+            input=[
+                {
+                    "role": "system",
+                    "content": [{"type": "input_text", "text": content}],
+                }
+                if role == "system"
+                else {
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": content}],
+                }
+                for role, content in messages
+            ],
+            text_format=schema,
+            temperature=self._settings.openai_temperature,
         )
-        payload = await structured.ainvoke(messages)
+        payload: Any = getattr(response, "output_parsed", None)
         if isinstance(payload, schema):
             return payload
+        if payload is None:
+            payload = getattr(response, "output_text", "")
+        if isinstance(payload, str):
+            return schema.model_validate_json(payload)
         return schema.model_validate(payload)
 
 
