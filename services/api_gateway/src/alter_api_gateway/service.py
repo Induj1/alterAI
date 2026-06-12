@@ -26,10 +26,18 @@ from .schemas import (
     OutcomeUpdateRequest,
     OutcomeUpdateResponse,
     OpportunityArbitrageMove,
+    ProofCaptureRequest,
+    ProofCaptureResponse,
+    ProofEvidenceRecord,
+    ProofGraphEdge,
+    ProofGraphNode,
     ServiceHealth,
     ServiceRoute,
     SystemHealthResponse,
+    DailyProofBriefing,
+    FutureTwinDelta,
     TrajectoryPoint,
+    TrustExecutionProfile,
     VoiceActionRuntimeRequest,
     VoiceActionRuntimeResponse,
 )
@@ -748,6 +756,199 @@ class ApiGatewayService:
             decision_report=decision,
             signals=[*decision.signals, *[_to_signal(step) for step in steps]],
             created_memory_id=_created_memory_id(twin_memory.data),
+        )
+
+    async def capture_proof(
+        self,
+        request: ProofCaptureRequest,
+    ) -> ProofCaptureResponse:
+        routes = {route.name: route.base_url.rstrip("/") for route in self.routes()}
+        user_id = str(request.user_id)
+        objective = request.objective.strip()
+        linked_goal = request.linked_goal.strip() or objective
+        linked_action = request.linked_action.strip() or "Create proof that changes the Future Twin."
+        memory_steps: list[DemoStep] = []
+        reputation_steps: list[DemoStep] = []
+        evidence_records: list[ProofEvidenceRecord] = []
+
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            for evidence in request.evidence:
+                impact_score = _evidence_impact_score(
+                    evidence.evidence_type,
+                    evidence.summary,
+                    evidence.confidence,
+                )
+                memory_step = (
+                    await _run_step(
+                        client,
+                        name="proof_memory",
+                        title="Proof Memory Writeback",
+                        base_url=routes["memory_system"],
+                        path="/v1/memory/items",
+                        payload={
+                            "user_id": user_id,
+                            "memory_type": _evidence_memory_type(evidence.evidence_type),
+                            "title": _truncate(evidence.title, 180),
+                            "summary": _truncate(evidence.summary, 900),
+                            "content": _proof_memory_content(
+                                objective=objective,
+                                linked_goal=linked_goal,
+                                linked_action=linked_action,
+                                source_surface=request.source_surface,
+                                evidence=evidence,
+                                impact_score=impact_score,
+                            ),
+                            "source": "alter_proof_capture_os",
+                            "confidence": evidence.confidence,
+                            "importance": _proof_importance(impact_score),
+                            "metadata": {
+                                "objective": objective,
+                                "linked_goal": linked_goal,
+                                "linked_action": linked_action,
+                                "evidence_type": evidence.evidence_type,
+                                "source": evidence.source,
+                                "source_surface": request.source_surface,
+                                "impact_score": impact_score,
+                                "url": evidence.url or "",
+                            },
+                        },
+                        summary_builder=lambda data: (
+                            f"Saved proof memory {data.get('id', 'ready')}."
+                        ),
+                    )
+                    if request.write_memory
+                    else DemoStep(
+                        name="proof_memory",
+                        title="Proof Memory Writeback",
+                        status="skipped",
+                        summary="Proof memory writeback was disabled.",
+                    )
+                )
+                memory_steps.append(memory_step)
+                reputation_step = (
+                    await _run_step(
+                        client,
+                        name="proof_reputation",
+                        title="Proof Reputation Event",
+                        base_url=routes["reputation_engine"],
+                        path="/v1/reputation/events",
+                        payload={
+                            "user_id": user_id,
+                            "event_type": _proof_reputation_event_type(
+                                evidence.evidence_type,
+                                impact_score,
+                            ),
+                            "title": _truncate(evidence.title, 180),
+                            "description": _truncate(evidence.summary, 800),
+                            "impact_score": _proof_reputation_impact(impact_score),
+                            "source": "alter_proof_capture_os",
+                            "metadata": {
+                                "objective": objective,
+                                "linked_goal": linked_goal,
+                                "linked_action": linked_action,
+                                "evidence_type": evidence.evidence_type,
+                                "impact_score": f"{impact_score:.1f}",
+                            },
+                        },
+                        summary_builder=lambda data: (
+                            f"Logged proof reputation event {data.get('id', 'ready')}."
+                        ),
+                    )
+                    if request.update_reputation
+                    else DemoStep(
+                        name="proof_reputation",
+                        title="Proof Reputation Event",
+                        status="skipped",
+                        summary="Proof reputation update was disabled.",
+                    )
+                )
+                reputation_steps.append(reputation_step)
+                evidence_records.append(
+                    ProofEvidenceRecord(
+                        evidence_type=evidence.evidence_type,
+                        title=evidence.title,
+                        summary=evidence.summary,
+                        source=evidence.source,
+                        linked_goal=linked_goal,
+                        linked_action=linked_action,
+                        impact_score=impact_score,
+                        confidence=evidence.confidence,
+                        trajectory_effect=_proof_trajectory_effect(
+                            evidence.evidence_type,
+                            impact_score,
+                        ),
+                        memory_id=_created_memory_id(memory_step.data),
+                        reputation_event_id=_created_memory_id(reputation_step.data),
+                    )
+                )
+
+            reputation = await _run_step(
+                client,
+                name="proof_trust_profile",
+                title="Execution Trust Profile",
+                base_url=routes["reputation_engine"],
+                path=f"/v1/reputation/users/{user_id}/score",
+                payload=None,
+                summary_builder=lambda data: (
+                    f"Trust profile is {data.get('trust_level', 'ready')} "
+                    f"with score {data.get('score', 'baseline')}."
+                ),
+            )
+
+        graph_nodes, graph_edges = _proof_graph(
+            objective=objective,
+            linked_goal=linked_goal,
+            linked_action=linked_action,
+            evidence_records=evidence_records,
+        )
+        trust_profile = _proof_trust_profile(evidence_records, reputation.data)
+        future_delta = _proof_future_twin_delta(evidence_records, trust_profile)
+        daily_briefing = _daily_proof_briefing(
+            objective=objective,
+            linked_goal=linked_goal,
+            linked_action=linked_action,
+            evidence_records=evidence_records,
+            future_delta=future_delta,
+        )
+        graph_step = DemoStep(
+            name="proof_graph",
+            title="Proof Graph Compiler",
+            status="ok",
+            summary=(
+                f"Built {len(graph_nodes)} proof node(s) and "
+                f"{len(graph_edges)} trajectory edge(s)."
+            ),
+            data={
+                "node_count": len(graph_nodes),
+                "edge_count": len(graph_edges),
+            },
+        )
+        briefing_step = DemoStep(
+            name="daily_briefing",
+            title="Daily Proof Briefing",
+            status="ok",
+            summary="Generated morning and evening proof prompts.",
+            data={
+                "recommended_proof": daily_briefing.recommended_proof,
+                "drift_alert": daily_briefing.drift_alert,
+            },
+        )
+        steps = [*memory_steps, *reputation_steps, reputation, graph_step, briefing_step]
+        return ProofCaptureResponse(
+            user_id=request.user_id,
+            objective=objective,
+            evidence_records=evidence_records,
+            graph_nodes=graph_nodes,
+            graph_edges=graph_edges,
+            daily_briefing=daily_briefing,
+            trust_profile=trust_profile,
+            future_twin_delta=future_delta,
+            next_actions=_proof_next_actions(
+                linked_action=linked_action,
+                daily_briefing=daily_briefing,
+                evidence_records=evidence_records,
+            ),
+            signals=[_to_signal(step) for step in steps],
         )
 
     async def voice_action_runtime(
@@ -1984,6 +2185,266 @@ def _average_evidence_strength(evidence_signals: list[EvidenceSignal]) -> float:
         for signal in evidence_signals
     ]
     return round(sum(weighted) / len(weighted), 1)
+
+
+def _proof_memory_content(
+    *,
+    objective: str,
+    linked_goal: str,
+    linked_action: str,
+    source_surface: str,
+    evidence: Any,
+    impact_score: float,
+) -> str:
+    lines = [
+        f"Objective: {objective}",
+        f"Linked goal: {linked_goal}",
+        f"Linked action: {linked_action}",
+        f"Source surface: {source_surface}",
+        f"Evidence type: {evidence.evidence_type}",
+        f"Title: {evidence.title}",
+        f"Source: {evidence.source}",
+        f"Confidence: {evidence.confidence:.2f}",
+        f"Impact score: {impact_score:.1f}",
+        f"Summary: {evidence.summary}",
+    ]
+    if evidence.url:
+        lines.append(f"URL: {evidence.url}")
+    return "\n".join(lines)
+
+
+def _proof_importance(impact_score: float) -> float:
+    return round(max(0.35, min(0.96, 0.38 + impact_score / 150)), 2)
+
+
+def _proof_reputation_event_type(evidence_type: str, impact_score: float) -> str:
+    text = evidence_type.lower()
+    if any(token in text for token in ("intro", "mentor", "network")):
+        return "intro_made"
+    if any(token in text for token in ("conversation", "interview", "follow")):
+        return "follow_up"
+    if any(token in text for token in ("github", "prototype", "project", "artifact")):
+        return "contribution"
+    if impact_score >= 78:
+        return "delivered"
+    return "commitment_created"
+
+
+def _proof_reputation_impact(impact_score: float) -> int:
+    return int(round(max(4, min(36, impact_score * 0.32))))
+
+
+def _proof_trajectory_effect(evidence_type: str, impact_score: float) -> str:
+    text = evidence_type.lower()
+    if impact_score >= 82:
+        return "Strong proof: raises execution velocity and lowers drift risk."
+    if any(token in text for token in ("user", "customer", "market", "interview")):
+        return "Market proof: improves confidence in the opportunity path."
+    if any(token in text for token in ("prototype", "github", "artifact", "project")):
+        return "Build proof: strengthens skill and product trajectory."
+    if impact_score >= 58:
+        return "Moderate proof: keeps the Future Twin anchored in reality."
+    return "Weak proof: useful context, but not enough to change the trajectory alone."
+
+
+def _proof_graph(
+    *,
+    objective: str,
+    linked_goal: str,
+    linked_action: str,
+    evidence_records: list[ProofEvidenceRecord],
+) -> tuple[list[ProofGraphNode], list[ProofGraphEdge]]:
+    nodes = [
+        ProofGraphNode(
+            node_id="goal",
+            label=_truncate(linked_goal or objective, 120),
+            kind="goal",
+            score=72,
+        ),
+        ProofGraphNode(
+            node_id="action",
+            label=_truncate(linked_action, 120),
+            kind="action",
+            score=68,
+        ),
+        ProofGraphNode(
+            node_id="future_twin",
+            label="Future Twin update",
+            kind="future_twin",
+            score=_bounded_score(
+                sum(record.impact_score for record in evidence_records)
+                / max(len(evidence_records), 1)
+            ),
+        ),
+        ProofGraphNode(
+            node_id="daily_loop",
+            label="Daily proof briefing",
+            kind="daily_briefing",
+            score=74,
+        ),
+    ]
+    edges = [
+        ProofGraphEdge(from_node="goal", to_node="action", label="compiled into", strength=0.82),
+        ProofGraphEdge(from_node="future_twin", to_node="daily_loop", label="sets prompt", strength=0.76),
+    ]
+    for index, record in enumerate(evidence_records):
+        evidence_id = f"evidence_{index + 1}"
+        nodes.append(
+            ProofGraphNode(
+                node_id=evidence_id,
+                label=_truncate(record.title, 120),
+                kind="evidence",
+                score=record.impact_score,
+                status="captured",
+            )
+        )
+        edges.extend(
+            [
+                ProofGraphEdge(
+                    from_node="action",
+                    to_node=evidence_id,
+                    label="produced",
+                    strength=max(0.25, record.confidence),
+                ),
+                ProofGraphEdge(
+                    from_node=evidence_id,
+                    to_node="future_twin",
+                    label="updates",
+                    strength=max(0.25, min(0.98, record.impact_score / 100)),
+                ),
+            ]
+        )
+        if record.memory_id is not None:
+            memory_id = f"memory_{index + 1}"
+            nodes.append(
+                ProofGraphNode(
+                    node_id=memory_id,
+                    label="Memory node",
+                    kind="memory",
+                    score=record.impact_score,
+                    status="saved",
+                )
+            )
+            edges.append(
+                ProofGraphEdge(
+                    from_node=evidence_id,
+                    to_node=memory_id,
+                    label="stored as",
+                    strength=0.9,
+                )
+            )
+    return nodes, edges
+
+
+def _proof_trust_profile(
+    evidence_records: list[ProofEvidenceRecord],
+    reputation_data: dict[str, Any],
+) -> TrustExecutionProfile:
+    high_proof = sum(1 for record in evidence_records if record.impact_score >= 70)
+    average_impact = (
+        sum(record.impact_score for record in evidence_records) / max(len(evidence_records), 1)
+    )
+    reputation_score = _safe_float(reputation_data.get("score"), 600.0) / 10.0
+    follow_through = _bounded_score(average_impact * 0.56 + reputation_score * 0.34 + high_proof * 4)
+    strengths = _coerce_string_list(reputation_data.get("strengths"))
+    risks = _coerce_string_list(reputation_data.get("risks"))
+    if high_proof:
+        strengths.insert(0, f"{high_proof} high-signal proof item(s) captured.")
+    if average_impact < 55:
+        risks.insert(0, "Evidence quality is still too weak to move the future curve.")
+    return TrustExecutionProfile(
+        execution_streak=high_proof,
+        follow_through_score=round(follow_through, 1),
+        trust_level=str(reputation_data.get("trust_level") or "baseline"),
+        strengths=(strengths or ["Proof capture established a baseline."])[:4],
+        risks=(risks or ["No acute proof risk detected."])[:4],
+    )
+
+
+def _proof_future_twin_delta(
+    evidence_records: list[ProofEvidenceRecord],
+    trust_profile: TrustExecutionProfile,
+) -> FutureTwinDelta:
+    average_impact = (
+        sum(record.impact_score for record in evidence_records) / max(len(evidence_records), 1)
+    )
+    strong_count = sum(1 for record in evidence_records if record.impact_score >= 76)
+    alignment_delta = round(max(0.5, min(14.0, average_impact / 12 + strong_count * 1.2)), 1)
+    execution_delta = round(
+        max(0.5, min(18.0, trust_profile.follow_through_score / 10 + strong_count * 1.8)),
+        1,
+    )
+    drift_delta = round(-max(0.5, min(16.0, average_impact / 14 + strong_count * 1.4)), 1)
+    if strong_count:
+        summary = (
+            f"{strong_count} strong proof signal(s) should increase execution velocity "
+            "and reduce drift in the Future Twin."
+        )
+        recalibration = "Weight real artifacts higher than stated intent in the next recommendation."
+    else:
+        summary = "Proof was captured, but ALTER should still demand stronger external evidence."
+        recalibration = "Shrink the next action until proof can be produced within 24 hours."
+    return FutureTwinDelta(
+        alignment_delta=alignment_delta,
+        execution_delta=execution_delta,
+        drift_delta=drift_delta,
+        summary=summary,
+        recommended_recalibration=recalibration,
+    )
+
+
+def _daily_proof_briefing(
+    *,
+    objective: str,
+    linked_goal: str,
+    linked_action: str,
+    evidence_records: list[ProofEvidenceRecord],
+    future_delta: FutureTwinDelta,
+) -> DailyProofBriefing:
+    strongest = max(evidence_records, key=lambda item: item.impact_score, default=None)
+    proof = (
+        f"Turn '{strongest.title}' into a public or shareable artifact."
+        if strongest is not None
+        else f"Create one proof artifact for {linked_goal or objective}."
+    )
+    if future_delta.drift_delta <= -8:
+        drift_alert = "Drift risk decreased because proof now exists."
+    else:
+        drift_alert = "Drift risk remains sensitive: capture stronger external proof today."
+    return DailyProofBriefing(
+        morning_question=(
+            f"What proof will you create today that makes '{linked_goal or objective}' "
+            "more real by tonight?"
+        ),
+        evening_question=(
+            "Did you produce proof, where is it, and what did reality teach you?"
+        ),
+        recommended_proof=proof,
+        drift_alert=drift_alert,
+        push_notifications=[
+            f"Your next proof action: {linked_action}",
+            proof,
+            "Tonight: save the outcome so ALTER can update your Future Twin.",
+        ],
+    )
+
+
+def _proof_next_actions(
+    *,
+    linked_action: str,
+    daily_briefing: DailyProofBriefing,
+    evidence_records: list[ProofEvidenceRecord],
+) -> list[str]:
+    strongest = max(evidence_records, key=lambda item: item.impact_score, default=None)
+    actions = [
+        linked_action,
+        daily_briefing.recommended_proof,
+        "Attach a URL, screenshot, note, scan, or meeting record to this proof.",
+        "Run the evening proof check and save the outcome memory.",
+    ]
+    if strongest is not None and strongest.impact_score >= 78:
+        actions.append(f"Use '{strongest.title}' as the anchor for the next Future Twin run.")
+    return _dedupe_strings(actions)[:5]
 
 
 def _voice_runtime_question(normalized: str, transcript: str, intent: str) -> str:

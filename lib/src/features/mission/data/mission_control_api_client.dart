@@ -213,6 +213,24 @@ class MissionControlApiClient {
     return FutureTwinResult.fromJson(body);
   }
 
+  Future<ProofCaptureResult> captureProof({
+    required String objective,
+    required String linkedGoal,
+    required String linkedAction,
+    required List<ProofEvidenceInput> evidence,
+  }) async {
+    final body = await _postJson('/v1/proof/capture', <String, Object>{
+      'objective': objective,
+      'linked_goal': linkedGoal,
+      'linked_action': linkedAction,
+      'source_surface': 'mission_control',
+      'evidence': evidence.map((item) => item.toJson()).toList(),
+      'write_memory': true,
+      'update_reputation': true,
+    });
+    return ProofCaptureResult.fromJson(body);
+  }
+
   void close() => _client.close();
 
   Future<Map<String, dynamic>> _getJson(String path) async {
@@ -873,6 +891,270 @@ class OpportunityArbitrageMove {
   final List<String> opportunityRefs;
 }
 
+class ProofEvidenceInput {
+  const ProofEvidenceInput({
+    required this.evidenceType,
+    required this.title,
+    required this.summary,
+    required this.source,
+    this.url,
+    this.confidence = 0.74,
+  });
+
+  final String evidenceType;
+  final String title;
+  final String summary;
+  final String source;
+  final String? url;
+  final double confidence;
+
+  Map<String, Object> toJson() {
+    return <String, Object>{
+      'evidence_type': evidenceType,
+      'title': title,
+      'summary': summary,
+      'source': source,
+      if (url != null && url!.isNotEmpty) 'url': url!,
+      'confidence': confidence,
+    };
+  }
+}
+
+class ProofCaptureResult {
+  const ProofCaptureResult({
+    required this.proofCaptureId,
+    required this.userId,
+    required this.objective,
+    required this.evidenceRecords,
+    required this.graphNodes,
+    required this.graphEdges,
+    required this.dailyBriefing,
+    required this.trustProfile,
+    required this.futureTwinDelta,
+    required this.nextActions,
+    required this.signals,
+  });
+
+  factory ProofCaptureResult.fromJson(Map<String, dynamic> json) {
+    return ProofCaptureResult(
+      proofCaptureId: _string(json['proof_capture_id']),
+      userId: _string(json['user_id']),
+      objective: _string(json['objective']),
+      evidenceRecords: _parseProofEvidenceRecords(json['evidence_records']),
+      graphNodes: _parseProofGraphNodes(json['graph_nodes']),
+      graphEdges: _parseProofGraphEdges(json['graph_edges']),
+      dailyBriefing: DailyProofBriefing.fromJson(
+        json['daily_briefing'] is Map<String, dynamic>
+            ? json['daily_briefing'] as Map<String, dynamic>
+            : const <String, dynamic>{},
+      ),
+      trustProfile: TrustExecutionProfile.fromJson(
+        json['trust_profile'] is Map<String, dynamic>
+            ? json['trust_profile'] as Map<String, dynamic>
+            : const <String, dynamic>{},
+      ),
+      futureTwinDelta: FutureTwinDelta.fromJson(
+        json['future_twin_delta'] is Map<String, dynamic>
+            ? json['future_twin_delta'] as Map<String, dynamic>
+            : const <String, dynamic>{},
+      ),
+      nextActions: _parseStringList(json['next_actions']),
+      signals: _parseIntelligenceSignals(json['signals']),
+    );
+  }
+
+  final String proofCaptureId;
+  final String userId;
+  final String objective;
+  final List<ProofEvidenceRecord> evidenceRecords;
+  final List<ProofGraphNode> graphNodes;
+  final List<ProofGraphEdge> graphEdges;
+  final DailyProofBriefing dailyBriefing;
+  final TrustExecutionProfile trustProfile;
+  final FutureTwinDelta futureTwinDelta;
+  final List<String> nextActions;
+  final List<IntelligenceSignal> signals;
+}
+
+class ProofEvidenceRecord {
+  const ProofEvidenceRecord({
+    required this.evidenceId,
+    required this.evidenceType,
+    required this.title,
+    required this.summary,
+    required this.source,
+    required this.linkedGoal,
+    required this.linkedAction,
+    required this.impactScore,
+    required this.confidence,
+    required this.trajectoryEffect,
+    required this.memoryId,
+    required this.reputationEventId,
+  });
+
+  factory ProofEvidenceRecord.fromJson(Map<String, dynamic> json) {
+    return ProofEvidenceRecord(
+      evidenceId: _string(json['evidence_id']),
+      evidenceType: _string(json['evidence_type']),
+      title: _string(json['title']),
+      summary: _string(json['summary']),
+      source: _string(json['source']),
+      linkedGoal: _string(json['linked_goal']),
+      linkedAction: _string(json['linked_action']),
+      impactScore: _double(json['impact_score']),
+      confidence: _double(json['confidence']),
+      trajectoryEffect: _string(json['trajectory_effect']),
+      memoryId: _string(json['memory_id']),
+      reputationEventId: _string(json['reputation_event_id']),
+    );
+  }
+
+  final String evidenceId;
+  final String evidenceType;
+  final String title;
+  final String summary;
+  final String source;
+  final String linkedGoal;
+  final String linkedAction;
+  final double impactScore;
+  final double confidence;
+  final String trajectoryEffect;
+  final String memoryId;
+  final String reputationEventId;
+
+  bool get memorySaved => memoryId.isNotEmpty;
+  bool get reputationLogged => reputationEventId.isNotEmpty;
+}
+
+class ProofGraphNode {
+  const ProofGraphNode({
+    required this.nodeId,
+    required this.label,
+    required this.kind,
+    required this.score,
+    required this.status,
+  });
+
+  factory ProofGraphNode.fromJson(Map<String, dynamic> json) {
+    return ProofGraphNode(
+      nodeId: _string(json['node_id']),
+      label: _string(json['label']),
+      kind: _string(json['kind']),
+      score: _double(json['score']),
+      status: _string(json['status'], fallback: 'active'),
+    );
+  }
+
+  final String nodeId;
+  final String label;
+  final String kind;
+  final double score;
+  final String status;
+}
+
+class ProofGraphEdge {
+  const ProofGraphEdge({
+    required this.fromNode,
+    required this.toNode,
+    required this.label,
+    required this.strength,
+  });
+
+  factory ProofGraphEdge.fromJson(Map<String, dynamic> json) {
+    return ProofGraphEdge(
+      fromNode: _string(json['from_node']),
+      toNode: _string(json['to_node']),
+      label: _string(json['label']),
+      strength: _double(json['strength']),
+    );
+  }
+
+  final String fromNode;
+  final String toNode;
+  final String label;
+  final double strength;
+}
+
+class DailyProofBriefing {
+  const DailyProofBriefing({
+    required this.morningQuestion,
+    required this.eveningQuestion,
+    required this.recommendedProof,
+    required this.driftAlert,
+    required this.pushNotifications,
+  });
+
+  factory DailyProofBriefing.fromJson(Map<String, dynamic> json) {
+    return DailyProofBriefing(
+      morningQuestion: _string(json['morning_question']),
+      eveningQuestion: _string(json['evening_question']),
+      recommendedProof: _string(json['recommended_proof']),
+      driftAlert: _string(json['drift_alert']),
+      pushNotifications: _parseStringList(json['push_notifications']),
+    );
+  }
+
+  final String morningQuestion;
+  final String eveningQuestion;
+  final String recommendedProof;
+  final String driftAlert;
+  final List<String> pushNotifications;
+}
+
+class TrustExecutionProfile {
+  const TrustExecutionProfile({
+    required this.executionStreak,
+    required this.followThroughScore,
+    required this.trustLevel,
+    required this.strengths,
+    required this.risks,
+  });
+
+  factory TrustExecutionProfile.fromJson(Map<String, dynamic> json) {
+    return TrustExecutionProfile(
+      executionStreak: json['execution_streak'] is num
+          ? (json['execution_streak'] as num).round()
+          : 0,
+      followThroughScore: _double(json['follow_through_score']),
+      trustLevel: _string(json['trust_level']),
+      strengths: _parseStringList(json['strengths']),
+      risks: _parseStringList(json['risks']),
+    );
+  }
+
+  final int executionStreak;
+  final double followThroughScore;
+  final String trustLevel;
+  final List<String> strengths;
+  final List<String> risks;
+}
+
+class FutureTwinDelta {
+  const FutureTwinDelta({
+    required this.alignmentDelta,
+    required this.executionDelta,
+    required this.driftDelta,
+    required this.summary,
+    required this.recommendedRecalibration,
+  });
+
+  factory FutureTwinDelta.fromJson(Map<String, dynamic> json) {
+    return FutureTwinDelta(
+      alignmentDelta: _double(json['alignment_delta']),
+      executionDelta: _double(json['execution_delta']),
+      driftDelta: _double(json['drift_delta']),
+      summary: _string(json['summary']),
+      recommendedRecalibration: _string(json['recommended_recalibration']),
+    );
+  }
+
+  final double alignmentDelta;
+  final double executionDelta;
+  final double driftDelta;
+  final String summary;
+  final String recommendedRecalibration;
+}
+
 List<IntelligenceFutureOption> _parseFutureOptions(Object? raw) {
   if (raw is! List<dynamic>) {
     return const <IntelligenceFutureOption>[];
@@ -920,6 +1202,36 @@ List<OpportunityArbitrageMove> _parseArbitrageMoves(Object? raw) {
   return raw
       .whereType<Map<String, dynamic>>()
       .map(OpportunityArbitrageMove.fromJson)
+      .toList(growable: false);
+}
+
+List<ProofEvidenceRecord> _parseProofEvidenceRecords(Object? raw) {
+  if (raw is! List<dynamic>) {
+    return const <ProofEvidenceRecord>[];
+  }
+  return raw
+      .whereType<Map<String, dynamic>>()
+      .map(ProofEvidenceRecord.fromJson)
+      .toList(growable: false);
+}
+
+List<ProofGraphNode> _parseProofGraphNodes(Object? raw) {
+  if (raw is! List<dynamic>) {
+    return const <ProofGraphNode>[];
+  }
+  return raw
+      .whereType<Map<String, dynamic>>()
+      .map(ProofGraphNode.fromJson)
+      .toList(growable: false);
+}
+
+List<ProofGraphEdge> _parseProofGraphEdges(Object? raw) {
+  if (raw is! List<dynamic>) {
+    return const <ProofGraphEdge>[];
+  }
+  return raw
+      .whereType<Map<String, dynamic>>()
+      .map(ProofGraphEdge.fromJson)
       .toList(growable: false);
 }
 

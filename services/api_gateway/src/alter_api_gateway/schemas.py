@@ -259,6 +259,87 @@ class FutureTwinResponse(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
+class ProofCaptureRequest(BaseModel):
+    user_id: UUID = Field(default_factory=uuid4)
+    objective: str = Field(min_length=3, max_length=1000)
+    linked_goal: str = Field(default="", max_length=280)
+    linked_action: str = Field(default="", max_length=280)
+    source_surface: str = Field(default="mission_control", max_length=80)
+    evidence: list[EvidenceInput] = Field(default_factory=list, min_length=1, max_length=20)
+    write_memory: bool = True
+    update_reputation: bool = True
+
+
+class ProofEvidenceRecord(BaseModel):
+    evidence_id: UUID = Field(default_factory=uuid4)
+    evidence_type: str
+    title: str
+    summary: str
+    source: str
+    linked_goal: str
+    linked_action: str
+    impact_score: float = Field(ge=0.0, le=100.0)
+    confidence: float = Field(ge=0.0, le=1.0)
+    trajectory_effect: str
+    memory_id: UUID | None = None
+    reputation_event_id: UUID | None = None
+    captured_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class ProofGraphNode(BaseModel):
+    node_id: str
+    label: str
+    kind: str
+    score: float = Field(default=0.0, ge=0.0, le=100.0)
+    status: str = "active"
+
+
+class ProofGraphEdge(BaseModel):
+    from_node: str
+    to_node: str
+    label: str
+    strength: float = Field(default=0.5, ge=0.0, le=1.0)
+
+
+class DailyProofBriefing(BaseModel):
+    morning_question: str
+    evening_question: str
+    recommended_proof: str
+    drift_alert: str
+    push_notifications: list[str]
+
+
+class TrustExecutionProfile(BaseModel):
+    execution_streak: int = Field(ge=0)
+    follow_through_score: float = Field(ge=0.0, le=100.0)
+    trust_level: str
+    strengths: list[str]
+    risks: list[str]
+
+
+class FutureTwinDelta(BaseModel):
+    alignment_delta: float = Field(ge=-100.0, le=100.0)
+    execution_delta: float = Field(ge=-100.0, le=100.0)
+    drift_delta: float = Field(ge=-100.0, le=100.0)
+    summary: str
+    recommended_recalibration: str
+
+
+class ProofCaptureResponse(BaseModel):
+    proof_capture_id: UUID = Field(default_factory=uuid4)
+    user_id: UUID
+    objective: str
+    evidence_records: list[ProofEvidenceRecord]
+    graph_nodes: list[ProofGraphNode]
+    graph_edges: list[ProofGraphEdge]
+    daily_briefing: DailyProofBriefing
+    trust_profile: TrustExecutionProfile
+    future_twin_delta: FutureTwinDelta
+    next_actions: list[str]
+    signals: list[IntelligenceSignal]
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
 class VoiceActionRuntimeRequest(BaseModel):
     user_id: UUID = Field(default_factory=uuid4)
     transcript: str = Field(min_length=1, max_length=4000)

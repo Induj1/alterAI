@@ -19,6 +19,8 @@ from .schemas import (
     MissionBriefingResponse,
     OutcomeUpdateRequest,
     OutcomeUpdateResponse,
+    ProofCaptureRequest,
+    ProofCaptureResponse,
     ServiceRoute,
     SystemHealthResponse,
     VoiceActionRuntimeRequest,
@@ -68,6 +70,8 @@ async def architecture() -> ArchitectureResponse:
             "action compiler",
             "evidence engine",
             "opportunity arbitrage engine",
+            "proof capture os",
+            "daily briefing engine",
             "voice action runtime",
             "client route discovery",
         ],
@@ -79,6 +83,7 @@ async def architecture() -> ArchitectureResponse:
             "Decision Intelligence retrieves memory, simulates futures, debates the council, ranks opportunities, and writes back durable memory.",
             "Outcome Learning turns recommendations into experiments, captures reality, writes outcome memory, and updates reputation.",
             "Future Twin compares stated ambition with evidence, predicts trajectory drift, compiles the next action, and surfaces opportunity arbitrage.",
+            "Proof Capture OS turns real-world artifacts into memory, reputation, graph edges, daily briefings, and Future Twin deltas.",
             "Voice Action Runtime turns Hey Alter transcripts into intent, reasoning, action graph, spoken response, and follow-up.",
         ],
         output_contract={
@@ -122,6 +127,14 @@ async def architecture() -> ArchitectureResponse:
                 "opportunity_arbitrage",
                 "daily_question",
                 "model_updates",
+            ],
+            "ProofCaptureResponse": [
+                "evidence_records",
+                "graph_nodes",
+                "graph_edges",
+                "daily_briefing",
+                "trust_profile",
+                "future_twin_delta",
             ],
             "VoiceActionRuntimeResponse": [
                 "wake_word_detected",
@@ -168,6 +181,11 @@ async def record_outcome(request: OutcomeUpdateRequest) -> OutcomeUpdateResponse
 @app.post("/v1/intelligence/future-twin", response_model=FutureTwinResponse)
 async def future_twin(request: FutureTwinRequest) -> FutureTwinResponse:
     return await get_service().future_twin(request)
+
+
+@app.post("/v1/proof/capture", response_model=ProofCaptureResponse)
+async def capture_proof(request: ProofCaptureRequest) -> ProofCaptureResponse:
+    return await get_service().capture_proof(request)
 
 
 @app.post("/v1/voice/action-runtime", response_model=VoiceActionRuntimeResponse)

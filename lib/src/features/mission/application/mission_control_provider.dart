@@ -37,6 +37,69 @@ final futureTwinControllerProvider =
       FutureTwinController.new,
     );
 
+final proofCaptureControllerProvider =
+    NotifierProvider<ProofCaptureController, ProofCaptureState>(
+      ProofCaptureController.new,
+    );
+
+class ProofCaptureController extends Notifier<ProofCaptureState> {
+  @override
+  ProofCaptureState build() => const ProofCaptureState();
+
+  Future<void> capture({
+    required String objective,
+    required String linkedGoal,
+    required String linkedAction,
+    required List<ProofEvidenceInput> evidence,
+  }) async {
+    final trimmed = objective.trim();
+    if (trimmed.length < 3) {
+      state = state.copyWith(errorMessage: 'Enter the future objective this proof updates.');
+      return;
+    }
+    if (evidence.isEmpty) {
+      state = state.copyWith(errorMessage: 'Add at least one proof item.');
+      return;
+    }
+    state = state.copyWith(isRunning: true, errorMessage: '');
+    try {
+      final result = await ref.read(missionControlApiClientProvider).captureProof(
+            objective: trimmed,
+            linkedGoal: linkedGoal.trim(),
+            linkedAction: linkedAction.trim(),
+            evidence: evidence,
+          );
+      state = state.copyWith(isRunning: false, result: result);
+    } catch (error) {
+      state = state.copyWith(isRunning: false, errorMessage: error.toString());
+    }
+  }
+}
+
+class ProofCaptureState {
+  const ProofCaptureState({
+    this.isRunning = false,
+    this.result,
+    this.errorMessage = '',
+  });
+
+  final bool isRunning;
+  final ProofCaptureResult? result;
+  final String errorMessage;
+
+  ProofCaptureState copyWith({
+    bool? isRunning,
+    ProofCaptureResult? result,
+    String? errorMessage,
+  }) {
+    return ProofCaptureState(
+      isRunning: isRunning ?? this.isRunning,
+      result: result ?? this.result,
+      errorMessage: errorMessage ?? this.errorMessage,
+    );
+  }
+}
+
 class FutureTwinController extends Notifier<FutureTwinState> {
   @override
   FutureTwinState build() => const FutureTwinState();

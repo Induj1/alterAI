@@ -217,4 +217,82 @@ void main() {
     expect(result.opportunityArbitrage.first.stack, contains('Users'));
     expect(result.memorySaved, isTrue);
   });
+
+  test('ProofCaptureResult parses evidence, graph, briefing, and trust', () {
+    final result = ProofCaptureResult.fromJson(const <String, dynamic>{
+      'proof_capture_id': 'proof-1',
+      'user_id': 'user-1',
+      'objective': 'Build ALTER',
+      'evidence_records': <Map<String, dynamic>>[
+        <String, dynamic>{
+          'evidence_id': 'evidence-1',
+          'evidence_type': 'project_artifact',
+          'title': 'Working demo',
+          'summary': 'ALTER runs end to end.',
+          'source': 'mission_control',
+          'linked_goal': 'Validate demand',
+          'linked_action': 'Ship proof',
+          'impact_score': 86,
+          'confidence': 0.9,
+          'trajectory_effect': 'Strong proof.',
+          'memory_id': 'memory-1',
+          'reputation_event_id': 'rep-1',
+        },
+      ],
+      'graph_nodes': <Map<String, dynamic>>[
+        <String, dynamic>{
+          'node_id': 'goal',
+          'label': 'Validate demand',
+          'kind': 'goal',
+          'score': 72,
+          'status': 'active',
+        },
+      ],
+      'graph_edges': <Map<String, dynamic>>[
+        <String, dynamic>{
+          'from_node': 'goal',
+          'to_node': 'action',
+          'label': 'compiled into',
+          'strength': 0.82,
+        },
+      ],
+      'daily_briefing': <String, dynamic>{
+        'morning_question': 'What proof will you create?',
+        'evening_question': 'What did reality teach you?',
+        'recommended_proof': 'Share the demo.',
+        'drift_alert': 'Drift risk decreased.',
+        'push_notifications': <String>['Capture proof today.'],
+      },
+      'trust_profile': <String, dynamic>{
+        'execution_streak': 1,
+        'follow_through_score': 78,
+        'trust_level': 'strong',
+        'strengths': <String>['High-signal proof captured.'],
+        'risks': <String>['No acute risk.'],
+      },
+      'future_twin_delta': <String, dynamic>{
+        'alignment_delta': 7.1,
+        'execution_delta': 9.4,
+        'drift_delta': -6.2,
+        'summary': 'Proof updated the twin.',
+        'recommended_recalibration': 'Weight artifacts higher.',
+      },
+      'next_actions': <String>['Share proof.'],
+      'signals': <Map<String, dynamic>>[
+        <String, dynamic>{
+          'name': 'proof_memory',
+          'title': 'Proof Memory Writeback',
+          'status': 'ok',
+          'summary': 'Saved proof memory.',
+        },
+      ],
+    });
+
+    expect(result.evidenceRecords.single.memorySaved, isTrue);
+    expect(result.evidenceRecords.single.reputationLogged, isTrue);
+    expect(result.graphNodes.single.kind, 'goal');
+    expect(result.dailyBriefing.pushNotifications.single, contains('proof'));
+    expect(result.trustProfile.followThroughScore, 78);
+    expect(result.futureTwinDelta.driftDelta, -6.2);
+  });
 }

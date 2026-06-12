@@ -136,6 +136,8 @@ class MissionControlScreen extends ConsumerWidget {
           const SizedBox(height: 18),
           const _FutureTwinPanel(),
           const SizedBox(height: 18),
+          const _ProofCapturePanel(),
+          const SizedBox(height: 18),
           const _IntelligenceKernelPanel(),
           const SizedBox(height: 18),
           if (context.isExpanded)
@@ -876,6 +878,582 @@ class _ArbitragePanel extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ProofCapturePanel extends ConsumerStatefulWidget {
+  const _ProofCapturePanel();
+
+  @override
+  ConsumerState<_ProofCapturePanel> createState() => _ProofCapturePanelState();
+}
+
+class _ProofCapturePanelState extends ConsumerState<_ProofCapturePanel> {
+  late final TextEditingController _objectiveController;
+  late final TextEditingController _goalController;
+  late final TextEditingController _actionController;
+  late final TextEditingController _artifactController;
+  late final TextEditingController _conversationController;
+  late final TextEditingController _applicationController;
+
+  @override
+  void initState() {
+    super.initState();
+    _objectiveController = TextEditingController(
+      text: 'Make ALTER a market-changing future OS for students and founders.',
+    );
+    _goalController = TextEditingController(
+      text: 'Validate that users trust ALTER for high-stakes future decisions.',
+    );
+    _actionController = TextEditingController(
+      text: 'Create one shareable proof artifact and collect real feedback today.',
+    );
+    _artifactController = TextEditingController(
+      text: 'Mission Control now contains Future Twin, Decision Intelligence, Outcome Learning, and Voice Runtime connected to live backend services.',
+    );
+    _conversationController = TextEditingController(
+      text: 'User interviews should test whether ALTER feels more useful than Siri, Gemini, or ChatGPT for life decisions.',
+    );
+    _applicationController = TextEditingController(
+      text: 'Submit ALTER to one hackathon, grant, accelerator, or founder program and save the outcome.',
+    );
+  }
+
+  @override
+  void dispose() {
+    _objectiveController.dispose();
+    _goalController.dispose();
+    _actionController.dispose();
+    _artifactController.dispose();
+    _conversationController.dispose();
+    _applicationController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final proof = ref.watch(proofCaptureControllerProvider);
+    void captureProof() {
+      ref.read(proofCaptureControllerProvider.notifier).capture(
+            objective: _objectiveController.text,
+            linkedGoal: _goalController.text,
+            linkedAction: _actionController.text,
+            evidence: _evidenceInputs(),
+          );
+    }
+
+    return GlassPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SectionHeader(
+            title: 'Proof Capture OS',
+            subtitle: 'Evidence inbox, proof graph, daily briefing, trust update.',
+            trailing: PremiumButton(
+              label: proof.isRunning ? 'Capturing' : 'Capture Proof',
+              compact: true,
+              icon: proof.isRunning ? LucideIcons.loader : LucideIcons.inbox,
+              onPressed: proof.isRunning ? null : captureProof,
+            ),
+          ),
+          const SizedBox(height: 14),
+          ResponsiveGrid(
+            mediumColumns: 1,
+            expandedColumns: 3,
+            children: [
+              TextField(
+                controller: _objectiveController,
+                minLines: 2,
+                maxLines: 4,
+                decoration: const InputDecoration(
+                  labelText: 'Future this proof updates',
+                  prefixIcon: Icon(LucideIcons.orbit),
+                ),
+              ),
+              TextField(
+                controller: _goalController,
+                minLines: 2,
+                maxLines: 4,
+                decoration: const InputDecoration(
+                  labelText: 'Linked goal',
+                  prefixIcon: Icon(LucideIcons.target),
+                ),
+              ),
+              TextField(
+                controller: _actionController,
+                minLines: 2,
+                maxLines: 4,
+                decoration: const InputDecoration(
+                  labelText: 'Linked action',
+                  prefixIcon: Icon(LucideIcons.clipboard_check),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          ResponsiveGrid(
+            mediumColumns: 1,
+            expandedColumns: 3,
+            children: [
+              TextField(
+                controller: _artifactController,
+                minLines: 2,
+                maxLines: 4,
+                decoration: const InputDecoration(
+                  labelText: 'Artifact proof',
+                  prefixIcon: Icon(LucideIcons.box),
+                ),
+              ),
+              TextField(
+                controller: _conversationController,
+                minLines: 2,
+                maxLines: 4,
+                decoration: const InputDecoration(
+                  labelText: 'Conversation proof',
+                  prefixIcon: Icon(LucideIcons.messages_square),
+                ),
+              ),
+              TextField(
+                controller: _applicationController,
+                minLines: 2,
+                maxLines: 4,
+                decoration: const InputDecoration(
+                  labelText: 'Opportunity proof',
+                  prefixIcon: Icon(LucideIcons.send),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              PremiumChip(
+                label: proof.isRunning ? 'Writing proof memory' : 'Capture Evidence',
+                selected: true,
+                icon: proof.isRunning ? LucideIcons.loader : LucideIcons.database_zap,
+                onTap: proof.isRunning ? null : captureProof,
+              ),
+              PremiumChip(
+                label: 'Goal -> Action -> Evidence -> Twin',
+                selected: true,
+                icon: LucideIcons.workflow,
+              ),
+              PremiumChip(
+                label: 'Daily proof loop',
+                selected: true,
+                icon: LucideIcons.calendar_check,
+              ),
+            ],
+          ),
+          if (proof.isRunning) ...[
+            const SizedBox(height: 14),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: const LinearProgressIndicator(minHeight: 5),
+            ),
+          ],
+          if (proof.errorMessage.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text(
+              proof.errorMessage,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.error,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+          if (proof.result != null) ...[
+            const SizedBox(height: 16),
+            _ProofCaptureResultPanel(result: proof.result!),
+          ],
+        ],
+      ),
+    );
+  }
+
+  List<ProofEvidenceInput> _evidenceInputs() {
+    return [
+      ProofEvidenceInput(
+        evidenceType: 'project_artifact',
+        title: 'ALTER live product artifact',
+        summary: _artifactController.text,
+        source: 'mission_control',
+        confidence: 0.9,
+      ),
+      ProofEvidenceInput(
+        evidenceType: 'user_conversation',
+        title: 'Decision pain conversation',
+        summary: _conversationController.text,
+        source: 'user_interview',
+        confidence: 0.78,
+      ),
+      ProofEvidenceInput(
+        evidenceType: 'opportunity_application',
+        title: 'Opportunity application proof',
+        summary: _applicationController.text,
+        source: 'opportunity_radar',
+        confidence: 0.72,
+      ),
+    ];
+  }
+}
+
+class _ProofCaptureResultPanel extends StatelessWidget {
+  const _ProofCaptureResultPanel({required this.result});
+
+  final ProofCaptureResult result;
+
+  @override
+  Widget build(BuildContext context) {
+    final trust = result.trustProfile;
+    final delta = result.futureTwinDelta;
+    final memoryCount = result.evidenceRecords.where((item) => item.memorySaved).length;
+    final reputationCount =
+        result.evidenceRecords.where((item) => item.reputationLogged).length;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AlterPalette.mint.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AlterPalette.mint.withValues(alpha: 0.18)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  PremiumChip(
+                    label: '${result.evidenceRecords.length} proof items',
+                    selected: true,
+                    icon: LucideIcons.inbox,
+                  ),
+                  PremiumChip(
+                    label: '$memoryCount memory nodes',
+                    selected: memoryCount == result.evidenceRecords.length,
+                    icon: LucideIcons.database_zap,
+                  ),
+                  PremiumChip(
+                    label: '$reputationCount reputation events',
+                    selected: reputationCount == result.evidenceRecords.length,
+                    icon: LucideIcons.trophy,
+                  ),
+                  PremiumChip(
+                    label: '${trust.followThroughScore.round()} follow-through',
+                    selected: trust.followThroughScore >= 70,
+                    icon: LucideIcons.activity,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                delta.summary,
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w900,
+                  height: 1.3,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                delta.recommendedRecalibration,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AlterPalette.mint,
+                  fontWeight: FontWeight.w800,
+                  height: 1.35,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        ResponsiveGrid(
+          mediumColumns: 2,
+          expandedColumns: 4,
+          children: [
+            MetricTile(
+              label: 'Alignment Delta',
+              value: '+${delta.alignmentDelta.toStringAsFixed(1)}',
+              detail: 'Proof effect on stated future.',
+              icon: LucideIcons.target,
+              accent: AlterPalette.mint,
+            ),
+            MetricTile(
+              label: 'Execution Delta',
+              value: '+${delta.executionDelta.toStringAsFixed(1)}',
+              detail: 'Proof effect on follow-through.',
+              icon: LucideIcons.activity,
+              accent: AlterPalette.iris,
+            ),
+            MetricTile(
+              label: 'Drift Delta',
+              value: delta.driftDelta.toStringAsFixed(1),
+              detail: 'Negative means drift risk decreased.',
+              icon: LucideIcons.triangle_alert,
+              accent: AlterPalette.aura,
+            ),
+            MetricTile(
+              label: 'Trust',
+              value: trust.trustLevel.isEmpty ? 'baseline' : trust.trustLevel,
+              detail: '${trust.executionStreak} high-signal proof streak.',
+              icon: LucideIcons.shield_check,
+              accent: AlterPalette.cyan,
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        _DailyProofBriefingPanel(briefing: result.dailyBriefing),
+        const SizedBox(height: 14),
+        ResponsiveGrid(
+          mediumColumns: 2,
+          expandedColumns: 2,
+          children: [
+            _EvidenceInboxPanel(records: result.evidenceRecords),
+            _ProofGraphPanel(nodes: result.graphNodes, edges: result.graphEdges),
+          ],
+        ),
+        const SizedBox(height: 14),
+        ResponsiveGrid(
+          mediumColumns: 2,
+          expandedColumns: 2,
+          children: [
+            _DemoListColumn(
+              title: 'Next Proof Actions',
+              icon: LucideIcons.check_check,
+              items: result.nextActions,
+            ),
+            _DemoListColumn(
+              title: 'Trust Profile',
+              icon: LucideIcons.shield_check,
+              items: [...trust.strengths, ...trust.risks],
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _DailyProofBriefingPanel extends StatelessWidget {
+  const _DailyProofBriefingPanel({required this.briefing});
+
+  final DailyProofBriefing briefing;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AlterPalette.iris.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AlterPalette.iris.withValues(alpha: 0.18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionHeader(
+            title: 'Daily Proof Briefing',
+            subtitle: 'Morning intent, night outcome, proactive nudges.',
+            trailing: Icon(LucideIcons.calendar_check, color: AlterPalette.iris),
+          ),
+          const SizedBox(height: 12),
+          ResponsiveGrid(
+            mediumColumns: 1,
+            expandedColumns: 3,
+            children: [
+              _PlanTile(
+                icon: LucideIcons.sun,
+                label: 'Morning',
+                value: briefing.morningQuestion,
+              ),
+              _PlanTile(
+                icon: LucideIcons.moon,
+                label: 'Night',
+                value: briefing.eveningQuestion,
+              ),
+              _PlanTile(
+                icon: LucideIcons.bell,
+                label: 'Drift alert',
+                value: briefing.driftAlert,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            briefing.recommendedProof,
+            style: theme.textTheme.titleSmall?.copyWith(
+              color: AlterPalette.iris,
+              fontWeight: FontWeight.w900,
+              height: 1.3,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final notification in briefing.pushNotifications)
+                PremiumChip(
+                  label: notification,
+                  selected: true,
+                  icon: LucideIcons.bell_ring,
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EvidenceInboxPanel extends StatelessWidget {
+  const _EvidenceInboxPanel({required this.records});
+
+  final List<ProofEvidenceRecord> records;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface.withValues(alpha: 0.38),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionHeader(
+            title: 'Evidence Inbox',
+            subtitle: 'Proof converted into memory and reputation.',
+            trailing: Icon(LucideIcons.inbox, color: AlterPalette.mint),
+          ),
+          const SizedBox(height: 12),
+          for (final record in records)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          record.title,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                      PremiumChip(
+                        label: '${record.impactScore.round()} impact',
+                        selected: record.impactScore >= 70,
+                        icon: record.memorySaved
+                            ? LucideIcons.database_zap
+                            : LucideIcons.gauge,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    record.trajectoryEffect,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: AlterPalette.mint,
+                      fontWeight: FontWeight.w800,
+                      height: 1.34,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    record.summary,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.62),
+                      height: 1.34,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProofGraphPanel extends StatelessWidget {
+  const _ProofGraphPanel({required this.nodes, required this.edges});
+
+  final List<ProofGraphNode> nodes;
+  final List<ProofGraphEdge> edges;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AlterPalette.cyan.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AlterPalette.cyan.withValues(alpha: 0.18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionHeader(
+            title: 'Proof Graph',
+            subtitle: 'Goal -> action -> evidence -> memory -> Future Twin.',
+            trailing: Icon(LucideIcons.network, color: AlterPalette.cyan),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final node in nodes.take(8))
+                PremiumChip(
+                  label: '${node.kind}: ${node.label}',
+                  selected: node.status != 'skipped',
+                  icon: _proofNodeIcon(node.kind),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          for (final edge in edges.take(8))
+            Padding(
+              padding: const EdgeInsets.only(bottom: 7),
+              child: Text(
+                '${edge.fromNode} ${edge.label} ${edge.toNode}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.62),
+                  height: 1.32,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+IconData _proofNodeIcon(String kind) {
+  return switch (kind) {
+    'goal' => LucideIcons.target,
+    'action' => LucideIcons.clipboard_check,
+    'evidence' => LucideIcons.inbox,
+    'memory' => LucideIcons.database_zap,
+    'future_twin' => LucideIcons.brain_circuit,
+    'daily_briefing' => LucideIcons.calendar_check,
+    _ => LucideIcons.circle,
+  };
 }
 
 class _IntelligenceKernelPanel extends ConsumerStatefulWidget {
