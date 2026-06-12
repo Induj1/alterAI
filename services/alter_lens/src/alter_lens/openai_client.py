@@ -5,6 +5,8 @@ from base64 import b64encode
 from typing import Any, Protocol
 from uuid import uuid4
 
+from pydantic import BaseModel, ConfigDict, Field
+
 from .config import Settings
 from .prompts import build_lens_prompt
 from .schemas import (
@@ -17,6 +19,54 @@ from .schemas import (
     LensScanType,
     LensVisionOutput,
 )
+
+
+class _OpenAILensInsight(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    title: str
+    detail: str
+    confidence: float = Field(ge=0, le=1)
+    tags: list[str]
+
+
+class _OpenAILensOpportunity(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    title: str
+    why_now: str
+    next_step: str
+    score: float = Field(ge=0, le=100)
+
+
+class _OpenAILensRecommendation(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    action: str
+    priority: LensPriority
+    rationale: str
+
+
+class _OpenAIEntityGroup(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    values: list[str]
+
+
+class _OpenAILensVisionOutput(BaseModel):
+    """OpenAI strict-schema shape; converted to ALTER's public response contract."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    detected_type: str
+    summary: str
+    confidence: float = Field(ge=0, le=1)
+    insights: list[_OpenAILensInsight]
+    opportunities: list[_OpenAILensOpportunity]
+    recommendations: list[_OpenAILensRecommendation]
+    extracted_entities: list[_OpenAIEntityGroup]
+    memory_candidates: list[str]
 
 
 class VisionAnalyzer(Protocol):
@@ -62,24 +112,68 @@ class OpenAIVisionAnalyzer:
                     ],
                 },
             ],
-            text_format=LensVisionOutput,
+            text_format=_OpenAILensVisionOutput,
             temperature=0.2,
         )
         payload: Any = getattr(response, "output_parsed", None)
-        if isinstance(payload, LensVisionOutput):
-            output = payload
+        if isinstance(payload, _OpenAILensVisionOutput):
+            output = _to_lens_vision_output(payload)
         elif isinstance(payload, dict):
-            output = LensVisionOutput.model_validate(payload)
+            output = _to_lens_vision_output(
+                _OpenAILensVisionOutput.model_validate(payload)
+            )
         elif payload is None:
-            output = LensVisionOutput.model_validate_json(
-                getattr(response, "output_text", "")
+            output = _to_lens_vision_output(
+                _OpenAILensVisionOutput.model_validate_json(
+                    getattr(response, "output_text", "")
+                )
             )
         else:
-            output = LensVisionOutput.model_validate(json.loads(str(payload)))
+            output = _to_lens_vision_output(
+                _OpenAILensVisionOutput.model_validate(json.loads(str(payload)))
+            )
         return LensScanResponse(
             scan_type=scan_input.scan_type,
             **output.model_dump(),
         )
+
+
+def _to_lens_vision_output(output: _OpenAILensVisionOutput) -> LensVisionOutput:
+    return LensVisionOutput(
+        detected_type=output.detected_type,
+        summary=output.summary,
+        confidence=output.confidence,
+        insights=[
+            LensInsight(
+                title=insight.title,
+                detail=insight.detail,
+                confidence=insight.confidence,
+                tags=insight.tags,
+            )
+            for insight in output.insights
+        ],
+        opportunities=[
+            LensOpportunity(
+                title=opportunity.title,
+                why_now=opportunity.why_now,
+                next_step=opportunity.next_step,
+                score=opportunity.score,
+            )
+            for opportunity in output.opportunities
+        ],
+        recommendations=[
+            LensRecommendation(
+                action=recommendation.action,
+                priority=recommendation.priority,
+                rationale=recommendation.rationale,
+            )
+            for recommendation in output.recommendations
+        ],
+        extracted_entities={
+            entity.name: entity.values for entity in output.extracted_entities
+        },
+        memory_candidates=output.memory_candidates,
+    )
 
 
 class DeterministicVisionAnalyzer:
