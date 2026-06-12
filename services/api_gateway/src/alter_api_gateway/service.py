@@ -1,0 +1,1605 @@
+from __future__ import annotations
+
+from datetime import UTC, datetime, timedelta
+import time
+from typing import Any
+
+import httpx
+
+from .config import Settings, get_settings
+from .schemas import (
+    DemoRunRequest,
+    DemoRunResponse,
+    DemoStep,
+    ExperimentPlan,
+    FutureOption,
+    IntelligenceDecisionRequest,
+    IntelligenceDecisionResponse,
+    IntelligenceSignal,
+    MissionBriefingRequest,
+    MissionBriefingResponse,
+    OutcomeUpdateRequest,
+    OutcomeUpdateResponse,
+    ServiceHealth,
+    ServiceRoute,
+    SystemHealthResponse,
+    VoiceActionRuntimeRequest,
+    VoiceActionRuntimeResponse,
+)
+
+
+class ApiGatewayService:
+    def __init__(self, settings: Settings) -> None:
+        self._settings = settings
+
+    def routes(self) -> list[ServiceRoute]:
+        return [
+            ServiceRoute(
+                name=name,
+                base_url=url,
+                health_url=f"{url.rstrip('/')}/healthz",
+            )
+            for name, url in self._settings.service_urls().items()
+        ]
+
+    async def system_health(self) -> SystemHealthResponse:
+        services = []
+        async with httpx.AsyncClient(timeout=1.5) as client:
+            for route in self.routes():
+                services.append(await _check_service(client, route))
+        status = "ok" if all(service.status == "ok" for service in services) else "degraded"
+        return SystemHealthResponse(status=status, services=services)
+
+    def mission_briefing(self, request: MissionBriefingRequest) -> MissionBriefingResponse:
+        phone = ["voice_gateway", "alter_lens", "nfc"]
+        laptop = [
+            "future_simulation",
+            "clone_council",
+            "opportunity_engine",
+            "social_graph",
+            "reputation_engine",
+        ]
+        requested = request.include_services or [*phone, *laptop, "memory_system", "officekit"]
+        route_map = {route.name: route.base_url for route in self.routes()}
+        return MissionBriefingResponse(
+            user_id=request.user_id,
+            objective=request.objective,
+            command_summary=(
+                f"Mission objective '{request.objective}' is ready for cross-device execution "
+                f"from {request.device_context}."
+            ),
+            phone_layer=phone,
+            laptop_layer=laptop,
+            recommended_sequence=[
+                "Capture intent with Voice Gateway.",
+                "Retrieve memory context.",
+                "Simulate futures and run Clone Council.",
+                "Find opportunities and warm paths.",
+                "Write decision, follow-up, and reputation events.",
+            ],
+            route_targets=[route_map[name] for name in requested if name in route_map],
+        )
+
+    async def future_os_demo(self, request: DemoRunRequest) -> DemoRunResponse:
+        routes = {route.name: route.base_url.rstrip("/") for route in self.routes()}
+        objective = request.objective
+        user_id = str(request.user_id)
+
+        async with httpx.AsyncClient(timeout=6.0) as client:
+            voice = await _run_step(
+                client,
+                name="voice_gateway",
+                title="Wake Word + Intent",
+                base_url=routes["voice_gateway"],
+                path="/v1/voice/session",
+                payload={
+                    "transcript": f"Hey Alter, simulate my future for this decision: {objective}",
+                    "locale": "en-US",
+                },
+                summary_builder=lambda data: (
+                    f"Wake word={data.get('wake_word_detected')} "
+                    f"intent={data.get('inferred_intent')}."
+                ),
+            )
+            future = await _run_step(
+                client,
+                name="future_simulation",
+                title="Future Simulation",
+                base_url=routes["future_simulation"],
+                path="/v1/future-simulation/simulate",
+                payload=_future_payload(request),
+                summary_builder=lambda data: _future_summary(data),
+            )
+            council = await _run_step(
+                client,
+                name="clone_council",
+                title="Clone Council Debate",
+                base_url=routes["clone_council"],
+                path="/v1/clone-council/debate",
+                payload={
+                    "question": f"What is the highest-leverage next move for: {objective}?",
+                    "context": {
+                        "device_context": request.device_context,
+                        "demo_mode": True,
+                    },
+                },
+                summary_builder=lambda data: (
+                    f"7-agent debate reached {round(float(data.get('confidence_score', 0)) * 100)}% "
+                    "confidence."
+                ),
+            )
+            opportunities = await _run_step(
+                client,
+                name="opportunity_engine",
+                title="Opportunity Radar",
+                base_url=routes["opportunity_engine"],
+                path="/v1/opportunities/pipeline",
+                payload=_opportunity_payload(request),
+                summary_builder=lambda data: _opportunity_summary(data),
+            )
+            memory = await _run_memory_step(client, routes["memory_system"], user_id, objective)
+            social = await _run_social_step(client, routes["social_graph"])
+            reputation = await _run_step(
+                client,
+                name="reputation_engine",
+                title="Reputation Ledger",
+                base_url=routes["reputation_engine"],
+                path="/v1/reputation/events",
+                payload={
+                    "user_id": user_id,
+                    "event_type": "follow_up",
+                    "title": "Ran ALTER end-to-end decision loop",
+                    "impact_score": 24,
+                },
+                summary_builder=lambda data: (
+                    f"Logged reputation event '{data.get('event_type', 'follow_up')}'."
+                ),
+            )
+            score = await _run_step(
+                client,
+                name="reputation_score",
+                title="Trust Score",
+                base_url=routes["reputation_engine"],
+                path=f"/v1/reputation/users/{user_id}/score",
+                payload=None,
+                summary_builder=lambda data: f"Trust score is {data.get('score', 'ready')}.",
+            )
+            office = await _run_step(
+                client,
+                name="officekit",
+                title="OfficeKit Briefing",
+                base_url=routes["officekit"],
+                path="/v1/officekit/briefing",
+                payload={
+                    "user_id": user_id,
+                    "objective": objective,
+                    "inline_artifacts": [
+                        {
+                            "user_id": user_id,
+                            "artifact_type": "meeting",
+                            "title": "ALTER judge demo",
+                            "content": (
+                                "The user needs a concrete next move with future paths, "
+                                "multi-agent debate, opportunities, and follow-through."
+                            ),
+                            "participants": ["ALTER", "User"],
+                        }
+                    ],
+                },
+                summary_builder=lambda data: (
+                    f"Created {len(data.get('action_items', []))} action item(s)."
+                ),
+            )
+
+        steps = [voice, future, council, opportunities, memory, social, reputation, score, office]
+        ok_steps = [step for step in steps if step.status == "ok"]
+        future_data = future.data
+        council_data = council.data
+        opportunity_data = opportunities.data
+        office_data = office.data
+
+        return DemoRunResponse(
+            user_id=request.user_id,
+            objective=objective,
+            headline=(
+                f"ALTER ran {len(ok_steps)}/{len(steps)} systems and produced a decision plan."
+            ),
+            executive_summary=_executive_summary(
+                objective=objective,
+                future_data=future_data,
+                council_data=council_data,
+                opportunity_data=opportunity_data,
+            ),
+            steps=steps,
+            key_metrics={
+                "systems": f"{len(ok_steps)}/{len(steps)}",
+                "futures": str(len(future_data.get("futures", []))),
+                "council": f"{round(float(council_data.get('confidence_score', 0)) * 100)}%",
+                "opportunities": str(
+                    len(
+                        opportunity_data.get("recommendations", {}).get(
+                            "recommendations",
+                            [],
+                        )
+                    )
+                ),
+                "trust": str(score.data.get("score", "ready")),
+            },
+            next_actions=_next_actions(council_data, office_data),
+            risks=_risks(council_data, office_data),
+            opportunities=_opportunities(council_data, opportunity_data),
+        )
+
+    async def decide(
+        self,
+        request: IntelligenceDecisionRequest,
+    ) -> IntelligenceDecisionResponse:
+        routes = {route.name: route.base_url.rstrip("/") for route in self.routes()}
+        question = request.question.strip()
+        user_id = str(request.user_id)
+
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            memory = await _run_step(
+                client,
+                name="memory_retrieval",
+                title="Personal Memory Retrieval",
+                base_url=routes["memory_system"],
+                path="/v1/memory/retrieve",
+                payload={
+                    "user_id": user_id,
+                    "task": question,
+                    "limit": 8,
+                    "include_private": False,
+                },
+                summary_builder=lambda data: (
+                    f"Retrieved {len(data.get('context', []))} durable memory signal(s)."
+                ),
+            )
+
+            future = await _run_step(
+                client,
+                name="future_simulation",
+                title="Future Simulation Engine",
+                base_url=routes["future_simulation"],
+                path="/v1/future-simulation/simulate",
+                payload=_decision_future_payload(request),
+                summary_builder=lambda data: _future_summary(data),
+            )
+            opportunities = await _run_step(
+                client,
+                name="opportunity_engine",
+                title="Opportunity Discovery",
+                base_url=routes["opportunity_engine"],
+                path="/v1/opportunities/pipeline",
+                payload=_decision_opportunity_payload(request),
+                summary_builder=lambda data: _opportunity_summary(data),
+            )
+
+            memory_context = _memory_context(memory.data)
+            future_options = _future_options(future.data)
+            opportunity_matches = _opportunity_titles(opportunities.data)
+            council = await _run_step(
+                client,
+                name="clone_council",
+                title="Clone Council Deliberation",
+                base_url=routes["clone_council"],
+                path="/v1/clone-council/debate",
+                payload={
+                    "user_id": user_id,
+                    "question": (
+                        "Give a decisive recommendation for this life or career decision: "
+                        f"{question}"
+                    ),
+                    "context": {
+                        "kernel": "alter_intelligence_v1",
+                        "user_profile": request.user_profile,
+                        "skills": request.skills,
+                        "goals": request.goals,
+                        "interests": request.interests,
+                        "memory_context": memory_context,
+                        "future_options": [
+                            option.model_dump() for option in future_options
+                        ],
+                        "opportunity_matches": opportunity_matches,
+                        "external_context": request.context,
+                    },
+                },
+                summary_builder=lambda data: (
+                    f"Council confidence is "
+                    f"{round(float(data.get('confidence_score', 0)) * 100)}%."
+                ),
+            )
+            office = await _run_step(
+                client,
+                name="officekit",
+                title="Execution Briefing",
+                base_url=routes["officekit"],
+                path="/v1/officekit/briefing",
+                payload={
+                    "user_id": user_id,
+                    "objective": question[:600],
+                    "inline_artifacts": [
+                        {
+                            "user_id": user_id,
+                            "artifact_type": "document",
+                            "title": "ALTER Decision Intelligence Report",
+                            "content": _decision_artifact_content(
+                                question=question,
+                                future_options=future_options,
+                                opportunity_matches=opportunity_matches,
+                                memory_context=memory_context,
+                            ),
+                            "participants": ["ALTER", "User"],
+                        }
+                    ],
+                },
+                summary_builder=lambda data: (
+                    f"Created {len(data.get('action_items', []))} execution action(s)."
+                ),
+            )
+
+            recommendation = _decision_recommendation(council.data, future.data)
+            actions = _next_actions(council.data, office.data)
+            risks = _risks(council.data, office.data)
+            opportunities_list = _opportunities(council.data, opportunities.data)
+            writeback = (
+                await _run_step(
+                    client,
+                    name="memory_writeback",
+                    title="Decision Memory Writeback",
+                    base_url=routes["memory_system"],
+                    path="/v1/memory/items",
+                    payload={
+                        "user_id": user_id,
+                        "memory_type": "decision",
+                        "title": _truncate(question, 120),
+                        "summary": _truncate(recommendation, 900),
+                        "content": _memory_writeback_content(
+                            question=question,
+                            recommendation=recommendation,
+                            actions=actions,
+                            risks=risks,
+                            opportunities=opportunities_list,
+                        ),
+                        "source": "alter_intelligence_kernel",
+                        "confidence": _decision_confidence(
+                            council.data,
+                            future_options,
+                            opportunity_matches,
+                            [memory, future, opportunities, council, office],
+                        ),
+                        "importance": 0.88,
+                        "metadata": {
+                            "kernel": "alter_intelligence_v1",
+                            "recommended_future": _recommended_future(
+                                future.data,
+                                future_options,
+                            ),
+                        },
+                    },
+                    summary_builder=lambda data: (
+                        f"Saved decision memory {data.get('id', 'ready')}."
+                    ),
+                )
+                if request.write_memory
+                else DemoStep(
+                    name="memory_writeback",
+                    title="Decision Memory Writeback",
+                    status="skipped",
+                    summary="Memory writeback was disabled for this request.",
+                )
+            )
+
+        steps = [memory, future, opportunities, council, office, writeback]
+        confidence = _decision_confidence(
+            council.data,
+            future_options,
+            opportunity_matches,
+            steps,
+        )
+        recommended_future = _recommended_future(future.data, future_options)
+        experiment_plan = _experiment_plan(
+            question=question,
+            recommendation=recommendation,
+            actions=actions,
+            opportunities=opportunities_list,
+            future_options=future_options,
+        )
+
+        return IntelligenceDecisionResponse(
+            user_id=request.user_id,
+            question=question,
+            recommendation=recommendation,
+            confidence_score=confidence,
+            decision_summary=_decision_summary(
+                question=question,
+                recommended_future=recommended_future,
+                memory_context=memory_context,
+                opportunity_matches=opportunity_matches,
+                steps=steps,
+            ),
+            recommended_future=recommended_future,
+            experiment_plan=experiment_plan,
+            future_options=future_options,
+            memory_context=memory_context,
+            opportunity_matches=opportunity_matches,
+            next_actions=actions,
+            risks=risks,
+            opportunities=opportunities_list,
+            signals=[_to_signal(step) for step in steps],
+            created_memory_id=_created_memory_id(writeback.data),
+        )
+
+    async def record_outcome(
+        self,
+        request: OutcomeUpdateRequest,
+    ) -> OutcomeUpdateResponse:
+        routes = {route.name: route.base_url.rstrip("/") for route in self.routes()}
+        user_id = str(request.user_id)
+        execution_score = _execution_score(request)
+        confidence_delta = _confidence_delta(request)
+        impact_score = _reputation_impact_score(request)
+        memory_summary = _outcome_summary(request, execution_score, confidence_delta)
+
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            memory = await _run_step(
+                client,
+                name="outcome_memory",
+                title="Outcome Memory Writeback",
+                base_url=routes["memory_system"],
+                path="/v1/memory/items",
+                payload={
+                    "user_id": user_id,
+                    "memory_type": "learning_progress",
+                    "title": _truncate(
+                        f"Outcome: {request.experiment_plan.action}",
+                        120,
+                    ),
+                    "summary": _truncate(memory_summary, 900),
+                    "content": _outcome_memory_content(
+                        request,
+                        execution_score=execution_score,
+                        confidence_delta=confidence_delta,
+                    ),
+                    "source": "alter_outcome_loop",
+                    "confidence": 0.86 if request.did_it else 0.74,
+                    "importance": _outcome_importance(request),
+                    "metadata": {
+                        "decision_id": str(request.decision_id or ""),
+                        "experiment_id": str(request.experiment_plan.experiment_id),
+                        "outcome_score": request.outcome_score,
+                        "execution_score": execution_score,
+                        "confidence_delta": confidence_delta,
+                    },
+                },
+                summary_builder=lambda data: (
+                    f"Saved outcome memory {data.get('id', 'ready')}."
+                ),
+            )
+            reputation = await _run_step(
+                client,
+                name="reputation_event",
+                title="Execution Reputation Event",
+                base_url=routes["reputation_engine"],
+                path="/v1/reputation/events",
+                payload={
+                    "user_id": user_id,
+                    "event_type": "delivered" if request.did_it else "missed_reply",
+                    "title": _truncate(
+                        "Completed ALTER experiment"
+                        if request.did_it
+                        else "Missed ALTER experiment",
+                        180,
+                    ),
+                    "description": _truncate(memory_summary, 800),
+                    "impact_score": impact_score,
+                    "source": "alter_outcome_loop",
+                    "metadata": {
+                        "decision_id": str(request.decision_id or ""),
+                        "experiment_id": str(request.experiment_plan.experiment_id),
+                        "outcome_score": f"{request.outcome_score:.2f}",
+                        "execution_score": f"{execution_score:.1f}",
+                    },
+                },
+                summary_builder=lambda data: (
+                    f"Logged {data.get('event_type', 'execution')} reputation event."
+                ),
+            )
+            score = await _run_step(
+                client,
+                name="reputation_score",
+                title="Updated Execution Score",
+                base_url=routes["reputation_engine"],
+                path=f"/v1/reputation/users/{user_id}/score",
+                payload=None,
+                summary_builder=lambda data: (
+                    f"Trust score is {data.get('score', 'ready')}."
+                ),
+            )
+
+        steps = [memory, reputation, score]
+        return OutcomeUpdateResponse(
+            user_id=request.user_id,
+            decision_id=request.decision_id,
+            execution_score=execution_score,
+            confidence_delta=confidence_delta,
+            memory_id=_created_memory_id(memory.data),
+            reputation_event_id=_created_memory_id(reputation.data),
+            reputation_score=_optional_int(score.data.get("score")),
+            trust_level=str(score.data.get("trust_level") or ""),
+            profile_updates=_profile_updates(request, execution_score, confidence_delta),
+            next_recommendation=_outcome_next_recommendation(request, execution_score),
+            memory_summary=memory_summary,
+            signals=[_to_signal(step) for step in steps],
+        )
+
+    async def voice_action_runtime(
+        self,
+        request: VoiceActionRuntimeRequest,
+    ) -> VoiceActionRuntimeResponse:
+        routes = {route.name: route.base_url.rstrip("/") for route in self.routes()}
+        user_id = str(request.user_id)
+
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            voice = await _run_step(
+                client,
+                name="voice_gateway",
+                title="Wake Word + Intent Runtime",
+                base_url=routes["voice_gateway"],
+                path="/v1/voice/session",
+                payload={
+                    "user_id": user_id,
+                    "transcript": request.transcript,
+                    "locale": request.locale,
+                    "device_surface": request.device_surface,
+                    "context": {
+                        "runtime": "voice_action",
+                        **{key: str(value) for key, value in request.context.items()},
+                    },
+                },
+                summary_builder=lambda data: (
+                    f"Intent={data.get('inferred_intent', 'unknown')} "
+                    f"wake={data.get('wake_word_detected', False)}."
+                ),
+            )
+
+        normalized = str(voice.data.get("normalized_text") or request.transcript).strip()
+        intent = str(voice.data.get("inferred_intent") or "unknown")
+        intent_confidence = _bounded_float(voice.data.get("confidence"), 0.42)
+        decision: IntelligenceDecisionResponse | None = None
+        memory_signal: DemoStep | None = None
+        signals = [_to_signal(voice)]
+
+        if intent in {
+            "future_decision",
+            "clone_council",
+            "opportunity_search",
+            "social_graph",
+            "reputation",
+            "unknown",
+        }:
+            decision = await self.decide(
+                IntelligenceDecisionRequest(
+                    user_id=request.user_id,
+                    question=_voice_runtime_question(normalized, request.transcript, intent),
+                    user_profile=request.user_profile,
+                    skills=request.skills,
+                    goals=request.goals,
+                    interests=request.interests,
+                    context={
+                        **request.context,
+                        "voice_intent": intent,
+                        "locale": request.locale,
+                        "device_surface": request.device_surface,
+                        "wake_word_detected": voice.data.get("wake_word_detected", False),
+                    },
+                    decision_horizon_months=36,
+                    write_memory=True,
+                )
+            )
+            signals.extend(decision.signals)
+        elif intent == "memory_capture":
+            async with httpx.AsyncClient(timeout=8.0) as client:
+                memory_signal = await _run_step(
+                    client,
+                    name="voice_memory_capture",
+                    title="Voice Memory Capture",
+                    base_url=routes["memory_system"],
+                    path="/v1/memory/items",
+                    payload={
+                        "user_id": user_id,
+                        "memory_type": "note",
+                        "title": _truncate(normalized or request.transcript, 120),
+                        "summary": _truncate(normalized or request.transcript, 900),
+                        "content": request.transcript,
+                        "source": "voice_action_runtime",
+                        "confidence": 0.82,
+                        "importance": 0.58,
+                        "metadata": {
+                            "locale": request.locale,
+                            "voice_intent": intent,
+                        },
+                    },
+                    summary_builder=lambda data: (
+                        f"Saved voice memory {data.get('id', 'ready')}."
+                    ),
+                )
+            signals.append(_to_signal(memory_signal))
+
+        spoken_response = _voice_spoken_response(
+            normalized=normalized,
+            intent=intent,
+            decision=decision,
+            memory_signal=memory_signal,
+        )
+        return VoiceActionRuntimeResponse(
+            user_id=request.user_id,
+            transcript=request.transcript,
+            normalized_text=normalized,
+            wake_word_detected=bool(voice.data.get("wake_word_detected", False)),
+            inferred_intent=intent,
+            intent_confidence=intent_confidence,
+            spoken_response=spoken_response,
+            display_response=_voice_display_response(spoken_response, decision, memory_signal),
+            action_graph=_voice_action_graph(intent, decision, memory_signal),
+            experiment_plan=decision.experiment_plan if decision else None,
+            next_actions=decision.next_actions if decision else ["Review the saved memory."],
+            follow_up_questions=_voice_follow_up_questions(intent, decision),
+            decision_report=decision,
+            signals=signals,
+        )
+
+
+def create_api_gateway_service(settings: Settings | None = None) -> ApiGatewayService:
+    return ApiGatewayService(settings or get_settings())
+
+
+async def _run_step(
+    client: httpx.AsyncClient,
+    *,
+    name: str,
+    title: str,
+    base_url: str,
+    path: str,
+    payload: dict[str, Any] | None,
+    summary_builder: Any,
+) -> DemoStep:
+    started = time.perf_counter()
+    try:
+        if payload is None:
+            response = await client.get(f"{base_url}{path}")
+        else:
+            response = await client.post(f"{base_url}{path}", json=payload)
+        latency_ms = int((time.perf_counter() - started) * 1000)
+        response.raise_for_status()
+        data = response.json()
+        if not isinstance(data, dict):
+            data = {"value": data}
+        return DemoStep(
+            name=name,
+            title=title,
+            status="ok",
+            summary=str(summary_builder(data)),
+            latency_ms=latency_ms,
+            data=data,
+        )
+    except Exception as error:  # noqa: BLE001 - demo response should degrade gracefully
+        latency_ms = int((time.perf_counter() - started) * 1000)
+        return DemoStep(
+            name=name,
+            title=title,
+            status="error",
+            summary=f"{title} unavailable: {error}",
+            latency_ms=latency_ms,
+            data={},
+        )
+
+
+async def _run_memory_step(
+    client: httpx.AsyncClient,
+    base_url: str,
+    user_id: str,
+    objective: str,
+) -> DemoStep:
+    started = time.perf_counter()
+    try:
+        create_response = await client.post(
+            f"{base_url}/v1/memory/items",
+            json={
+                "user_id": user_id,
+                "memory_type": "decision",
+                "title": "Hackathon decision loop",
+                "summary": objective,
+                "content": (
+                    f"ALTER ran an end-to-end future operating system loop for: {objective}"
+                ),
+                "source": "mission_control_demo",
+                "confidence": 0.92,
+                "importance": 0.86,
+            },
+        )
+        create_response.raise_for_status()
+        search_response = await client.post(
+            f"{base_url}/v1/memory/search",
+            json={
+                "user_id": user_id,
+                "query": objective,
+                "limit": 5,
+            },
+        )
+        latency_ms = int((time.perf_counter() - started) * 1000)
+        search_response.raise_for_status()
+        created = create_response.json()
+        search = search_response.json()
+        return DemoStep(
+            name="memory_system",
+            title="Personal Memory Graph",
+            status="ok",
+            summary=f"Stored decision memory and retrieved {len(search.get('hits', []))} related item(s).",
+            latency_ms=latency_ms,
+            data={"created": created, "search": search},
+        )
+    except Exception as error:  # noqa: BLE001
+        latency_ms = int((time.perf_counter() - started) * 1000)
+        return DemoStep(
+            name="memory_system",
+            title="Personal Memory Graph",
+            status="error",
+            summary=f"Memory unavailable: {error}",
+            latency_ms=latency_ms,
+        )
+
+
+async def _run_social_step(client: httpx.AsyncClient, base_url: str) -> DemoStep:
+    started = time.perf_counter()
+    try:
+        user_response = await client.post(
+            f"{base_url}/v1/social-graph/people",
+            json={
+                "role": "User",
+                "name": "Demo User",
+                "skills": ["AI", "product", "execution"],
+                "interests": ["startups", "research", "career leverage"],
+            },
+        )
+        user_response.raise_for_status()
+        founder_response = await client.post(
+            f"{base_url}/v1/social-graph/people",
+            json={
+                "role": "Founder",
+                "name": "Warm Intro Founder",
+                "skills": ["fundraising", "go-to-market", "AI"],
+                "interests": ["AI startups", "developer tools"],
+            },
+        )
+        founder_response.raise_for_status()
+        user = user_response.json()
+        founder = founder_response.json()
+        relation_response = await client.post(
+            f"{base_url}/v1/social-graph/relationships",
+            json={
+                "from_person_id": user["id"],
+                "to_person_id": founder["id"],
+                "relationship_type": "KNOWS",
+                "strength": 0.82,
+            },
+        )
+        latency_ms = int((time.perf_counter() - started) * 1000)
+        relation_response.raise_for_status()
+        relationship = relation_response.json()
+        return DemoStep(
+            name="social_graph",
+            title="Social Graph Route",
+            status="ok",
+            summary="Created a warm founder path with 82% relationship strength.",
+            latency_ms=latency_ms,
+            data={"user": user, "founder": founder, "relationship": relationship},
+        )
+    except Exception as error:  # noqa: BLE001
+        latency_ms = int((time.perf_counter() - started) * 1000)
+        return DemoStep(
+            name="social_graph",
+            title="Social Graph Route",
+            status="error",
+            summary=f"Social graph unavailable: {error}",
+            latency_ms=latency_ms,
+        )
+
+
+def _future_payload(request: DemoRunRequest) -> dict[str, Any]:
+    profile = request.profile
+    current_role = str(profile.get("current_role") or "Student founder")
+    current_salary = float(profile.get("current_salary") or 70000)
+    return {
+        "user_profile": {
+            "name": profile.get("name") or "ALTER Operator",
+            "current_role": current_role,
+            "current_salary": current_salary,
+            "current_network_size": int(profile.get("current_network_size") or 180),
+            "risk_tolerance": float(profile.get("risk_tolerance") or 0.68),
+            "weekly_learning_hours": int(profile.get("weekly_learning_hours") or 10),
+        },
+        "skills": [
+            {"name": "AI agents", "category": "technical", "level": 0.76, "years": 2},
+            {"name": "Product strategy", "category": "product", "level": 0.72, "years": 3},
+            {"name": "Founder storytelling", "category": "business", "level": 0.68, "years": 1},
+        ],
+        "goals": [
+            {
+                "title": request.objective,
+                "category": "startup",
+                "horizon_months": 24,
+                "priority": 5,
+            }
+        ],
+        "experience": [
+            {
+                "title": "Built an AI prototype",
+                "years": 1,
+                "impact": "Shipped a working demo across frontend, backend, agents, and data.",
+            }
+        ],
+        "interests": ["AI agents", "future of work", "startups"],
+        "horizon_months": 36,
+        "currency": "USD",
+    }
+
+
+def _opportunity_payload(request: DemoRunRequest) -> dict[str, Any]:
+    return {
+        "profile": {
+            "career_stage": "student founder",
+            "skills": ["AI", "Python", "Flutter", "FastAPI", "product"],
+            "goals": ["startup", "funding", "network"],
+            "interests": ["AI agents", "developer tools", "future of work"],
+            "preferred_categories": ["hackathon", "grant", "accelerator"],
+            "risk_tolerance": 0.7,
+        },
+        "crawl": {
+            "sources": ["devpost", "startup_grants", "yc"],
+            "query": request.objective,
+            "limit_per_source": 1,
+        },
+        "limit": 3,
+    }
+
+
+def _decision_future_payload(request: IntelligenceDecisionRequest) -> dict[str, Any]:
+    profile = request.user_profile
+    role = str(profile.get("current_role") or profile.get("role") or "Student founder")
+    salary = _safe_float(profile.get("current_salary"), 70000)
+    network_size = int(_safe_float(profile.get("current_network_size"), 180))
+    risk_tolerance = _bounded_float(profile.get("risk_tolerance"), 0.68)
+    learning_hours = int(_safe_float(profile.get("weekly_learning_hours"), 10))
+    skills = _dedupe_strings(
+        [
+            *request.skills,
+            *_coerce_string_list(profile.get("skills")),
+        ]
+    ) or ["AI agents", "product strategy", "execution"]
+    goals = _dedupe_strings([*request.goals, request.question])
+    interests = _dedupe_strings(
+        [
+            *request.interests,
+            *_coerce_string_list(profile.get("interests")),
+            *_coerce_string_list(request.context.get("interests")),
+        ]
+    ) or ["AI agents", "future of work", "startups"]
+
+    return {
+        "user_profile": {
+            "name": profile.get("name") or "ALTER Operator",
+            "current_role": role,
+            "location": profile.get("location"),
+            "industry": profile.get("industry") or "AI",
+            "current_salary": salary,
+            "current_network_size": max(0, network_size),
+            "risk_tolerance": risk_tolerance,
+            "weekly_learning_hours": max(0, learning_hours),
+        },
+        "skills": [
+            {
+                "name": skill,
+                "category": _skill_category(skill),
+                "level": round(max(0.54, 0.82 - index * 0.035), 2),
+                "years": round(max(0.5, 2.5 - index * 0.1), 1),
+            }
+            for index, skill in enumerate(skills[:12])
+        ],
+        "goals": [
+            {
+                "title": goal,
+                "category": _goal_category(goal),
+                "horizon_months": request.decision_horizon_months,
+                "priority": 5 if index == 0 else 4,
+            }
+            for index, goal in enumerate(goals[:6])
+        ],
+        "experience": _decision_experience(request),
+        "interests": interests[:20],
+        "horizon_months": request.decision_horizon_months,
+        "currency": str(profile.get("currency") or "USD").upper()[:3],
+    }
+
+
+def _decision_opportunity_payload(request: IntelligenceDecisionRequest) -> dict[str, Any]:
+    profile = request.user_profile
+    skills = _dedupe_strings([*request.skills, *_coerce_string_list(profile.get("skills"))])
+    goals = _dedupe_strings([*request.goals, request.question])
+    interests = _dedupe_strings([*request.interests, *_coerce_string_list(profile.get("interests"))])
+    return {
+        "profile": {
+            "user_id": str(request.user_id),
+            "career_stage": str(profile.get("career_stage") or "student founder"),
+            "skills": skills or ["AI", "Flutter", "FastAPI", "product"],
+            "goals": goals[:12],
+            "interests": interests or ["AI agents", "developer tools", "future of work"],
+            "preferred_locations": _coerce_string_list(profile.get("preferred_locations")),
+            "preferred_categories": [
+                "hackathon",
+                "grant",
+                "accelerator",
+                "research",
+                "program",
+            ],
+            "risk_tolerance": _bounded_float(profile.get("risk_tolerance"), 0.7),
+        },
+        "crawl": {
+            "sources": [
+                "devpost",
+                "startup_grants",
+                "yc",
+                "google_programs",
+                "research_fellowships",
+            ],
+            "query": request.question,
+            "limit_per_source": 1,
+        },
+        "limit": 5,
+    }
+
+
+def _decision_experience(request: IntelligenceDecisionRequest) -> list[dict[str, Any]]:
+    if request.experience:
+        normalized = []
+        for item in request.experience[:10]:
+            title = str(item.get("title") or item.get("name") or "Relevant experience")
+            normalized.append(
+                {
+                    "title": _truncate(title, 160),
+                    "organization": item.get("organization"),
+                    "domain": item.get("domain"),
+                    "years": _safe_float(item.get("years"), 1.0),
+                    "impact": item.get("impact") or item.get("summary"),
+                }
+            )
+        return normalized
+    return [
+        {
+            "title": "Built an AI product prototype",
+            "domain": "AI agents",
+            "years": 1,
+            "impact": "Shipped a working product loop across app, backend, agents, and data.",
+        }
+    ]
+
+
+def _future_options(data: dict[str, Any]) -> list[FutureOption]:
+    raw_futures = data.get("futures", [])
+    if not isinstance(raw_futures, list):
+        return []
+    options = []
+    for index, item in enumerate(raw_futures[:3]):
+        if not isinstance(item, dict):
+            continue
+        future_id = str(item.get("future_id") or f"Future {index + 1}")
+        name = str(item.get("name") or future_id)
+        options.append(
+            FutureOption(
+                future_id=future_id,
+                name=name,
+                thesis=str(item.get("thesis") or "No thesis returned."),
+                success_probability=_bounded_float(item.get("success_probability"), 0.0),
+                opportunity_score=_bounded_score(item.get("opportunity_score")),
+                risk_score=_bounded_score(item.get("risk_score")),
+            )
+        )
+    return options
+
+
+def _memory_context(data: dict[str, Any]) -> list[str]:
+    context = data.get("context", [])
+    if not isinstance(context, list):
+        return []
+    blocks = []
+    for item in context[:6]:
+        if not isinstance(item, dict):
+            continue
+        title = str(item.get("title") or "Memory")
+        summary = str(item.get("summary") or item.get("content") or "")
+        if summary:
+            blocks.append(_truncate(f"{title}: {summary}", 280))
+    return blocks
+
+
+def _opportunity_titles(data: dict[str, Any]) -> list[str]:
+    recommendations = data.get("recommendations", {}).get("recommendations", [])
+    if not isinstance(recommendations, list):
+        return []
+    titles = []
+    for item in recommendations[:5]:
+        if not isinstance(item, dict):
+            continue
+        opportunity = item.get("opportunity", {})
+        if not isinstance(opportunity, dict):
+            continue
+        title = str(opportunity.get("title") or "Opportunity")
+        organization = str(opportunity.get("organization") or "").strip()
+        score = item.get("score")
+        suffix = f" at {organization}" if organization and organization != "Unknown" else ""
+        score_text = f" ({round(float(score), 1)})" if isinstance(score, (int, float)) else ""
+        titles.append(_truncate(f"{title}{suffix}{score_text}", 220))
+    return titles
+
+
+def _decision_recommendation(
+    council_data: dict[str, Any],
+    future_data: dict[str, Any],
+) -> str:
+    recommendation = council_data.get("final_recommendation")
+    if isinstance(recommendation, str) and recommendation.strip():
+        return recommendation.strip()
+    summary = future_data.get("summary", {})
+    if isinstance(summary, dict):
+        fallback = summary.get("recommendation")
+        if isinstance(fallback, str) and fallback.strip():
+            return fallback.strip()
+    return (
+        "Run a two-week evidence sprint: validate the highest-risk assumption, "
+        "talk to real users or mentors, and rerun ALTER with the new signal."
+    )
+
+
+def _decision_confidence(
+    council_data: dict[str, Any],
+    future_options: list[FutureOption],
+    opportunity_matches: list[str],
+    steps: list[DemoStep],
+) -> float:
+    council_confidence = _bounded_float(council_data.get("confidence_score"), 0.62)
+    best_future = max(
+        (option.success_probability for option in future_options),
+        default=0.55,
+    )
+    health = sum(1 for step in steps if step.status == "ok") / max(len(steps), 1)
+    opportunity_signal = min(len(opportunity_matches), 5) / 5
+    score = (
+        council_confidence * 0.62
+        + best_future * 0.18
+        + health * 0.14
+        + opportunity_signal * 0.06
+    )
+    return round(max(0.05, min(0.97, score)), 2)
+
+
+def _recommended_future(
+    future_data: dict[str, Any],
+    future_options: list[FutureOption],
+) -> str:
+    summary = future_data.get("summary", {})
+    if isinstance(summary, dict):
+        best = summary.get("best_expected_value_future")
+        if isinstance(best, str) and best.strip():
+            return best
+    if not future_options:
+        return "Evidence Sprint"
+    best_option = max(
+        future_options,
+        key=lambda option: option.success_probability * option.opportunity_score
+        - option.risk_score * 0.25,
+    )
+    return best_option.future_id
+
+
+def _decision_summary(
+    *,
+    question: str,
+    recommended_future: str,
+    memory_context: list[str],
+    opportunity_matches: list[str],
+    steps: list[DemoStep],
+) -> str:
+    ok_count = sum(1 for step in steps if step.status == "ok")
+    return (
+        f"ALTER evaluated '{question}' through {ok_count}/{len(steps)} live systems, "
+        f"used {len(memory_context)} memory signal(s), compared future paths, and found "
+        f"{len(opportunity_matches)} opportunity match(es). Recommended path: "
+        f"{recommended_future}."
+    )
+
+
+def _decision_artifact_content(
+    *,
+    question: str,
+    future_options: list[FutureOption],
+    opportunity_matches: list[str],
+    memory_context: list[str],
+) -> str:
+    future_lines = [
+        f"{option.future_id}: {option.name} "
+        f"(success {round(option.success_probability * 100)}%, "
+        f"opportunity {round(option.opportunity_score)}, risk {round(option.risk_score)})"
+        for option in future_options
+    ]
+    return "\n".join(
+        [
+            f"Question: {question}",
+            "Futures:",
+            *(future_lines or ["No futures returned."]),
+            "Opportunity matches:",
+            *(opportunity_matches or ["No opportunities returned."]),
+            "Memory context:",
+            *(memory_context or ["No relevant memories found."]),
+        ]
+    )
+
+
+def _memory_writeback_content(
+    *,
+    question: str,
+    recommendation: str,
+    actions: list[str],
+    risks: list[str],
+    opportunities: list[str],
+) -> str:
+    return "\n".join(
+        [
+            f"Question: {question}",
+            f"Recommendation: {recommendation}",
+            "Next actions:",
+            *(actions or ["Run one validation step."]),
+            "Risks:",
+            *(risks or ["Acting without enough fresh evidence."]),
+            "Opportunities:",
+            *(opportunities or ["Create a public proof point."]),
+        ]
+    )
+
+
+def _experiment_plan(
+    *,
+    question: str,
+    recommendation: str,
+    actions: list[str],
+    opportunities: list[str],
+    future_options: list[FutureOption],
+) -> ExperimentPlan:
+    action = actions[0] if actions else "Run one validation step within seven days."
+    opportunity = opportunities[0] if opportunities else "create a proof point with real users"
+    best_future = max(
+        future_options,
+        key=lambda option: option.opportunity_score * option.success_probability
+        - option.risk_score * 0.2,
+        default=None,
+    )
+    future_name = best_future.name if best_future else "the recommended future"
+    deadline = (datetime.now(UTC) + timedelta(days=7)).date().isoformat()
+    return ExperimentPlan(
+        action=_truncate(action, 280),
+        why_it_matters=_truncate(
+            f"This tests whether '{question}' deserves more commitment. "
+            f"It connects the recommendation to {future_name} and turns "
+            f"{opportunity} into observable evidence.",
+            600,
+        ),
+        deadline=deadline,
+        success_metric=_truncate(
+            "Create one concrete evidence artifact: 5 user conversations, "
+            "1 shipped prototype improvement, 1 application/submission, or "
+            "1 warm intro that changes the decision.",
+            280,
+        ),
+    )
+
+
+def _execution_score(request: OutcomeUpdateRequest) -> float:
+    completion = 0.55 if request.did_it else 0.12
+    result_quality = request.outcome_score * 0.35
+    reflection_quality = min(
+        (len(request.what_happened.strip()) + len(request.what_learned.strip())) / 500,
+        1.0,
+    ) * 0.10
+    return round((completion + result_quality + reflection_quality) * 100, 1)
+
+
+def _confidence_delta(request: OutcomeUpdateRequest) -> float:
+    if request.did_it:
+        return round(0.03 + request.outcome_score * 0.12, 2)
+    return round(-0.12 + request.outcome_score * 0.04, 2)
+
+
+def _reputation_impact_score(request: OutcomeUpdateRequest) -> int:
+    if request.did_it:
+        return int(round(18 + request.outcome_score * 34))
+    return int(round(-18 + request.outcome_score * 8))
+
+
+def _outcome_importance(request: OutcomeUpdateRequest) -> float:
+    base = 0.62 if request.did_it else 0.5
+    return round(max(0.2, min(0.95, base + request.outcome_score * 0.22)), 2)
+
+
+def _outcome_summary(
+    request: OutcomeUpdateRequest,
+    execution_score: float,
+    confidence_delta: float,
+) -> str:
+    status = "completed" if request.did_it else "not completed"
+    direction = "increased" if confidence_delta >= 0 else "reduced"
+    return (
+        f"Experiment '{request.experiment_plan.action}' was {status}. "
+        f"Execution score {execution_score:.1f}/100. Outcome signal {request.outcome_score:.0%} "
+        f"{direction} confidence by {abs(confidence_delta):.0%}."
+    )
+
+
+def _outcome_memory_content(
+    request: OutcomeUpdateRequest,
+    *,
+    execution_score: float,
+    confidence_delta: float,
+) -> str:
+    return "\n".join(
+        [
+            f"Decision: {request.question}",
+            f"Experiment: {request.experiment_plan.action}",
+            f"Why it mattered: {request.experiment_plan.why_it_matters}",
+            f"Deadline: {request.experiment_plan.deadline}",
+            f"Success metric: {request.experiment_plan.success_metric}",
+            f"Did it: {request.did_it}",
+            f"What happened: {request.what_happened}",
+            f"What was learned: {request.what_learned}",
+            f"Metric result: {request.success_metric_result}",
+            f"Outcome score: {request.outcome_score:.2f}",
+            f"Execution score: {execution_score:.1f}",
+            f"Confidence delta: {confidence_delta:.2f}",
+        ]
+    )
+
+
+def _profile_updates(
+    request: OutcomeUpdateRequest,
+    execution_score: float,
+    confidence_delta: float,
+) -> list[str]:
+    updates = [
+        f"Execution reliability signal: {execution_score:.1f}/100.",
+        f"Confidence model adjustment: {confidence_delta:+.2f}.",
+    ]
+    if request.did_it and request.outcome_score >= 0.7:
+        updates.append("User profile should weight fast validation and follow-through higher.")
+    elif request.did_it:
+        updates.append("User profile should weight execution as present but market signal as mixed.")
+    else:
+        updates.append("User profile should prefer smaller commitments until follow-through improves.")
+    updates.append("Future simulations should use this outcome memory as real-world evidence.")
+    return updates
+
+
+def _outcome_next_recommendation(
+    request: OutcomeUpdateRequest,
+    execution_score: float,
+) -> str:
+    if request.did_it and request.outcome_score >= 0.75:
+        return (
+            "Double down for one more sprint: raise the bar, talk to higher-quality users, "
+            "and convert the strongest signal into a public proof point."
+        )
+    if request.did_it:
+        return (
+            "Keep the direction, but tighten the success metric and run a smaller follow-up "
+            "experiment before making a bigger commitment."
+        )
+    if execution_score < 35:
+        return (
+            "Shrink the commitment: pick a 30-minute action today so ALTER can rebuild "
+            "execution signal from reality instead of intention."
+        )
+    return "Rerun the decision with this outcome and choose a lower-friction next action."
+
+
+def _voice_runtime_question(normalized: str, transcript: str, intent: str) -> str:
+    text = normalized or transcript
+    if intent == "opportunity_search":
+        return f"What opportunities should I act on for: {text}?"
+    if intent == "clone_council":
+        return f"What should my Clone Council recommend for: {text}?"
+    if intent == "social_graph":
+        return f"Who should I talk to and what warm paths matter for: {text}?"
+    if intent == "reputation":
+        return f"What execution move will improve my reputation for: {text}?"
+    if intent == "unknown":
+        return f"Interpret this voice request and turn it into the best ALTER action: {text}"
+    return text
+
+
+def _voice_spoken_response(
+    *,
+    normalized: str,
+    intent: str,
+    decision: IntelligenceDecisionResponse | None,
+    memory_signal: DemoStep | None,
+) -> str:
+    if decision is not None:
+        action = decision.experiment_plan.action
+        confidence = round(decision.confidence_score * 100)
+        return (
+            f"I heard: {normalized}. I recommend: {decision.recommendation} "
+            f"Confidence is {confidence} percent. Your next experiment is: {action}."
+        )
+    if memory_signal is not None and memory_signal.status == "ok":
+        return "I saved that to memory. I will use it in future decisions."
+    if intent == "memory_capture":
+        return "I tried to save that memory, but the memory system did not confirm it."
+    return (
+        "I heard you, but I need one more concrete decision or goal to run the full ALTER loop."
+    )
+
+
+def _voice_display_response(
+    spoken_response: str,
+    decision: IntelligenceDecisionResponse | None,
+    memory_signal: DemoStep | None,
+) -> str:
+    if decision is not None:
+        return (
+            f"{spoken_response}\n\n"
+            f"Experiment deadline: {decision.experiment_plan.deadline}\n"
+            f"Success metric: {decision.experiment_plan.success_metric}"
+        )
+    if memory_signal is not None:
+        return f"{spoken_response}\n\n{memory_signal.summary}"
+    return spoken_response
+
+
+def _voice_action_graph(
+    intent: str,
+    decision: IntelligenceDecisionResponse | None,
+    memory_signal: DemoStep | None,
+) -> list[str]:
+    graph = [
+        "Capture transcript",
+        "Detect Hey Alter wake phrase",
+        f"Infer intent: {intent}",
+    ]
+    if decision is not None:
+        graph.extend(
+            [
+                "Retrieve personal memory",
+                "Simulate futures",
+                "Run Clone Council",
+                "Rank opportunities",
+                "Create experiment plan",
+                "Write decision memory",
+                "Prepare spoken response",
+            ]
+        )
+    elif memory_signal is not None:
+        graph.extend(["Write voice memory", "Prepare spoken confirmation"])
+    else:
+        graph.append("Ask for a sharper decision")
+    return graph
+
+
+def _voice_follow_up_questions(
+    intent: str,
+    decision: IntelligenceDecisionResponse | None,
+) -> list[str]:
+    if decision is not None:
+        return [
+            "Did you do the experiment?",
+            "What happened?",
+            "What did you learn?",
+        ]
+    if intent == "memory_capture":
+        return ["Should I connect this memory to a goal or project?"]
+    return [
+        "What decision do you want to make?",
+        "What goal should ALTER optimize for?",
+    ]
+
+
+def _to_signal(step: DemoStep) -> IntelligenceSignal:
+    return IntelligenceSignal(
+        name=step.name,
+        title=step.title,
+        status=step.status,
+        summary=step.summary,
+        latency_ms=step.latency_ms,
+        data=step.data,
+    )
+
+
+def _created_memory_id(data: dict[str, Any]) -> Any:
+    memory_id = data.get("id")
+    return memory_id if isinstance(memory_id, str) and memory_id else None
+
+
+def _optional_int(value: Any) -> int | None:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _future_summary(data: dict[str, Any]) -> str:
+    futures = data.get("futures", [])
+    first = futures[0] if isinstance(futures, list) and futures else {}
+    if isinstance(first, dict):
+        return f"Generated {len(futures)} futures; leading path is {first.get('name', 'ready')}."
+    return f"Generated {len(futures)} futures."
+
+
+def _opportunity_summary(data: dict[str, Any]) -> str:
+    ranked = data.get("ranked", {}).get("ranked_opportunities", [])
+    top = ranked[0] if isinstance(ranked, list) and ranked else {}
+    if isinstance(top, dict):
+        return f"Ranked opportunities; top score is {round(float(top.get('score', 0)), 1)}."
+    return "Ranked opportunity signals."
+
+
+def _executive_summary(
+    *,
+    objective: str,
+    future_data: dict[str, Any],
+    council_data: dict[str, Any],
+    opportunity_data: dict[str, Any],
+) -> str:
+    recommendation = council_data.get("final_recommendation") or (
+        "Run a reversible evidence-producing next step."
+    )
+    future_name = "the strongest simulated path"
+    futures = future_data.get("futures", [])
+    if isinstance(futures, list) and futures and isinstance(futures[0], dict):
+        future_name = str(futures[0].get("name") or future_name)
+    opportunity_count = len(
+        opportunity_data.get("recommendations", {}).get("recommendations", [])
+    )
+    return (
+        f"For '{objective}', ALTER recommends anchoring on {future_name}, "
+        f"using the Clone Council's recommendation: {recommendation} "
+        f"The radar found {opportunity_count} matching opportunity signal(s)."
+    )
+
+
+def _next_actions(council_data: dict[str, Any], office_data: dict[str, Any]) -> list[str]:
+    actions = [
+        str(item)
+        for item in council_data.get("action_plan", [])
+        if isinstance(item, str)
+    ]
+    for item in office_data.get("action_items", []):
+        if isinstance(item, dict) and item.get("title"):
+            actions.append(str(item["title"]))
+    return actions[:5] or ["Run one validation step within seven days."]
+
+
+def _risks(council_data: dict[str, Any], office_data: dict[str, Any]) -> list[str]:
+    risks = [str(item) for item in council_data.get("risks", []) if isinstance(item, str)]
+    risks.extend(str(item) for item in office_data.get("risks", []) if isinstance(item, str))
+    return risks[:5] or ["Risk: acting without fresh external evidence."]
+
+
+def _opportunities(council_data: dict[str, Any], opportunity_data: dict[str, Any]) -> list[str]:
+    opportunities = [
+        str(item)
+        for item in council_data.get("opportunities", [])
+        if isinstance(item, str)
+    ]
+    recommendations = opportunity_data.get("recommendations", {}).get("recommendations", [])
+    for item in recommendations:
+        if isinstance(item, dict) and item.get("title"):
+            opportunities.append(str(item["title"]))
+    return opportunities[:5] or ["Opportunity: convert the decision into a public proof point."]
+
+
+def _coerce_string_list(value: Any) -> list[str]:
+    if isinstance(value, list):
+        return [str(item) for item in value if str(item).strip()]
+    if isinstance(value, str) and value.strip():
+        return [value]
+    return []
+
+
+def _dedupe_strings(values: list[str]) -> list[str]:
+    seen = set()
+    result = []
+    for value in values:
+        item = " ".join(str(value).strip().split())
+        key = item.lower()
+        if item and key not in seen:
+            result.append(item)
+            seen.add(key)
+    return result
+
+
+def _safe_float(value: Any, fallback: float) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return fallback
+
+
+def _bounded_float(value: Any, fallback: float) -> float:
+    return max(0.0, min(1.0, _safe_float(value, fallback)))
+
+
+def _bounded_score(value: Any) -> float:
+    return max(0.0, min(100.0, _safe_float(value, 0.0)))
+
+
+def _skill_category(skill: str) -> str:
+    text = skill.lower()
+    if any(token in text for token in ("flutter", "python", "ai", "data", "backend")):
+        return "technical"
+    if any(token in text for token in ("product", "growth", "market", "user")):
+        return "product"
+    if any(token in text for token in ("fundraising", "sales", "business", "startup")):
+        return "business"
+    if any(token in text for token in ("design", "ux", "brand")):
+        return "design"
+    if any(token in text for token in ("story", "writing", "communication")):
+        return "communication"
+    return "domain"
+
+
+def _goal_category(goal: str) -> str:
+    text = goal.lower()
+    if any(token in text for token in ("startup", "founder", "funding", "launch")):
+        return "startup"
+    if any(token in text for token in ("learn", "skill", "master")):
+        return "learning"
+    if any(token in text for token in ("salary", "wealth", "money", "income")):
+        return "wealth"
+    if any(token in text for token in ("leader", "team", "manage")):
+        return "leadership"
+    if any(token in text for token in ("reputation", "brand", "audience")):
+        return "reputation"
+    return "career"
+
+
+def _truncate(value: str, limit: int) -> str:
+    normalized = " ".join(value.strip().split())
+    if len(normalized) <= limit:
+        return normalized
+    return f"{normalized[: max(0, limit - 1)].rstrip()}..."
+
+
+async def _check_service(client: httpx.AsyncClient, route: ServiceRoute) -> ServiceHealth:
+    started = time.perf_counter()
+    try:
+        response = await client.get(route.health_url)
+        latency_ms = int((time.perf_counter() - started) * 1000)
+        if response.status_code == 200:
+            return ServiceHealth(
+                name=route.name,
+                base_url=route.base_url,
+                status="ok",
+                latency_ms=latency_ms,
+            )
+        return ServiceHealth(
+            name=route.name,
+            base_url=route.base_url,
+            status="error",
+            latency_ms=latency_ms,
+            detail=f"HTTP {response.status_code}",
+        )
+    except Exception as error:  # noqa: BLE001 - edge health endpoint should never fail hard
+        latency_ms = int((time.perf_counter() - started) * 1000)
+        return ServiceHealth(
+            name=route.name,
+            base_url=route.base_url,
+            status="down",
+            latency_ms=latency_ms,
+            detail=str(error),
+        )
