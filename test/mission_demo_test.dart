@@ -108,4 +108,113 @@ void main() {
     expect(result.reputationLogged, isTrue);
     expect(result.signals.single.isHealthy, isTrue);
   });
+
+  test('FutureTwinResult parses trajectory, evidence, and arbitrage', () {
+    final result = FutureTwinResult.fromJson(const <String, dynamic>{
+      'twin_id': 'twin-1',
+      'user_id': 'user-1',
+      'objective': 'Build ALTER',
+      'identity_summary': 'Evidence-compounding founder path.',
+      'daily_question': 'What proof did you create today?',
+      'trajectory': <String, dynamic>{
+        'current_trajectory': 'Promising but proof-constrained path',
+        'predicted_90_day_future': 'More proof and sharper demand.',
+        'best_alternative_future': 'Founder path',
+        'alignment_score': 78,
+        'execution_velocity': 71,
+        'drift_risk': 29,
+        'points': <Map<String, dynamic>>[
+          <String, dynamic>{
+            'label': 'Execution',
+            'current_score': 60,
+            'predicted_score': 78,
+            'best_case_score': 94,
+          },
+        ],
+      },
+      'action': <String, dynamic>{
+        'action_id': 'action-1',
+        'title': 'Talk to 5 users',
+        'why_now': 'This creates proof.',
+        'deadline': '2026-06-19',
+        'success_metric': '5 interviews complete',
+        'proof_required': <String>['Notes', 'Artifact'],
+        'first_step': 'Message 3 target users',
+        'leverage_score': 86,
+      },
+      'future_options': <Map<String, dynamic>>[
+        <String, dynamic>{
+          'future_id': 'future_a',
+          'name': 'Founder path',
+          'thesis': 'Build the company.',
+          'success_probability': 0.74,
+          'opportunity_score': 88,
+          'risk_score': 42,
+        },
+      ],
+      'evidence_signals': <Map<String, dynamic>>[
+        <String, dynamic>{
+          'evidence_id': 'evidence-1',
+          'evidence_type': 'project',
+          'title': 'Working prototype',
+          'source': 'mission_control',
+          'impact_score': 84,
+          'confidence': 0.9,
+          'memory_id': 'memory-1',
+          'summary': 'ALTER is running end to end.',
+        },
+      ],
+      'opportunity_arbitrage': <Map<String, dynamic>>[
+        <String, dynamic>{
+          'title': 'Validation arbitrage',
+          'leverage_score': 91,
+          'why_this_matters': 'Proof changes the curve.',
+          'stack': <String>['Users', 'Prototype'],
+          'first_step': 'Run interviews',
+          'opportunity_refs': <String>['Devpost'],
+        },
+      ],
+      'model_updates': <String>['Increase proof weighting.'],
+      'confidence_score': 0.82,
+      'decision_report': <String, dynamic>{
+        'decision_id': 'decision-1',
+        'user_id': 'user-1',
+        'question': 'Build ALTER?',
+        'recommendation': 'Run validation.',
+        'confidence_score': 0.82,
+        'decision_summary': 'Decision made.',
+        'recommended_future': 'future_a',
+        'experiment_plan': <String, dynamic>{
+          'experiment_id': 'experiment-1',
+          'action': 'Talk to 5 users',
+          'why_it_matters': 'Validate demand.',
+          'deadline': '2026-06-19',
+          'success_metric': '5 interviews complete',
+        },
+        'future_options': <Map<String, dynamic>>[],
+        'memory_context': <String>[],
+        'opportunity_matches': <String>[],
+        'next_actions': <String>[],
+        'risks': <String>[],
+        'opportunities': <String>[],
+        'signals': <Map<String, dynamic>>[],
+      },
+      'signals': <Map<String, dynamic>>[
+        <String, dynamic>{
+          'name': 'future_twin',
+          'title': 'Future Twin',
+          'status': 'ok',
+          'summary': 'Ready.',
+          'latency_ms': 42,
+        },
+      ],
+      'created_memory_id': 'memory-2',
+    });
+
+    expect(result.trajectory.alignmentScore, 78);
+    expect(result.action.proofRequired.length, 2);
+    expect(result.evidenceSignals.first.memorySaved, isTrue);
+    expect(result.opportunityArbitrage.first.stack, contains('Users'));
+    expect(result.memorySaved, isTrue);
+  });
 }

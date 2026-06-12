@@ -10,6 +10,8 @@ from .schemas import (
     ArchitectureResponse,
     DemoRunRequest,
     DemoRunResponse,
+    FutureTwinRequest,
+    FutureTwinResponse,
     HealthResponse,
     IntelligenceDecisionRequest,
     IntelligenceDecisionResponse,
@@ -62,6 +64,10 @@ async def architecture() -> ArchitectureResponse:
             "mission briefing composer",
             "intelligence kernel orchestrator",
             "outcome learning loop",
+            "future twin engine",
+            "action compiler",
+            "evidence engine",
+            "opportunity arbitrage engine",
             "voice action runtime",
             "client route discovery",
         ],
@@ -72,6 +78,7 @@ async def architecture() -> ArchitectureResponse:
             "Mission briefing composes the phone and laptop execution sequence.",
             "Decision Intelligence retrieves memory, simulates futures, debates the council, ranks opportunities, and writes back durable memory.",
             "Outcome Learning turns recommendations into experiments, captures reality, writes outcome memory, and updates reputation.",
+            "Future Twin compares stated ambition with evidence, predicts trajectory drift, compiles the next action, and surfaces opportunity arbitrage.",
             "Voice Action Runtime turns Hey Alter transcripts into intent, reasoning, action graph, spoken response, and follow-up.",
         ],
         output_contract={
@@ -107,6 +114,14 @@ async def architecture() -> ArchitectureResponse:
                 "reputation_event_id",
                 "profile_updates",
                 "next_recommendation",
+            ],
+            "FutureTwinResponse": [
+                "trajectory",
+                "action",
+                "evidence_signals",
+                "opportunity_arbitrage",
+                "daily_question",
+                "model_updates",
             ],
             "VoiceActionRuntimeResponse": [
                 "wake_word_detected",
@@ -148,6 +163,11 @@ async def decide(request: IntelligenceDecisionRequest) -> IntelligenceDecisionRe
 @app.post("/v1/intelligence/outcomes", response_model=OutcomeUpdateResponse)
 async def record_outcome(request: OutcomeUpdateRequest) -> OutcomeUpdateResponse:
     return await get_service().record_outcome(request)
+
+
+@app.post("/v1/intelligence/future-twin", response_model=FutureTwinResponse)
+async def future_twin(request: FutureTwinRequest) -> FutureTwinResponse:
+    return await get_service().future_twin(request)
 
 
 @app.post("/v1/voice/action-runtime", response_model=VoiceActionRuntimeResponse)

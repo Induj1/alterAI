@@ -11,8 +11,13 @@ from .schemas import (
     DemoRunRequest,
     DemoRunResponse,
     DemoStep,
+    CompiledAction,
+    EvidenceSignal,
     ExperimentPlan,
     FutureOption,
+    FutureTwinRequest,
+    FutureTwinResponse,
+    FutureTwinTrajectory,
     IntelligenceDecisionRequest,
     IntelligenceDecisionResponse,
     IntelligenceSignal,
@@ -20,9 +25,11 @@ from .schemas import (
     MissionBriefingResponse,
     OutcomeUpdateRequest,
     OutcomeUpdateResponse,
+    OpportunityArbitrageMove,
     ServiceHealth,
     ServiceRoute,
     SystemHealthResponse,
+    TrajectoryPoint,
     VoiceActionRuntimeRequest,
     VoiceActionRuntimeResponse,
 )
@@ -531,6 +538,216 @@ class ApiGatewayService:
             next_recommendation=_outcome_next_recommendation(request, execution_score),
             memory_summary=memory_summary,
             signals=[_to_signal(step) for step in steps],
+        )
+
+    async def future_twin(
+        self,
+        request: FutureTwinRequest,
+    ) -> FutureTwinResponse:
+        routes = {route.name: route.base_url.rstrip("/") for route in self.routes()}
+        user_id = str(request.user_id)
+        objective = request.objective.strip()
+        horizon_months = max(12, min(120, round(request.horizon_days / 30)))
+
+        decision = await self.decide(
+            IntelligenceDecisionRequest(
+                user_id=request.user_id,
+                question=(
+                    "Build a Future Twin for this objective. Compare stated ambition "
+                    f"with real evidence and choose the highest-leverage action: {objective}"
+                ),
+                user_profile=request.user_profile,
+                skills=request.skills,
+                goals=_dedupe_strings([*request.goals, objective])[:40],
+                experience=request.experience,
+                interests=request.interests,
+                context={
+                    "runtime": "future_twin",
+                    "horizon_days": request.horizon_days,
+                    "recent_evidence_count": len(request.recent_evidence),
+                },
+                decision_horizon_months=horizon_months,
+                write_memory=request.write_memory,
+            )
+        )
+
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            memory = await _run_step(
+                client,
+                name="future_twin_memory",
+                title="Future Twin Memory Retrieval",
+                base_url=routes["memory_system"],
+                path="/v1/memory/retrieve",
+                payload={
+                    "user_id": user_id,
+                    "task": f"Find evidence, goals, decisions, outcomes, and mentors for: {objective}",
+                    "limit": 12,
+                    "include_private": False,
+                },
+                summary_builder=lambda data: (
+                    f"Retrieved {len(data.get('context', []))} trajectory evidence signal(s)."
+                ),
+            )
+            reputation = await _run_step(
+                client,
+                name="future_twin_reputation",
+                title="Execution Reputation Read",
+                base_url=routes["reputation_engine"],
+                path=f"/v1/reputation/users/{user_id}/score",
+                payload=None,
+                summary_builder=lambda data: (
+                    f"Execution trust level is {data.get('trust_level', 'ready')} "
+                    f"with score {data.get('score', 'baseline')}."
+                ),
+            )
+            evidence_steps: list[DemoStep] = []
+            for evidence in request.recent_evidence:
+                if not request.write_memory:
+                    evidence_steps.append(
+                        DemoStep(
+                            name="future_twin_evidence",
+                            title="Evidence Memory Writeback",
+                            status="skipped",
+                            summary="Evidence writeback was disabled for this request.",
+                        )
+                    )
+                    continue
+                evidence_steps.append(
+                    await _run_step(
+                        client,
+                        name="future_twin_evidence",
+                        title="Evidence Memory Writeback",
+                        base_url=routes["memory_system"],
+                        path="/v1/memory/items",
+                        payload={
+                            "user_id": user_id,
+                            "memory_type": _evidence_memory_type(evidence.evidence_type),
+                            "title": _truncate(evidence.title, 180),
+                            "summary": _truncate(evidence.summary, 900),
+                            "content": _evidence_memory_content(objective, evidence),
+                            "source": "alter_future_twin",
+                            "confidence": evidence.confidence,
+                            "importance": _evidence_importance(evidence.evidence_type),
+                            "metadata": {
+                                "objective": objective,
+                                "evidence_type": evidence.evidence_type,
+                                "source": evidence.source,
+                                "url": evidence.url or "",
+                            },
+                        },
+                        summary_builder=lambda data: (
+                            f"Saved evidence memory {data.get('id', 'ready')}."
+                        ),
+                    )
+                )
+
+            evidence_signals = _future_twin_evidence_signals(
+                request=request,
+                decision=decision,
+                memory_data=memory.data,
+                evidence_steps=evidence_steps,
+            )
+            trajectory = _future_twin_trajectory(
+                request=request,
+                decision=decision,
+                evidence_signals=evidence_signals,
+                reputation_data=reputation.data,
+            )
+            action = _compiled_action(
+                request=request,
+                decision=decision,
+                trajectory=trajectory,
+                evidence_signals=evidence_signals,
+            )
+            arbitrage = _opportunity_arbitrage(
+                request=request,
+                decision=decision,
+                trajectory=trajectory,
+                action=action,
+            )
+            model_updates = _future_twin_model_updates(
+                trajectory=trajectory,
+                evidence_signals=evidence_signals,
+                action=action,
+                reputation_data=reputation.data,
+            )
+            identity_summary = _future_twin_identity_summary(
+                request=request,
+                decision=decision,
+                trajectory=trajectory,
+                evidence_signals=evidence_signals,
+            )
+            daily_question = _future_twin_daily_question(
+                request=request,
+                decision=decision,
+                trajectory=trajectory,
+            )
+            twin_memory = (
+                await _run_step(
+                    client,
+                    name="future_twin_snapshot",
+                    title="Future Twin Snapshot Memory",
+                    base_url=routes["memory_system"],
+                    path="/v1/memory/items",
+                    payload={
+                        "user_id": user_id,
+                        "memory_type": "decision",
+                        "title": _truncate(f"Future Twin: {objective}", 180),
+                        "summary": _truncate(identity_summary, 900),
+                        "content": _future_twin_memory_content(
+                            objective=objective,
+                            trajectory=trajectory,
+                            action=action,
+                            arbitrage=arbitrage,
+                            model_updates=model_updates,
+                        ),
+                        "source": "alter_future_twin",
+                        "confidence": _future_twin_confidence(
+                            decision=decision,
+                            evidence_signals=evidence_signals,
+                            steps=[memory, reputation, *evidence_steps],
+                        ),
+                        "importance": 0.92,
+                        "metadata": {
+                            "alignment_score": trajectory.alignment_score,
+                            "execution_velocity": trajectory.execution_velocity,
+                            "drift_risk": trajectory.drift_risk,
+                            "compiled_action_id": str(action.action_id),
+                        },
+                    },
+                    summary_builder=lambda data: (
+                        f"Saved Future Twin snapshot {data.get('id', 'ready')}."
+                    ),
+                )
+                if request.write_memory
+                else DemoStep(
+                    name="future_twin_snapshot",
+                    title="Future Twin Snapshot Memory",
+                    status="skipped",
+                    summary="Future Twin snapshot writeback was disabled.",
+                )
+            )
+
+        steps = [memory, reputation, *evidence_steps, twin_memory]
+        return FutureTwinResponse(
+            user_id=request.user_id,
+            objective=objective,
+            identity_summary=identity_summary,
+            daily_question=daily_question,
+            trajectory=trajectory,
+            action=action,
+            future_options=decision.future_options,
+            evidence_signals=evidence_signals,
+            opportunity_arbitrage=arbitrage,
+            model_updates=model_updates,
+            confidence_score=_future_twin_confidence(
+                decision=decision,
+                evidence_signals=evidence_signals,
+                steps=steps,
+            ),
+            decision_report=decision,
+            signals=[*decision.signals, *[_to_signal(step) for step in steps]],
+            created_memory_id=_created_memory_id(twin_memory.data),
         )
 
     async def voice_action_runtime(
@@ -1306,6 +1523,467 @@ def _outcome_next_recommendation(
             "execution signal from reality instead of intention."
         )
     return "Rerun the decision with this outcome and choose a lower-friction next action."
+
+
+def _evidence_memory_type(evidence_type: str) -> str:
+    text = evidence_type.lower()
+    if any(token in text for token in ("project", "artifact", "prototype", "github", "deck")):
+        return "project"
+    if any(token in text for token in ("conversation", "interview", "meeting", "call")):
+        return "conversation"
+    if any(token in text for token in ("opportunity", "application", "program")):
+        return "opportunity"
+    if "skill" in text:
+        return "skill"
+    if "goal" in text:
+        return "goal"
+    return "note"
+
+
+def _evidence_importance(evidence_type: str) -> float:
+    text = evidence_type.lower()
+    if any(token in text for token in ("user", "customer", "interview", "revenue")):
+        return 0.9
+    if any(token in text for token in ("prototype", "github", "deck", "application")):
+        return 0.82
+    if any(token in text for token in ("mentor", "investor", "intro")):
+        return 0.78
+    return 0.66
+
+
+def _evidence_memory_content(objective: str, evidence: Any) -> str:
+    lines = [
+        f"Objective: {objective}",
+        f"Evidence type: {evidence.evidence_type}",
+        f"Title: {evidence.title}",
+        f"Source: {evidence.source}",
+        f"Confidence: {evidence.confidence:.2f}",
+        f"Summary: {evidence.summary}",
+    ]
+    if evidence.url:
+        lines.append(f"URL: {evidence.url}")
+    return "\n".join(lines)
+
+
+def _future_twin_evidence_signals(
+    *,
+    request: FutureTwinRequest,
+    decision: IntelligenceDecisionResponse,
+    memory_data: dict[str, Any],
+    evidence_steps: list[DemoStep],
+) -> list[EvidenceSignal]:
+    signals: list[EvidenceSignal] = []
+    for index, evidence in enumerate(request.recent_evidence):
+        step = evidence_steps[index] if index < len(evidence_steps) else None
+        signals.append(
+            EvidenceSignal(
+                evidence_type=evidence.evidence_type,
+                title=_truncate(evidence.title, 180),
+                source=evidence.source,
+                impact_score=_evidence_impact_score(
+                    evidence.evidence_type,
+                    evidence.summary,
+                    evidence.confidence,
+                ),
+                confidence=evidence.confidence,
+                memory_id=_created_memory_id(step.data) if step else None,
+                summary=_truncate(evidence.summary, 300),
+            )
+        )
+
+    context = memory_data.get("context", [])
+    if isinstance(context, list):
+        for item in context[:3]:
+            if not isinstance(item, dict):
+                continue
+            title = str(item.get("title") or "Memory signal")
+            summary = str(item.get("summary") or item.get("content") or "")
+            confidence = _bounded_float(item.get("confidence"), 0.68)
+            importance = _bounded_float(item.get("importance"), 0.62)
+            signals.append(
+                EvidenceSignal(
+                    evidence_type=str(item.get("memory_type") or "memory"),
+                    title=_truncate(title, 180),
+                    source="memory_graph",
+                    impact_score=round((confidence * 45) + (importance * 45), 1),
+                    confidence=confidence,
+                    memory_id=item.get("memory_id"),
+                    summary=_truncate(summary or title, 300),
+                )
+            )
+
+    if decision.opportunity_matches:
+        signals.append(
+            EvidenceSignal(
+                evidence_type="opportunity_pull",
+                title="Opportunity pull detected",
+                source="opportunity_radar",
+                impact_score=min(92.0, 52.0 + len(decision.opportunity_matches) * 8.0),
+                confidence=0.78,
+                summary=_truncate(
+                    "ALTER found external opportunity pressure: "
+                    + "; ".join(decision.opportunity_matches[:3]),
+                    300,
+                ),
+            )
+        )
+
+    if not signals:
+        signals.append(
+            EvidenceSignal(
+                evidence_type="stated_intent",
+                title="Ambition declared",
+                source="future_twin",
+                impact_score=42.0,
+                confidence=0.58,
+                summary=(
+                    "The user has a clear objective, but ALTER needs proof artifacts "
+                    "to distinguish desire from behavior."
+                ),
+            )
+        )
+    return signals[:8]
+
+
+def _evidence_impact_score(
+    evidence_type: str,
+    summary: str,
+    confidence: float,
+) -> float:
+    text = f"{evidence_type} {summary}".lower()
+    base = 32.0 + confidence * 38.0
+    if any(token in text for token in ("paid", "revenue", "accepted", "shipped", "launched")):
+        base += 18
+    if any(token in text for token in ("user", "customer", "interview", "beta")):
+        base += 12
+    if any(token in text for token in ("github", "prototype", "demo", "deck")):
+        base += 9
+    if any(token in text for token in ("maybe", "planned", "thinking")):
+        base -= 10
+    return round(max(5.0, min(100.0, base)), 1)
+
+
+def _future_twin_trajectory(
+    *,
+    request: FutureTwinRequest,
+    decision: IntelligenceDecisionResponse,
+    evidence_signals: list[EvidenceSignal],
+    reputation_data: dict[str, Any],
+) -> FutureTwinTrajectory:
+    best_future = _best_future_option(decision.future_options)
+    average_risk = sum(option.risk_score for option in decision.future_options) / max(
+        len(decision.future_options),
+        1,
+    )
+    evidence_strength = _average_evidence_strength(evidence_signals)
+    reputation_score = _safe_float(reputation_data.get("score"), 600.0) / 10.0
+    event_bonus = min(_safe_float(reputation_data.get("event_count"), 0.0) * 3.0, 12.0)
+    opportunity_pull = min(len(decision.opportunity_matches) * 6.0, 24.0)
+    best_success = (best_future.success_probability * 100.0) if best_future else 55.0
+    alignment = _bounded_score(
+        decision.confidence_score * 38.0
+        + best_success * 0.22
+        + evidence_strength * 0.24
+        + opportunity_pull * 0.45
+        + min(len(request.goals), 5) * 2.2
+    )
+    execution_velocity = _bounded_score(
+        reputation_score * 0.62
+        + evidence_strength * 0.28
+        + event_bonus
+        + min(len(request.recent_evidence), 5) * 3.0
+    )
+    drift_risk = _bounded_score(
+        100.0
+        - alignment * 0.52
+        - execution_velocity * 0.36
+        + average_risk * 0.22
+    )
+
+    if drift_risk >= 62:
+        current = "High ambition, insufficient proof"
+        predicted = (
+            "In 90 days, the idea remains emotionally compelling but still under-validated "
+            "unless proof artifacts increase."
+        )
+    elif execution_velocity >= 68:
+        current = "Evidence-compounding builder path"
+        predicted = (
+            "In 90 days, the user has a sharper market thesis, visible proof, and stronger "
+            "follow-through reputation."
+        )
+    else:
+        current = "Promising but proof-constrained path"
+        predicted = (
+            "In 90 days, the objective advances if the next action creates external evidence "
+            "instead of more internal planning."
+        )
+
+    best_label = best_future.name if best_future else decision.recommended_future
+    return FutureTwinTrajectory(
+        current_trajectory=current,
+        predicted_90_day_future=predicted,
+        best_alternative_future=best_label,
+        alignment_score=round(alignment, 1),
+        execution_velocity=round(execution_velocity, 1),
+        drift_risk=round(drift_risk, 1),
+        points=[
+            _trajectory_point("Skill", evidence_strength * 0.55 + 26, alignment, 92),
+            _trajectory_point("Execution", execution_velocity, execution_velocity + 12, 94),
+            _trajectory_point("Network", 46 + opportunity_pull, 58 + opportunity_pull, 90),
+            _trajectory_point("Opportunity", 44 + opportunity_pull, 62 + opportunity_pull, 96),
+            _trajectory_point("Reputation", reputation_score, reputation_score + 10, 88),
+        ],
+    )
+
+
+def _trajectory_point(
+    label: str,
+    current: float,
+    predicted: float,
+    best_case: float,
+) -> TrajectoryPoint:
+    return TrajectoryPoint(
+        label=label,
+        current_score=round(_bounded_score(current), 1),
+        predicted_score=round(_bounded_score(predicted), 1),
+        best_case_score=round(_bounded_score(best_case), 1),
+    )
+
+
+def _compiled_action(
+    *,
+    request: FutureTwinRequest,
+    decision: IntelligenceDecisionResponse,
+    trajectory: FutureTwinTrajectory,
+    evidence_signals: list[EvidenceSignal],
+) -> CompiledAction:
+    plan = decision.experiment_plan
+    proof_required = _proof_requirements(decision, evidence_signals)
+    first_step = decision.next_actions[0] if decision.next_actions else plan.action
+    leverage = _bounded_score(
+        44.0
+        + trajectory.drift_risk * 0.22
+        + trajectory.alignment_score * 0.24
+        + min(len(decision.opportunity_matches), 5) * 4.0
+    )
+    return CompiledAction(
+        title=plan.action,
+        why_now=_truncate(
+            "This is the smallest action that can move ALTER from intention to evidence. "
+            f"It attacks trajectory risk '{trajectory.current_trajectory}' for: "
+            f"{request.objective}",
+            600,
+        ),
+        deadline=plan.deadline,
+        success_metric=plan.success_metric,
+        proof_required=proof_required,
+        first_step=_truncate(first_step, 240),
+        leverage_score=round(leverage, 1),
+    )
+
+
+def _proof_requirements(
+    decision: IntelligenceDecisionResponse,
+    evidence_signals: list[EvidenceSignal],
+) -> list[str]:
+    proofs = [
+        "5 real user or mentor conversations with notes.",
+        "1 public artifact URL: demo, deck, GitHub commit, memo, or waitlist.",
+        "1 outcome update saved back into ALTER memory.",
+    ]
+    if decision.opportunity_matches:
+        proofs.insert(2, "1 submitted application, warm intro, or opportunity response.")
+    if any(signal.impact_score >= 80 for signal in evidence_signals):
+        proofs.append("1 follow-up that converts the strongest proof into a repeatable loop.")
+    return proofs[:5]
+
+
+def _opportunity_arbitrage(
+    *,
+    request: FutureTwinRequest,
+    decision: IntelligenceDecisionResponse,
+    trajectory: FutureTwinTrajectory,
+    action: CompiledAction,
+) -> list[OpportunityArbitrageMove]:
+    refs = decision.opportunity_matches[:5]
+    top_ref = refs[0] if refs else "the highest-signal public proof channel"
+    moves = [
+        OpportunityArbitrageMove(
+            title="Validation arbitrage",
+            leverage_score=round(_bounded_score(action.leverage_score + 6), 1),
+            why_this_matters=(
+                "Most assistants answer the question. ALTER changes the user's probability "
+                "curve by forcing external proof."
+            ),
+            stack=[
+                "User conversations",
+                "Prototype or deck artifact",
+                "Outcome memory",
+                "Reputation event",
+            ],
+            first_step=action.first_step,
+            opportunity_refs=refs[:2],
+        ),
+        OpportunityArbitrageMove(
+            title="Opportunity stack",
+            leverage_score=round(
+                _bounded_score(58 + len(refs) * 6 + trajectory.alignment_score * 0.12),
+                1,
+            ),
+            why_this_matters=(
+                f"{top_ref} can turn the objective into distribution, funding, "
+                "credibility, or expert feedback faster than isolated building."
+            ),
+            stack=["Opportunity Radar", "Clone Council", "Future Simulation", "Memory Graph"],
+            first_step=(
+                f"Open {top_ref}, decide apply/contact/ignore, and save the result as evidence."
+            ),
+            opportunity_refs=refs,
+        ),
+        OpportunityArbitrageMove(
+            title="Network proof route",
+            leverage_score=round(
+                _bounded_score(54 + trajectory.execution_velocity * 0.18),
+                1,
+            ),
+            why_this_matters=(
+                "A warm path compresses learning time and gives ALTER real-world feedback "
+                "about who trusts the user's direction."
+            ),
+            stack=["Social Graph", "NFC contacts", "Mentor route", "Follow-up ledger"],
+            first_step=(
+                "Ask one founder, professor, recruiter, or investor for a specific critique "
+                f"of: {request.objective}"
+            ),
+            opportunity_refs=refs[:1],
+        ),
+    ]
+    return moves
+
+
+def _future_twin_model_updates(
+    *,
+    trajectory: FutureTwinTrajectory,
+    evidence_signals: list[EvidenceSignal],
+    action: CompiledAction,
+    reputation_data: dict[str, Any],
+) -> list[str]:
+    strongest = max(evidence_signals, key=lambda item: item.impact_score, default=None)
+    updates = [
+        f"Trajectory alignment set to {trajectory.alignment_score:.1f}/100.",
+        f"Execution velocity set to {trajectory.execution_velocity:.1f}/100.",
+        f"Drift risk set to {trajectory.drift_risk:.1f}/100.",
+        f"Next recommendation should require proof: {action.proof_required[0]}",
+    ]
+    if strongest is not None:
+        updates.append(
+            f"Weight '{strongest.title}' as strongest evidence at {strongest.impact_score:.1f}/100."
+        )
+    if reputation_data:
+        updates.append(
+            f"Reputation model read trust level '{reputation_data.get('trust_level', 'baseline')}'."
+        )
+    return updates[:6]
+
+
+def _future_twin_identity_summary(
+    *,
+    request: FutureTwinRequest,
+    decision: IntelligenceDecisionResponse,
+    trajectory: FutureTwinTrajectory,
+    evidence_signals: list[EvidenceSignal],
+) -> str:
+    skills = ", ".join(request.skills[:3]) or "execution, learning, and judgment"
+    goals = ", ".join(request.goals[:2]) or request.objective
+    evidence_count = len(evidence_signals)
+    return (
+        f"The Future Twin sees a user pursuing {goals} with strengths in {skills}. "
+        f"Current path: {trajectory.current_trajectory}. ALTER found {evidence_count} "
+        f"evidence signal(s), recommends '{decision.recommended_future}', and needs "
+        "fresh proof to separate ambition from actual behavior."
+    )
+
+
+def _future_twin_daily_question(
+    *,
+    request: FutureTwinRequest,
+    decision: IntelligenceDecisionResponse,
+    trajectory: FutureTwinTrajectory,
+) -> str:
+    future_name = decision.recommended_future or trajectory.best_alternative_future
+    if trajectory.drift_risk >= 62:
+        return (
+            f"What proof will you create today that makes {future_name} more real "
+            "than the drift path?"
+        )
+    return (
+        f"What did you do today that compounds {future_name} and would still matter "
+        f"{request.horizon_days} days from now?"
+    )
+
+
+def _future_twin_memory_content(
+    *,
+    objective: str,
+    trajectory: FutureTwinTrajectory,
+    action: CompiledAction,
+    arbitrage: list[OpportunityArbitrageMove],
+    model_updates: list[str],
+) -> str:
+    return "\n".join(
+        [
+            f"Objective: {objective}",
+            f"Current trajectory: {trajectory.current_trajectory}",
+            f"90-day prediction: {trajectory.predicted_90_day_future}",
+            f"Best alternative: {trajectory.best_alternative_future}",
+            f"Alignment: {trajectory.alignment_score:.1f}",
+            f"Execution velocity: {trajectory.execution_velocity:.1f}",
+            f"Drift risk: {trajectory.drift_risk:.1f}",
+            "Compiled action:",
+            f"- {action.title}",
+            f"- Deadline: {action.deadline}",
+            f"- Success metric: {action.success_metric}",
+            "Proof required:",
+            *[f"- {proof}" for proof in action.proof_required],
+            "Opportunity arbitrage:",
+            *[f"- {move.title}: {move.first_step}" for move in arbitrage],
+            "Model updates:",
+            *[f"- {update}" for update in model_updates],
+        ]
+    )
+
+
+def _future_twin_confidence(
+    *,
+    decision: IntelligenceDecisionResponse,
+    evidence_signals: list[EvidenceSignal],
+    steps: list[DemoStep],
+) -> float:
+    health = sum(1 for step in steps if step.status == "ok") / max(len(steps), 1)
+    evidence_strength = _average_evidence_strength(evidence_signals) / 100.0
+    confidence = decision.confidence_score * 0.54 + evidence_strength * 0.26 + health * 0.2
+    return round(max(0.05, min(0.98, confidence)), 2)
+
+
+def _best_future_option(options: list[FutureOption]) -> FutureOption | None:
+    if not options:
+        return None
+    return max(
+        options,
+        key=lambda option: option.success_probability * option.opportunity_score
+        - option.risk_score * 0.22,
+    )
+
+
+def _average_evidence_strength(evidence_signals: list[EvidenceSignal]) -> float:
+    if not evidence_signals:
+        return 35.0
+    weighted = [
+        signal.impact_score * max(0.25, signal.confidence)
+        for signal in evidence_signals
+    ]
+    return round(sum(weighted) / len(weighted), 1)
 
 
 def _voice_runtime_question(normalized: str, transcript: str, intent: str) -> str:

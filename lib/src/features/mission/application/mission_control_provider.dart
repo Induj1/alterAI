@@ -32,6 +32,60 @@ final intelligenceKernelControllerProvider =
       IntelligenceKernelController.new,
     );
 
+final futureTwinControllerProvider =
+    NotifierProvider<FutureTwinController, FutureTwinState>(
+      FutureTwinController.new,
+    );
+
+class FutureTwinController extends Notifier<FutureTwinState> {
+  @override
+  FutureTwinState build() => const FutureTwinState();
+
+  Future<void> buildTwin({
+    required String objective,
+    required List<FutureTwinEvidenceInput> evidence,
+  }) async {
+    final trimmed = objective.trim();
+    if (trimmed.length < 3) {
+      state = state.copyWith(errorMessage: 'Enter an objective for your Future Twin.');
+      return;
+    }
+    state = state.copyWith(isRunning: true, errorMessage: '');
+    try {
+      final result = await ref
+          .read(missionControlApiClientProvider)
+          .buildFutureTwin(objective: trimmed, evidence: evidence);
+      state = state.copyWith(isRunning: false, result: result);
+    } catch (error) {
+      state = state.copyWith(isRunning: false, errorMessage: error.toString());
+    }
+  }
+}
+
+class FutureTwinState {
+  const FutureTwinState({
+    this.isRunning = false,
+    this.result,
+    this.errorMessage = '',
+  });
+
+  final bool isRunning;
+  final FutureTwinResult? result;
+  final String errorMessage;
+
+  FutureTwinState copyWith({
+    bool? isRunning,
+    FutureTwinResult? result,
+    String? errorMessage,
+  }) {
+    return FutureTwinState(
+      isRunning: isRunning ?? this.isRunning,
+      result: result ?? this.result,
+      errorMessage: errorMessage ?? this.errorMessage,
+    );
+  }
+}
+
 class IntelligenceKernelController extends Notifier<IntelligenceKernelState> {
   @override
   IntelligenceKernelState build() => const IntelligenceKernelState();

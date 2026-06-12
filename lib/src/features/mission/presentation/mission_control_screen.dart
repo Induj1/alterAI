@@ -134,6 +134,8 @@ class MissionControlScreen extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 18),
+          const _FutureTwinPanel(),
+          const SizedBox(height: 18),
           const _IntelligenceKernelPanel(),
           const SizedBox(height: 18),
           if (context.isExpanded)
@@ -189,6 +191,687 @@ class MissionControlScreen extends ConsumerWidget {
               _EventPanel(events: snapshot.events),
             ],
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FutureTwinPanel extends ConsumerStatefulWidget {
+  const _FutureTwinPanel();
+
+  @override
+  ConsumerState<_FutureTwinPanel> createState() => _FutureTwinPanelState();
+}
+
+class _FutureTwinPanelState extends ConsumerState<_FutureTwinPanel> {
+  late final TextEditingController _objectiveController;
+  late final TextEditingController _prototypeEvidenceController;
+  late final TextEditingController _voiceEvidenceController;
+  late final TextEditingController _marketEvidenceController;
+
+  @override
+  void initState() {
+    super.initState();
+    _objectiveController = TextEditingController(
+      text: 'Make ALTER a market-changing future OS for students and founders.',
+    );
+    _prototypeEvidenceController = TextEditingController(
+      text: 'ALTER has a Flutter app, FastAPI gateway, memory, opportunities, social graph, NFC, Lens, reputation, and voice runtime running end to end.',
+    );
+    _voiceEvidenceController = TextEditingController(
+      text: 'Hey Alter voice runtime detects intent, reasons through futures, creates an experiment, and writes memory.',
+    );
+    _marketEvidenceController = TextEditingController(
+      text: 'Target users need help turning high-stakes career/startup decisions into concrete proof and follow-through.',
+    );
+  }
+
+  @override
+  void dispose() {
+    _objectiveController.dispose();
+    _prototypeEvidenceController.dispose();
+    _voiceEvidenceController.dispose();
+    _marketEvidenceController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final twin = ref.watch(futureTwinControllerProvider);
+    void runFutureTwin() {
+      ref.read(futureTwinControllerProvider.notifier).buildTwin(
+            objective: _objectiveController.text,
+            evidence: _evidenceInputs(),
+          );
+    }
+
+    return GlassPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SectionHeader(
+            title: 'Future Twin',
+            subtitle: 'Compares ambition with evidence, predicts drift, and compiles action.',
+            trailing: PremiumButton(
+              label: twin.isRunning ? 'Modeling' : 'Build Twin',
+              compact: true,
+              icon: twin.isRunning ? LucideIcons.loader : LucideIcons.scan_search,
+              onPressed: twin.isRunning ? null : runFutureTwin,
+            ),
+          ),
+          const SizedBox(height: 14),
+          TextField(
+            controller: _objectiveController,
+            minLines: 1,
+            maxLines: 3,
+            decoration: const InputDecoration(
+              labelText: 'Future objective',
+              prefixIcon: Icon(LucideIcons.orbit),
+            ),
+            onSubmitted: (_) => runFutureTwin(),
+          ),
+          const SizedBox(height: 14),
+          ResponsiveGrid(
+            mediumColumns: 1,
+            expandedColumns: 3,
+            children: [
+              TextField(
+                controller: _prototypeEvidenceController,
+                minLines: 2,
+                maxLines: 4,
+                decoration: const InputDecoration(
+                  labelText: 'Product evidence',
+                  prefixIcon: Icon(LucideIcons.box),
+                ),
+              ),
+              TextField(
+                controller: _voiceEvidenceController,
+                minLines: 2,
+                maxLines: 4,
+                decoration: const InputDecoration(
+                  labelText: 'Behavior evidence',
+                  prefixIcon: Icon(LucideIcons.audio_waveform),
+                ),
+              ),
+              TextField(
+                controller: _marketEvidenceController,
+                minLines: 2,
+                maxLines: 4,
+                decoration: const InputDecoration(
+                  labelText: 'Market evidence',
+                  prefixIcon: Icon(LucideIcons.radar),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              PremiumChip(
+                label: twin.isRunning ? 'Modeling Future Twin' : 'Build Future Twin',
+                selected: true,
+                icon: twin.isRunning ? LucideIcons.loader : LucideIcons.sparkles,
+                onTap: twin.isRunning ? null : runFutureTwin,
+              ),
+              PremiumChip(
+                label: 'Evidence -> trajectory -> action',
+                selected: true,
+                icon: LucideIcons.workflow,
+              ),
+              PremiumChip(
+                label: 'Writes memory',
+                selected: true,
+                icon: LucideIcons.database_zap,
+              ),
+            ],
+          ),
+          if (twin.isRunning) ...[
+            const SizedBox(height: 14),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: const LinearProgressIndicator(minHeight: 5),
+            ),
+          ],
+          if (twin.errorMessage.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text(
+              twin.errorMessage,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.error,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+          if (twin.result != null) ...[
+            const SizedBox(height: 16),
+            _FutureTwinResultPanel(result: twin.result!),
+          ],
+        ],
+      ),
+    );
+  }
+
+  List<FutureTwinEvidenceInput> _evidenceInputs() {
+    return [
+      FutureTwinEvidenceInput(
+        evidenceType: 'project_artifact',
+        title: 'Working ALTER prototype',
+        summary: _prototypeEvidenceController.text,
+        source: 'mission_control',
+        confidence: 0.9,
+      ),
+      FutureTwinEvidenceInput(
+        evidenceType: 'behavior_signal',
+        title: 'Voice runtime verified',
+        summary: _voiceEvidenceController.text,
+        source: 'voice_runtime',
+        confidence: 0.86,
+      ),
+      FutureTwinEvidenceInput(
+        evidenceType: 'market_signal',
+        title: 'Future-decision pain signal',
+        summary: _marketEvidenceController.text,
+        source: 'founder_hypothesis',
+        confidence: 0.74,
+      ),
+    ];
+  }
+}
+
+class _FutureTwinResultPanel extends StatelessWidget {
+  const _FutureTwinResultPanel({required this.result});
+
+  final FutureTwinResult result;
+
+  @override
+  Widget build(BuildContext context) {
+    final trajectory = result.trajectory;
+    final confidence = (result.confidenceScore * 100).round();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AlterPalette.iris.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AlterPalette.iris.withValues(alpha: 0.18)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  PremiumChip(
+                    label: '$confidence% twin confidence',
+                    selected: result.confidenceScore >= 0.72,
+                    icon: LucideIcons.brain_circuit,
+                  ),
+                  PremiumChip(
+                    label: result.memorySaved ? 'Twin memory saved' : 'Memory pending',
+                    selected: result.memorySaved,
+                    icon: result.memorySaved
+                        ? LucideIcons.database_zap
+                        : LucideIcons.database,
+                  ),
+                  PremiumChip(
+                    label: trajectory.currentTrajectory,
+                    selected: trajectory.driftRisk < 60,
+                    icon: LucideIcons.route,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                result.identitySummary,
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w900,
+                  height: 1.32,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                result.dailyQuestion,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AlterPalette.iris,
+                  fontWeight: FontWeight.w800,
+                  height: 1.35,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        ResponsiveGrid(
+          mediumColumns: 2,
+          expandedColumns: 4,
+          children: [
+            MetricTile(
+              label: 'Alignment',
+              value: '${trajectory.alignmentScore.round()}',
+              detail: 'Stated future vs current evidence.',
+              icon: LucideIcons.target,
+              accent: AlterPalette.mint,
+            ),
+            MetricTile(
+              label: 'Execution',
+              value: '${trajectory.executionVelocity.round()}',
+              detail: 'Follow-through and proof velocity.',
+              icon: LucideIcons.activity,
+              accent: AlterPalette.iris,
+            ),
+            MetricTile(
+              label: 'Drift Risk',
+              value: '${trajectory.driftRisk.round()}',
+              detail: trajectory.predicted90DayFuture,
+              icon: LucideIcons.triangle_alert,
+              accent: AlterPalette.aura,
+            ),
+            MetricTile(
+              label: 'Best Future',
+              value: trajectory.bestAlternativeFuture,
+              detail: 'Highest expected-value path.',
+              icon: LucideIcons.sparkles,
+              accent: AlterPalette.cyan,
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        _TrajectoryPanel(trajectory: trajectory),
+        const SizedBox(height: 14),
+        _ActionCompilerPanel(action: result.action),
+        const SizedBox(height: 14),
+        ResponsiveGrid(
+          mediumColumns: 2,
+          expandedColumns: 2,
+          children: [
+            _EvidenceEnginePanel(signals: result.evidenceSignals),
+            _ArbitragePanel(moves: result.opportunityArbitrage),
+          ],
+        ),
+        const SizedBox(height: 14),
+        _DemoListColumn(
+          title: 'Model Updates',
+          icon: LucideIcons.refresh_ccw,
+          items: result.modelUpdates,
+        ),
+      ],
+    );
+  }
+}
+
+class _TrajectoryPanel extends StatelessWidget {
+  const _TrajectoryPanel({required this.trajectory});
+
+  final FutureTwinTrajectory trajectory;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface.withValues(alpha: 0.38),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionHeader(
+            title: 'Life Trajectory',
+            subtitle: 'Current curve, predicted 90-day curve, and best case.',
+            trailing: Icon(
+              LucideIcons.chart_no_axes_combined,
+              color: AlterPalette.iris,
+            ),
+          ),
+          const SizedBox(height: 14),
+          for (final point in trajectory.points)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _TrajectoryPointRow(point: point),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TrajectoryPointRow extends StatelessWidget {
+  const _TrajectoryPointRow({required this.point});
+
+  final TrajectoryPoint point;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                point.label,
+                style: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+            Text(
+              '${point.predictedScore.round()} / ${point.bestCaseScore.round()}',
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: AlterPalette.iris,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 7),
+        _ScoreRail(
+          current: point.currentScore,
+          predicted: point.predictedScore,
+          bestCase: point.bestCaseScore,
+        ),
+      ],
+    );
+  }
+}
+
+class _ScoreRail extends StatelessWidget {
+  const _ScoreRail({
+    required this.current,
+    required this.predicted,
+    required this.bestCase,
+  });
+
+  final double current;
+  final double predicted;
+  final double bestCase;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final currentWidth = width * (current.clamp(0, 100) / 100);
+        final predictedWidth = width * (predicted.clamp(0, 100) / 100);
+        final bestWidth = width * (bestCase.clamp(0, 100) / 100);
+        return SizedBox(
+          height: 16,
+          child: Stack(
+            alignment: Alignment.centerLeft,
+            children: [
+              Container(
+                height: 7,
+                decoration: BoxDecoration(
+                  color: Theme.of(context)
+                      .colorScheme
+                      .onSurface
+                      .withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(99),
+                ),
+              ),
+              Container(
+                width: bestWidth,
+                height: 7,
+                decoration: BoxDecoration(
+                  color: AlterPalette.cyan.withValues(alpha: 0.24),
+                  borderRadius: BorderRadius.circular(99),
+                ),
+              ),
+              Container(
+                width: predictedWidth,
+                height: 7,
+                decoration: BoxDecoration(
+                  gradient: AlterPalette.premiumGradient,
+                  borderRadius: BorderRadius.circular(99),
+                ),
+              ),
+              Positioned(
+                left: math.max(0, math.min(width - 10, currentWidth - 5)),
+                child: Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: AlterPalette.white,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AlterPalette.iris, width: 2),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ActionCompilerPanel extends StatelessWidget {
+  const _ActionCompilerPanel({required this.action});
+
+  final CompiledFutureAction action;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AlterPalette.mint.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AlterPalette.mint.withValues(alpha: 0.18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SectionHeader(
+            title: 'Action Compiler',
+            subtitle: 'Recommendation converted into proof, deadline, metric.',
+            trailing: PremiumChip(
+              label: '${action.leverageScore.round()} leverage',
+              selected: action.leverageScore >= 70,
+              icon: LucideIcons.zap,
+            ),
+          ),
+          const SizedBox(height: 14),
+          ResponsiveGrid(
+            mediumColumns: 2,
+            expandedColumns: 4,
+            children: [
+              _PlanTile(
+                icon: LucideIcons.clipboard_check,
+                label: 'Action',
+                value: action.title,
+              ),
+              _PlanTile(
+                icon: LucideIcons.timer,
+                label: 'Deadline',
+                value: action.deadline,
+              ),
+              _PlanTile(
+                icon: LucideIcons.target,
+                label: 'Metric',
+                value: action.successMetric,
+              ),
+              _PlanTile(
+                icon: LucideIcons.forward,
+                label: 'First step',
+                value: action.firstStep,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            action.whyNow,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              height: 1.35,
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.68),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final proof in action.proofRequired)
+                PremiumChip(
+                  label: proof,
+                  selected: true,
+                  icon: LucideIcons.badge_check,
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EvidenceEnginePanel extends StatelessWidget {
+  const _EvidenceEnginePanel({required this.signals});
+
+  final List<EvidenceSignal> signals;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface.withValues(alpha: 0.38),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionHeader(
+            title: 'Evidence Engine',
+            subtitle: 'Proof that updates the twin.',
+            trailing: Icon(LucideIcons.scan_eye, color: AlterPalette.iris),
+          ),
+          const SizedBox(height: 12),
+          for (final signal in signals.take(5))
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          signal.title,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                      PremiumChip(
+                        label: '${signal.impactScore.round()}',
+                        selected: signal.impactScore >= 70,
+                        icon: signal.memorySaved
+                            ? LucideIcons.database_zap
+                            : LucideIcons.gauge,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    signal.summary,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.62),
+                      height: 1.34,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ArbitragePanel extends StatelessWidget {
+  const _ArbitragePanel({required this.moves});
+
+  final List<OpportunityArbitrageMove> moves;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AlterPalette.aura.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AlterPalette.aura.withValues(alpha: 0.18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionHeader(
+            title: 'Opportunity Arbitrage',
+            subtitle: 'Leverage moves this week.',
+            trailing: Icon(LucideIcons.radar, color: AlterPalette.aura),
+          ),
+          const SizedBox(height: 12),
+          for (final move in moves.take(3))
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          move.title,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                      PremiumChip(
+                        label: '${move.leverageScore.round()} leverage',
+                        selected: move.leverageScore >= 70,
+                        icon: LucideIcons.zap,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    move.whyThisMatters,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.62),
+                      height: 1.34,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    move.firstStep,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: AlterPalette.aura,
+                      fontWeight: FontWeight.w800,
+                      height: 1.34,
+                    ),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );

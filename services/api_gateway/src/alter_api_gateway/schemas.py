@@ -170,6 +170,95 @@ class OutcomeUpdateResponse(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
+class EvidenceInput(BaseModel):
+    evidence_type: str = Field(default="artifact", min_length=2, max_length=80)
+    title: str = Field(min_length=2, max_length=180)
+    summary: str = Field(min_length=2, max_length=900)
+    source: str = Field(default="manual", max_length=120)
+    url: str | None = Field(default=None, max_length=800)
+    confidence: float = Field(default=0.72, ge=0.0, le=1.0)
+
+
+class FutureTwinRequest(BaseModel):
+    user_id: UUID = Field(default_factory=uuid4)
+    objective: str = Field(min_length=3, max_length=1000)
+    user_profile: dict[str, Any] = Field(default_factory=dict)
+    skills: list[str] = Field(default_factory=list, max_length=80)
+    goals: list[str] = Field(default_factory=list, max_length=40)
+    experience: list[dict[str, Any]] = Field(default_factory=list, max_length=60)
+    interests: list[str] = Field(default_factory=list, max_length=80)
+    recent_evidence: list[EvidenceInput] = Field(default_factory=list, max_length=20)
+    horizon_days: int = Field(default=90, ge=14, le=365)
+    write_memory: bool = True
+
+
+class TrajectoryPoint(BaseModel):
+    label: str
+    current_score: float = Field(ge=0.0, le=100.0)
+    predicted_score: float = Field(ge=0.0, le=100.0)
+    best_case_score: float = Field(ge=0.0, le=100.0)
+
+
+class FutureTwinTrajectory(BaseModel):
+    current_trajectory: str
+    predicted_90_day_future: str
+    best_alternative_future: str
+    alignment_score: float = Field(ge=0.0, le=100.0)
+    execution_velocity: float = Field(ge=0.0, le=100.0)
+    drift_risk: float = Field(ge=0.0, le=100.0)
+    points: list[TrajectoryPoint]
+
+
+class CompiledAction(BaseModel):
+    action_id: UUID = Field(default_factory=uuid4)
+    title: str
+    why_now: str
+    deadline: str
+    success_metric: str
+    proof_required: list[str]
+    first_step: str
+    leverage_score: float = Field(ge=0.0, le=100.0)
+
+
+class EvidenceSignal(BaseModel):
+    evidence_id: UUID = Field(default_factory=uuid4)
+    evidence_type: str
+    title: str
+    source: str
+    impact_score: float = Field(ge=0.0, le=100.0)
+    confidence: float = Field(ge=0.0, le=1.0)
+    memory_id: UUID | None = None
+    summary: str
+
+
+class OpportunityArbitrageMove(BaseModel):
+    title: str
+    leverage_score: float = Field(ge=0.0, le=100.0)
+    why_this_matters: str
+    stack: list[str]
+    first_step: str
+    opportunity_refs: list[str]
+
+
+class FutureTwinResponse(BaseModel):
+    twin_id: UUID = Field(default_factory=uuid4)
+    user_id: UUID
+    objective: str
+    identity_summary: str
+    daily_question: str
+    trajectory: FutureTwinTrajectory
+    action: CompiledAction
+    future_options: list[FutureOption]
+    evidence_signals: list[EvidenceSignal]
+    opportunity_arbitrage: list[OpportunityArbitrageMove]
+    model_updates: list[str]
+    confidence_score: float = Field(ge=0.0, le=1.0)
+    decision_report: IntelligenceDecisionResponse
+    signals: list[IntelligenceSignal]
+    created_memory_id: UUID | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
 class VoiceActionRuntimeRequest(BaseModel):
     user_id: UUID = Field(default_factory=uuid4)
     transcript: str = Field(min_length=1, max_length=4000)

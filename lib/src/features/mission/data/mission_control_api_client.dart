@@ -168,6 +168,51 @@ class MissionControlApiClient {
     return OutcomeUpdateResult.fromJson(body);
   }
 
+  Future<FutureTwinResult> buildFutureTwin({
+    required String objective,
+    Map<String, Object> userProfile = const <String, Object>{
+      'name': 'ALTER Operator',
+      'current_role': 'Student founder',
+      'career_stage': 'student founder',
+      'industry': 'AI',
+      'current_salary': 70000,
+      'current_network_size': 180,
+      'risk_tolerance': 0.72,
+      'weekly_learning_hours': 12,
+    },
+    List<String> skills = const <String>[
+      'AI agents',
+      'Flutter',
+      'FastAPI',
+      'Product strategy',
+      'Founder storytelling',
+    ],
+    List<String> goals = const <String>[
+      'Build ALTER into a real startup',
+      'Validate strong user demand',
+      'Earn reputation through follow-through',
+    ],
+    List<String> interests = const <String>[
+      'AI agents',
+      'future of work',
+      'career decisions',
+      'startup networks',
+    ],
+    List<FutureTwinEvidenceInput> evidence = const <FutureTwinEvidenceInput>[],
+  }) async {
+    final body = await _postJson('/v1/intelligence/future-twin', <String, Object>{
+      'objective': objective,
+      'user_profile': userProfile,
+      'skills': skills,
+      'goals': goals,
+      'interests': interests,
+      'recent_evidence': evidence.map((item) => item.toJson()).toList(),
+      'horizon_days': 90,
+      'write_memory': true,
+    });
+    return FutureTwinResult.fromJson(body);
+  }
+
   void close() => _client.close();
 
   Future<Map<String, dynamic>> _getJson(String path) async {
@@ -573,6 +618,261 @@ class OutcomeUpdateResult {
   bool get reputationLogged => reputationEventId.isNotEmpty;
 }
 
+class FutureTwinEvidenceInput {
+  const FutureTwinEvidenceInput({
+    required this.evidenceType,
+    required this.title,
+    required this.summary,
+    required this.source,
+    this.url,
+    this.confidence = 0.72,
+  });
+
+  final String evidenceType;
+  final String title;
+  final String summary;
+  final String source;
+  final String? url;
+  final double confidence;
+
+  Map<String, Object> toJson() {
+    return <String, Object>{
+      'evidence_type': evidenceType,
+      'title': title,
+      'summary': summary,
+      'source': source,
+      if (url != null && url!.isNotEmpty) 'url': url!,
+      'confidence': confidence,
+    };
+  }
+}
+
+class FutureTwinResult {
+  const FutureTwinResult({
+    required this.twinId,
+    required this.userId,
+    required this.objective,
+    required this.identitySummary,
+    required this.dailyQuestion,
+    required this.trajectory,
+    required this.action,
+    required this.futureOptions,
+    required this.evidenceSignals,
+    required this.opportunityArbitrage,
+    required this.modelUpdates,
+    required this.confidenceScore,
+    required this.decisionReport,
+    required this.signals,
+    required this.createdMemoryId,
+  });
+
+  factory FutureTwinResult.fromJson(Map<String, dynamic> json) {
+    return FutureTwinResult(
+      twinId: _string(json['twin_id']),
+      userId: _string(json['user_id']),
+      objective: _string(json['objective']),
+      identitySummary: _string(json['identity_summary']),
+      dailyQuestion: _string(json['daily_question']),
+      trajectory: FutureTwinTrajectory.fromJson(
+        json['trajectory'] is Map<String, dynamic>
+            ? json['trajectory'] as Map<String, dynamic>
+            : const <String, dynamic>{},
+      ),
+      action: CompiledFutureAction.fromJson(
+        json['action'] is Map<String, dynamic>
+            ? json['action'] as Map<String, dynamic>
+            : const <String, dynamic>{},
+      ),
+      futureOptions: _parseFutureOptions(json['future_options']),
+      evidenceSignals: _parseEvidenceSignals(json['evidence_signals']),
+      opportunityArbitrage: _parseArbitrageMoves(json['opportunity_arbitrage']),
+      modelUpdates: _parseStringList(json['model_updates']),
+      confidenceScore: _double(json['confidence_score']),
+      decisionReport: IntelligenceDecisionReport.fromJson(
+        json['decision_report'] is Map<String, dynamic>
+            ? json['decision_report'] as Map<String, dynamic>
+            : const <String, dynamic>{},
+      ),
+      signals: _parseIntelligenceSignals(json['signals']),
+      createdMemoryId: _string(json['created_memory_id']),
+    );
+  }
+
+  final String twinId;
+  final String userId;
+  final String objective;
+  final String identitySummary;
+  final String dailyQuestion;
+  final FutureTwinTrajectory trajectory;
+  final CompiledFutureAction action;
+  final List<IntelligenceFutureOption> futureOptions;
+  final List<EvidenceSignal> evidenceSignals;
+  final List<OpportunityArbitrageMove> opportunityArbitrage;
+  final List<String> modelUpdates;
+  final double confidenceScore;
+  final IntelligenceDecisionReport decisionReport;
+  final List<IntelligenceSignal> signals;
+  final String createdMemoryId;
+
+  bool get memorySaved => createdMemoryId.isNotEmpty;
+}
+
+class FutureTwinTrajectory {
+  const FutureTwinTrajectory({
+    required this.currentTrajectory,
+    required this.predicted90DayFuture,
+    required this.bestAlternativeFuture,
+    required this.alignmentScore,
+    required this.executionVelocity,
+    required this.driftRisk,
+    required this.points,
+  });
+
+  factory FutureTwinTrajectory.fromJson(Map<String, dynamic> json) {
+    return FutureTwinTrajectory(
+      currentTrajectory: _string(json['current_trajectory']),
+      predicted90DayFuture: _string(json['predicted_90_day_future']),
+      bestAlternativeFuture: _string(json['best_alternative_future']),
+      alignmentScore: _double(json['alignment_score']),
+      executionVelocity: _double(json['execution_velocity']),
+      driftRisk: _double(json['drift_risk']),
+      points: _parseTrajectoryPoints(json['points']),
+    );
+  }
+
+  final String currentTrajectory;
+  final String predicted90DayFuture;
+  final String bestAlternativeFuture;
+  final double alignmentScore;
+  final double executionVelocity;
+  final double driftRisk;
+  final List<TrajectoryPoint> points;
+}
+
+class TrajectoryPoint {
+  const TrajectoryPoint({
+    required this.label,
+    required this.currentScore,
+    required this.predictedScore,
+    required this.bestCaseScore,
+  });
+
+  factory TrajectoryPoint.fromJson(Map<String, dynamic> json) {
+    return TrajectoryPoint(
+      label: _string(json['label']),
+      currentScore: _double(json['current_score']),
+      predictedScore: _double(json['predicted_score']),
+      bestCaseScore: _double(json['best_case_score']),
+    );
+  }
+
+  final String label;
+  final double currentScore;
+  final double predictedScore;
+  final double bestCaseScore;
+}
+
+class CompiledFutureAction {
+  const CompiledFutureAction({
+    required this.actionId,
+    required this.title,
+    required this.whyNow,
+    required this.deadline,
+    required this.successMetric,
+    required this.proofRequired,
+    required this.firstStep,
+    required this.leverageScore,
+  });
+
+  factory CompiledFutureAction.fromJson(Map<String, dynamic> json) {
+    return CompiledFutureAction(
+      actionId: _string(json['action_id']),
+      title: _string(json['title']),
+      whyNow: _string(json['why_now']),
+      deadline: _string(json['deadline']),
+      successMetric: _string(json['success_metric']),
+      proofRequired: _parseStringList(json['proof_required']),
+      firstStep: _string(json['first_step']),
+      leverageScore: _double(json['leverage_score']),
+    );
+  }
+
+  final String actionId;
+  final String title;
+  final String whyNow;
+  final String deadline;
+  final String successMetric;
+  final List<String> proofRequired;
+  final String firstStep;
+  final double leverageScore;
+}
+
+class EvidenceSignal {
+  const EvidenceSignal({
+    required this.evidenceId,
+    required this.evidenceType,
+    required this.title,
+    required this.source,
+    required this.impactScore,
+    required this.confidence,
+    required this.memoryId,
+    required this.summary,
+  });
+
+  factory EvidenceSignal.fromJson(Map<String, dynamic> json) {
+    return EvidenceSignal(
+      evidenceId: _string(json['evidence_id']),
+      evidenceType: _string(json['evidence_type']),
+      title: _string(json['title']),
+      source: _string(json['source']),
+      impactScore: _double(json['impact_score']),
+      confidence: _double(json['confidence']),
+      memoryId: _string(json['memory_id']),
+      summary: _string(json['summary']),
+    );
+  }
+
+  final String evidenceId;
+  final String evidenceType;
+  final String title;
+  final String source;
+  final double impactScore;
+  final double confidence;
+  final String memoryId;
+  final String summary;
+
+  bool get memorySaved => memoryId.isNotEmpty;
+}
+
+class OpportunityArbitrageMove {
+  const OpportunityArbitrageMove({
+    required this.title,
+    required this.leverageScore,
+    required this.whyThisMatters,
+    required this.stack,
+    required this.firstStep,
+    required this.opportunityRefs,
+  });
+
+  factory OpportunityArbitrageMove.fromJson(Map<String, dynamic> json) {
+    return OpportunityArbitrageMove(
+      title: _string(json['title']),
+      leverageScore: _double(json['leverage_score']),
+      whyThisMatters: _string(json['why_this_matters']),
+      stack: _parseStringList(json['stack']),
+      firstStep: _string(json['first_step']),
+      opportunityRefs: _parseStringList(json['opportunity_refs']),
+    );
+  }
+
+  final String title;
+  final double leverageScore;
+  final String whyThisMatters;
+  final List<String> stack;
+  final String firstStep;
+  final List<String> opportunityRefs;
+}
+
 List<IntelligenceFutureOption> _parseFutureOptions(Object? raw) {
   if (raw is! List<dynamic>) {
     return const <IntelligenceFutureOption>[];
@@ -590,6 +890,36 @@ List<IntelligenceSignal> _parseIntelligenceSignals(Object? raw) {
   return raw
       .whereType<Map<String, dynamic>>()
       .map(IntelligenceSignal.fromJson)
+      .toList(growable: false);
+}
+
+List<TrajectoryPoint> _parseTrajectoryPoints(Object? raw) {
+  if (raw is! List<dynamic>) {
+    return const <TrajectoryPoint>[];
+  }
+  return raw
+      .whereType<Map<String, dynamic>>()
+      .map(TrajectoryPoint.fromJson)
+      .toList(growable: false);
+}
+
+List<EvidenceSignal> _parseEvidenceSignals(Object? raw) {
+  if (raw is! List<dynamic>) {
+    return const <EvidenceSignal>[];
+  }
+  return raw
+      .whereType<Map<String, dynamic>>()
+      .map(EvidenceSignal.fromJson)
+      .toList(growable: false);
+}
+
+List<OpportunityArbitrageMove> _parseArbitrageMoves(Object? raw) {
+  if (raw is! List<dynamic>) {
+    return const <OpportunityArbitrageMove>[];
+  }
+  return raw
+      .whereType<Map<String, dynamic>>()
+      .map(OpportunityArbitrageMove.fromJson)
       .toList(growable: false);
 }
 
