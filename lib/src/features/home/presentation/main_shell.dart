@@ -6,18 +6,28 @@ import '../../../core/theme/alter_palette.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../core/widgets/glass_panel.dart';
 import '../../../core/widgets/gradient_text.dart';
+import '../../contextos/presentation/moment_sheet.dart';
 
 class MainShell extends StatelessWidget {
-  const MainShell({
-    required this.child,
-    required this.location,
-    super.key,
-  });
+  const MainShell({required this.child, required this.location, super.key});
 
   final Widget child;
   final String location;
 
   static const items = [
+    _NavItem('/agent', 'Talk', LucideIcons.mic),
+    _NavItem('/home', 'Home', LucideIcons.house),
+    _NavItem('/twin', 'Twin', LucideIcons.brain),
+    _NavItem('/feed', 'Feed', LucideIcons.radio),
+    _NavItem('/shield', 'Shield', LucideIcons.shield_check),
+    _NavItem('/daytwin', 'Day', LucideIcons.calendar_clock),
+    _NavItem('/futuretwin', 'Future', LucideIcons.git_fork),
+    _NavItem('/openclaw', 'OpenClaw', LucideIcons.wand_sparkles),
+    _NavItem('/decision-council', 'Council', LucideIcons.users),
+    _NavItem('/dna', 'DNA', LucideIcons.dna),
+    _NavItem('/memory', 'Memory', LucideIcons.brain),
+    _NavItem('/edge', 'Edge', LucideIcons.cpu),
+    _NavItem('/privacy', 'Privacy', LucideIcons.lock),
     _NavItem('/mission', 'Control', LucideIcons.command),
     _NavItem('/voice', 'Voice', LucideIcons.mic),
     _NavItem('/council', 'Council', LucideIcons.messages_square),
@@ -32,25 +42,69 @@ class MainShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final expanded = context.isExpanded;
+    final bubbleBottom = expanded
+        ? 24.0
+        : 84.0 + MediaQuery.paddingOf(context).bottom;
     return Scaffold(
-      body: context.isExpanded
-          ? Row(
-              children: [
-                _DesktopRail(location: location),
-                Expanded(child: child),
-              ],
-            )
-          : Stack(
-              children: [
-                Positioned.fill(child: child),
-                Positioned(
-                  left: 12,
-                  right: 12,
-                  bottom: 12 + MediaQuery.paddingOf(context).bottom,
-                  child: _MobileNav(location: location),
-                ),
-              ],
-            ),
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: expanded
+                ? Row(
+                    children: [
+                      _DesktopRail(location: location),
+                      Expanded(child: child),
+                    ],
+                  )
+                : Stack(
+                    children: [
+                      Positioned.fill(child: child),
+                      Positioned(
+                        left: 12,
+                        right: 12,
+                        bottom: 12 + MediaQuery.paddingOf(context).bottom,
+                        child: _MobileNav(location: location),
+                      ),
+                    ],
+                  ),
+          ),
+          // Context Bubble — the system-like entry point, present everywhere.
+          Positioned(right: 18, bottom: bubbleBottom, child: _ContextBubble()),
+        ],
+      ),
+    );
+  }
+}
+
+class _ContextBubble extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: 'Drop a moment',
+      child: GestureDetector(
+        onTap: () => showMomentSheet(context),
+        child: Container(
+          width: 56,
+          height: 56,
+          decoration: BoxDecoration(
+            gradient: AlterPalette.premiumGradient,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: AlterPalette.iris.withValues(alpha: 0.45),
+                blurRadius: 22,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: const Icon(
+            LucideIcons.scan_eye,
+            color: Colors.white,
+            size: 26,
+          ),
+        ),
+      ),
     );
   }
 }
@@ -83,16 +137,9 @@ class _DesktopRail extends StatelessWidget {
             ),
             const SizedBox(height: 22),
             for (final item in MainShell.items)
-              _RailButton(
-                item: item,
-                selected: location == item.path,
-              ),
+              _RailButton(item: item, selected: location == item.path),
             const Spacer(),
-            Icon(
-              LucideIcons.shield_check,
-              color: AlterPalette.mint,
-              size: 22,
-            ),
+            Icon(LucideIcons.shield_check, color: AlterPalette.mint, size: 22),
           ],
         ),
       ),
@@ -160,10 +207,7 @@ class _MobileNav extends StatelessWidget {
         child: Row(
           children: [
             for (final item in MainShell.items)
-              _MobileNavButton(
-                item: item,
-                selected: location == item.path,
-              ),
+              _MobileNavButton(item: item, selected: location == item.path),
           ],
         ),
       ),

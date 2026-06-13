@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../app/app_state.dart';
 import '../../../core/theme/alter_palette.dart';
@@ -10,15 +12,54 @@ import '../../../core/widgets/glass_panel.dart';
 import '../../../core/widgets/gradient_text.dart';
 import '../../../core/widgets/metric_tile.dart';
 import '../../../core/widgets/premium_controls.dart';
+import '../../auth/application/auth_provider.dart';
+import '../../profile/application/profile_provider.dart';
+import '../../profile/domain/user_profile.dart';
 
-class SettingsScreen extends ConsumerWidget {
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(alterAppControllerProvider);
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  final _keyController = TextEditingController();
+  bool _keyObscured = true;
+  bool _keySaved = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Pre-fill with existing key when profile loads
+    final profile = ref.read(userProfileProvider).asData?.value;
+    if (profile?.openaiKey.isNotEmpty == true) {
+      _keyController.text = profile!.openaiKey;
+    }
+  }
+
+  @override
+  void dispose() {
+    _keyController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final appState = ref.watch(alterAppControllerProvider);
     final controller = ref.read(alterAppControllerProvider.notifier);
     final theme = Theme.of(context);
+    final user = Supabase.instance.client.auth.currentUser;
+    final profile = ref.watch(userProfileProvider).asData?.value;
+    final hasKey = profile?.openaiKey.isNotEmpty == true;
+
+    // Sync key controller when profile loads
+    ref.listen(userProfileProvider, (_, next) {
+      final p = next.asData?.value;
+      if (p != null && _keyController.text.isEmpty && p.openaiKey.isNotEmpty) {
+        _keyController.text = p.openaiKey;
+      }
+    });
 
     return AmbientScaffold(
       child: Column(
@@ -43,20 +84,20 @@ class SettingsScreen extends ConsumerWidget {
           ResponsiveGrid(
             mediumColumns: 2,
             expandedColumns: 3,
-            children: const [
+            children: [
               MetricTile(
                 label: 'Model routing',
-                value: 'OpenAI',
+                value: hasKey ? 'Your key' : 'Shared',
                 icon: LucideIcons.brain_circuit,
-                accent: AlterPalette.iris,
+                accent: AlterPalette.mint,
               ),
-              MetricTile(
+              const MetricTile(
                 label: 'Memory vault',
                 value: 'Locked',
                 icon: LucideIcons.lock,
-                accent: AlterPalette.mint,
+                accent: AlterPalette.iris,
               ),
-              MetricTile(
+              const MetricTile(
                 label: 'Latency target',
                 value: '<300 ms',
                 icon: LucideIcons.zap,
@@ -92,10 +133,74 @@ class SettingsScreen extends ConsumerWidget {
                       icon: Icon(LucideIcons.moon),
                     ),
                   ],
-                  selected: {state.themeMode},
-                  onSelectionChanged: (selection) {
-                    controller.setThemeMode(selection.first);
-                  },
+                  selected: {appState.themeMode},
+                  onSelectionChanged: (s) => controller.setThemeMode(s.first),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 18),
+          GlassPanel(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SectionHeader(
+                  title: 'AI Configuration',
+                  subtitle: hasKey
+                      ? 'Using your own OpenAI key — unlimited, billed to your account.'
+                      : 'Running on the ALTER shared key (fair-use daily limit). Add your own key below for unlimited use.',
+                  trailing: PremiumChip(
+                    label: hasKey ? 'Your key' : 'Shared key',
+                    selected: true,
+                    icon: LucideIcons.circle_check,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _keyController,
+                  obscureText: _keyObscured,
+                  decoration: InputDecoration(
+                    labelText: 'OpenAI API Key',
+                    hintText: 'sk-...',
+                    prefixIcon: const Icon(LucideIcons.key_round),
+                    suffixIcon: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: Icon(
+                            _keyObscured
+                                ? LucideIcons.eye
+                                : LucideIcons.eye_off,
+                            size: 18,
+                          ),
+                          onPressed: () =>
+                              setState(() => _keyObscured = !_keyObscured),
+                        ),
+                        if (_keyController.text.isNotEmpty)
+                          IconButton(
+                            icon: const Icon(LucideIcons.x, size: 18),
+                            onPressed: () {
+                              _keyController.clear();
+                              setState(() => _keySaved = false);
+                            },
+                          ),
+                      ],
+                    ),
+                    helperText: _keySaved
+                        ? 'Key saved — your requests now use your own key'
+                        : 'Optional. Get a key at platform.openai.com for unlimited use',
+                    helperStyle: TextStyle(
+                      color: _keySaved ? AlterPalette.mint : null,
+                    ),
+                  ),
+                  onChanged: (_) => setState(() => _keySaved = false),
+                ),
+                const SizedBox(height: 14),
+                PremiumButton(
+                  label: 'Save API Key',
+                  icon: LucideIcons.save,
+                  compact: true,
+                  onPressed: _saveApiKey,
                 ),
               ],
             ),
@@ -118,14 +223,14 @@ class SettingsScreen extends ConsumerWidget {
                       icon: LucideIcons.shield_check,
                       title: 'Privacy shield',
                       subtitle: 'Require confirmation before external actions.',
-                      value: state.privacyShield,
+                      value: appState.privacyShield,
                       onChanged: controller.setPrivacyShield,
                     ),
                     _SwitchRow(
                       icon: LucideIcons.bell,
                       title: 'Proactive briefs',
                       subtitle: 'Let ALTER prepare daily next-move briefings.',
-                      value: state.proactiveBriefs,
+                      value: appState.proactiveBriefs,
                       onChanged: controller.setProactiveBriefs,
                     ),
                   ],
@@ -137,21 +242,184 @@ class SettingsScreen extends ConsumerWidget {
                   children: [
                     const SectionHeader(
                       title: 'Connected systems',
-                      subtitle: 'Production adapters are ready to replace mocks.',
+                      subtitle: 'Production adapters ready to replace mocks.',
                     ),
                     const SizedBox(height: 14),
-                    const _SystemRow('Supabase', 'Auth, Postgres, Storage'),
-                    const _SystemRow('Neo4j', 'Personal and social graph'),
-                    const _SystemRow('Qdrant', 'Semantic memory search'),
-                    const _SystemRow('Firecrawl', 'Opportunity discovery'),
+                    const _SystemRow('Supabase', 'Auth, Postgres, Edge Functions'),
+                    _SystemRow(
+                      'OpenAI',
+                      hasKey ? 'Your key (BYOK)' : 'Shared key via proxy',
+                    ),
+                    const _SystemRow('Neo4j', 'Social graph (planned)'),
+                    const _SystemRow('Qdrant', 'Semantic memory (planned)'),
                   ],
                 ),
               ),
             ],
           ),
+          const SizedBox(height: 18),
+          GlassPanel(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SectionHeader(
+                  title: 'Account',
+                  subtitle: 'Manage your ALTER identity.',
+                ),
+                const SizedBox(height: 14),
+                if (profile != null && profile.displayName.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Row(
+                      children: [
+                        DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: AlterPalette.iris.withValues(alpha: 0.14),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Padding(
+                            padding: EdgeInsets.all(10),
+                            child: Icon(
+                              LucideIcons.user,
+                              color: AlterPalette.iris,
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                profile.displayName,
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              Text(
+                                profile.role.isNotEmpty
+                                    ? profile.role
+                                    : user?.email ?? '—',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurface
+                                      .withValues(alpha: 0.58),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        TextButton.icon(
+                          icon: const Icon(LucideIcons.pencil, size: 16),
+                          label: const Text('Edit'),
+                          onPressed: () => context.go('/profile'),
+                        ),
+                      ],
+                    ),
+                  )
+                else if (user != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Row(
+                      children: [
+                        DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: AlterPalette.iris.withValues(alpha: 0.14),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Padding(
+                            padding: EdgeInsets.all(10),
+                            child: Icon(
+                              LucideIcons.user,
+                              color: AlterPalette.iris,
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Signed in',
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              Text(
+                                user.email ?? '—',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurface
+                                      .withValues(alpha: 0.58),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        TextButton.icon(
+                          icon: const Icon(LucideIcons.user_cog, size: 16),
+                          label: const Text('Set up profile'),
+                          onPressed: () => context.go('/profile'),
+                        ),
+                      ],
+                    ),
+                  ),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    icon: const Icon(LucideIcons.log_out, size: 18),
+                    label: const Text('Sign out'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AlterPalette.danger,
+                      side: BorderSide(
+                        color: AlterPalette.danger.withValues(alpha: 0.4),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onPressed: () async {
+                      await ref.read(authServiceProvider).signOut();
+                      if (context.mounted) context.go('/login');
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
+  }
+
+  Future<void> _saveApiKey() async {
+    final key = _keyController.text.trim();
+    if (key.isEmpty) return;
+
+    final notifier = ref.read(userProfileProvider.notifier);
+    final existing = ref.read(userProfileProvider).asData?.value;
+    final userId = Supabase.instance.client.auth.currentUser?.id ?? '';
+
+    final toSave = existing != null
+        ? existing.copyWith(openaiKey: key)
+        : UserProfile(
+            id: userId,
+            displayName: '',
+            role: '',
+            careerStage: '',
+            industry: '',
+            bio: '',
+            skills: const [],
+            goals: const [],
+            interests: const [],
+            openaiKey: key,
+            onboardingDone: false,
+          );
+
+    await notifier.save(toSave);
+    if (mounted) setState(() => _keySaved = true);
   }
 }
 

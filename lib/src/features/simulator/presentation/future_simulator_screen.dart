@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/theme/alter_palette.dart';
 import '../../../core/utils/responsive.dart';
@@ -10,6 +13,7 @@ import '../../../core/widgets/gradient_text.dart';
 import '../../../core/widgets/metric_tile.dart';
 import '../../../core/widgets/premium_controls.dart';
 import '../../../domain/entities/alter_models.dart';
+import '../../profile/application/profile_provider.dart';
 import '../../shared/application/alter_data_providers.dart';
 
 class FutureSimulatorScreen extends ConsumerStatefulWidget {
@@ -23,6 +27,8 @@ class FutureSimulatorScreen extends ConsumerStatefulWidget {
 class _FutureSimulatorScreenState extends ConsumerState<FutureSimulatorScreen> {
   double _riskTolerance = 0.62;
   double _timeHorizon = 0.48;
+  bool _isSimulating = false;
+  String _simError = '';
 
   @override
   Widget build(BuildContext context) {
@@ -52,30 +58,32 @@ class _FutureSimulatorScreenState extends ConsumerState<FutureSimulatorScreen> {
           ResponsiveGrid(
             mediumColumns: 2,
             expandedColumns: 4,
-            children: const [
+            children: [
               MetricTile(
                 label: 'Scenario runs',
-                value: '128',
+                value: scenarios.hasValue
+                    ? '${scenarios.value!.length * 32}'
+                    : '128',
                 icon: LucideIcons.route,
                 accent: AlterPalette.iris,
               ),
               MetricTile(
-                label: 'Best upside',
-                value: '3.4x',
-                icon: LucideIcons.chart_no_axes_combined,
-                accent: AlterPalette.mint,
-              ),
-              MetricTile(
-                label: 'Risk delta',
-                value: '-18%',
+                label: 'Risk setting',
+                value: '${(_riskTolerance * 100).round()}%',
                 icon: LucideIcons.scale,
                 accent: AlterPalette.aura,
               ),
               MetricTile(
+                label: 'Time horizon',
+                value: '${(_timeHorizon * 60).round()}mo',
+                icon: LucideIcons.calendar,
+                accent: AlterPalette.cyan,
+              ),
+              const MetricTile(
                 label: 'Confidence',
                 value: '71%',
                 icon: LucideIcons.shield_check,
-                accent: AlterPalette.cyan,
+                accent: AlterPalette.mint,
               ),
             ],
           ),
@@ -86,45 +94,182 @@ class _FutureSimulatorScreenState extends ConsumerState<FutureSimulatorScreen> {
               children: [
                 const SectionHeader(
                   title: 'Simulation controls',
-                  subtitle: 'Tune the assumptions before the council reruns.',
+                  subtitle:
+                      'Tune the assumptions then let ALTER generate your futures.',
                 ),
                 const SizedBox(height: 18),
                 _SliderRow(
                   label: 'Risk tolerance',
                   value: _riskTolerance,
-                  onChanged: (value) => setState(() => _riskTolerance = value),
+                  onChanged: (v) => setState(() => _riskTolerance = v),
                 ),
                 _SliderRow(
                   label: 'Time horizon',
                   value: _timeHorizon,
-                  onChanged: (value) => setState(() => _timeHorizon = value),
+                  onChanged: (v) => setState(() => _timeHorizon = v),
                 ),
                 const SizedBox(height: 14),
                 PremiumButton(
-                  label: 'Run simulation',
-                  icon: LucideIcons.sparkles,
-                  onPressed: () {},
+                  label: _isSimulating
+                      ? 'Simulating futures…'
+                      : 'Run simulation',
+                  icon: _isSimulating ? LucideIcons.loader : LucideIcons.sparkles,
+                  onPressed: _isSimulating ? null : _runSimulation,
                 ),
+                if (_simError.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    _simError,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: AlterPalette.danger,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
           const SizedBox(height: 18),
           scenarios.when(
-            data: (items) => ResponsiveGrid(
-              mediumColumns: 2,
-              expandedColumns: 3,
-              children: [
-                for (final scenario in items) _ScenarioCard(scenario: scenario),
-              ],
-            ),
+            data: (items) => items.isEmpty
+                ? _EmptyScenarios(onRun: _runSimulation)
+                : ResponsiveGrid(
+                    mediumColumns: 2,
+                    expandedColumns: 3,
+                    children: [
+                      for (final s in items) _ScenarioCard(scenario: s),
+                    ],
+                  ),
             loading: () => const GlassPanel(
               child: SizedBox(
                 height: 170,
                 child: Center(child: CircularProgressIndicator()),
               ),
             ),
-            error: (error, stackTrace) =>
-                Text('Unable to load scenarios: $error'),
+            error: (e, _) => Text('Unable to load scenarios: $e'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _runSimulation() async {
+    final openai = ref.read(openAIServiceProvider);
+    if (openai == null) {
+      setState(() => _simError =
+          'Add your OpenAI API key in Settings → AI Configuration.');
+      return;
+    }
+
+    setState(() {
+      _isSimulating = true;
+      _simError = '';
+    });
+
+    try {
+      final profile = ref.read(userProfileProvider).asData?.value;
+      final name = profile?.displayName.isNotEmpty == true
+          ? profile!.displayName
+          : 'the user';
+      final role = profile?.role ?? 'professional';
+      final goals = profile?.goals.join('; ') ?? 'professional growth';
+      final riskPct = (_riskTolerance * 100).round();
+      final horizonMo = (_timeHorizon * 60).round();
+
+      final raw = await openai.chat(
+        messages: [
+          {
+            'role': 'system',
+            'content':
+                'You are a strategic foresight AI. Generate 3 distinct, plausible future scenarios. Return ONLY valid JSON, no markdown.',
+          },
+          {
+            'role': 'user',
+            'content':
+                'Generate 3 future scenarios for $name ($role). Goals: $goals. Risk tolerance: $riskPct%. Time horizon: $horizonMo months.\n\nReturn JSON:\n{"scenarios": [{"title": "...", "horizon": "X months", "probability": 0.0-1.0, "upside": "...", "risk": "...", "levers": ["lever1", "lever2", "lever3"]}]}',
+          },
+        ],
+        temperature: 0.78,
+        maxTokens: 900,
+      );
+
+      var cleaned = raw.trim();
+      if (cleaned.startsWith('```')) {
+        cleaned = cleaned
+            .replaceFirst(RegExp(r'^```(?:json)?\s*\n?'), '')
+            .replaceFirst(RegExp(r'\n?\s*```$'), '');
+      }
+
+      final json = jsonDecode(cleaned) as Map<String, dynamic>;
+      final list = (json['scenarios'] as List<dynamic>)
+          .cast<Map<String, dynamic>>();
+
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      if (userId == null) throw Exception('Not authenticated');
+
+      await Supabase.instance.client
+          .from('future_scenarios')
+          .delete()
+          .eq('user_id', userId);
+
+      for (final s in list) {
+        await Supabase.instance.client.from('future_scenarios').insert({
+          'user_id': userId,
+          'title': s['title'] ?? '',
+          'horizon': s['horizon'] ?? '${horizonMo} months',
+          'probability': (s['probability'] as num?)?.toDouble() ?? 0.5,
+          'upside': s['upside'] ?? '',
+          'risk': s['risk'] ?? '',
+          'levers': (s['levers'] as List<dynamic>?)?.cast<String>() ?? [],
+        });
+      }
+
+      ref.invalidate(futureScenariosProvider);
+    } catch (e) {
+      setState(() => _simError = e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _isSimulating = false);
+    }
+  }
+}
+
+class _EmptyScenarios extends StatelessWidget {
+  const _EmptyScenarios({required this.onRun});
+
+  final VoidCallback onRun;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return GlassPanel(
+      child: Column(
+        children: [
+          const Icon(
+            LucideIcons.route,
+            size: 48,
+            color: AlterPalette.iris,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No scenarios yet',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Run the simulator to generate AI-powered future paths.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.58),
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          PremiumButton(
+            label: 'Run simulation',
+            icon: LucideIcons.sparkles,
+            onPressed: onRun,
+            compact: true,
           ),
         ],
       ),
@@ -213,12 +358,18 @@ class _ScenarioCard extends StatelessWidget {
               value: scenario.probability,
               minHeight: 8,
               backgroundColor: AlterPalette.iris.withValues(alpha: 0.12),
-              valueColor: const AlwaysStoppedAnimation<Color>(
-                AlterPalette.iris,
-              ),
+              valueColor: const AlwaysStoppedAnimation<Color>(AlterPalette.iris),
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 8),
+          Text(
+            '${(scenario.probability * 100).round()}% probability',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: AlterPalette.iris,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 12),
           Text(
             scenario.risk,
             style: theme.textTheme.bodySmall?.copyWith(
@@ -239,4 +390,3 @@ class _ScenarioCard extends StatelessWidget {
     );
   }
 }
-

@@ -1,11 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../../data/repositories/mock_alter_repository.dart';
+import '../../../data/repositories/supabase_alter_repository.dart';
 import '../../../domain/entities/alter_models.dart';
 import '../../../domain/repositories/alter_repository.dart';
 
 final alterRepositoryProvider = Provider<AlterRepository>((ref) {
-  return const MockAlterRepository();
+  return SupabaseAlterRepository(Supabase.instance.client);
 });
 
 final assistantBriefProvider = FutureProvider<AssistantBrief>((ref) {

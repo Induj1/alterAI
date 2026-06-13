@@ -1,0 +1,11 @@
+# flutter_gemma / MediaPipe GenAI — keep native-referenced classes out of R8's reach.
+-keep class com.google.mediapipe.** { *; }
+-dontwarn com.google.mediapipe.**
+-keep class com.google.protobuf.** { *; }
+-dontwarn com.google.protobuf.**
+-keep class com.google.common.** { *; }
+-dontwarn com.google.common.**
+-keep class autovalue.shaded.** { *; }
+-dontwarn autovalue.shaded.**
+-dontwarn javax.annotation.**
+-dontwarn javax.lang.model.**

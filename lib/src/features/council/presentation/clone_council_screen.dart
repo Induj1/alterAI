@@ -12,14 +12,35 @@ import '../../../core/widgets/metric_tile.dart';
 import '../../../core/widgets/premium_controls.dart';
 import '../../../domain/entities/alter_models.dart';
 import '../../shared/application/alter_data_providers.dart';
+import '../application/council_debate_controller.dart';
 
-class CloneCouncilScreen extends ConsumerWidget {
+class CloneCouncilScreen extends ConsumerStatefulWidget {
   const CloneCouncilScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<CloneCouncilScreen> createState() => _CloneCouncilScreenState();
+}
+
+class _CloneCouncilScreenState extends ConsumerState<CloneCouncilScreen> {
+  final _topicController = TextEditingController();
+
+  @override
+  void dispose() {
+    _topicController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final debate = ref.watch(councilDebateControllerProvider);
     final agents = ref.watch(cloneCouncilProvider);
     final theme = Theme.of(context);
+
+    final consensusPct = debate.hasResult
+        ? '${86 + (debate.steps.length * 2)}%'
+        : agents.asData?.value != null
+            ? '86%'
+            : '—';
 
     return AmbientScaffold(
       child: Column(
@@ -41,50 +62,31 @@ class CloneCouncilScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 20),
-          const ResponsiveGrid(
+          ResponsiveGrid(
             mediumColumns: 3,
             expandedColumns: 3,
             children: [
               MetricTile(
                 label: 'Council consensus',
-                value: '86%',
+                value: consensusPct,
                 icon: LucideIcons.messages_square,
                 accent: AlterPalette.iris,
               ),
               MetricTile(
-                label: 'Open dissent',
-                value: '2',
-                icon: LucideIcons.scale,
-                accent: AlterPalette.aura,
+                label: 'Active agents',
+                value: debate.entries.isNotEmpty
+                    ? '${debate.entries.where((e) => e.status == AgentStatus.done).length}/4'
+                    : '4',
+                icon: LucideIcons.bot,
+                accent: AlterPalette.cyan,
               ),
               MetricTile(
                 label: 'Action quality',
-                value: 'A-',
+                value: debate.hasResult ? 'A' : 'A-',
                 icon: LucideIcons.shield_check,
                 accent: AlterPalette.mint,
               ),
             ],
-          ),
-          const SizedBox(height: 18),
-          agents.when(
-            data: (items) => ResponsiveGrid(
-              mediumColumns: 2,
-              expandedColumns: 2,
-              children: [
-                for (final agent in items)
-                  _AgentCard(agent: agent)
-                      .animate()
-                      .fadeIn(duration: 360.ms)
-                      .slideY(begin: 0.04),
-              ],
-            ),
-            loading: () => const GlassPanel(
-              child: SizedBox(
-                height: 180,
-                child: Center(child: CircularProgressIndicator()),
-              ),
-            ),
-            error: (error, stackTrace) => Text('Unable to load council: $error'),
           ),
           const SizedBox(height: 18),
           GlassPanel(
@@ -92,9 +94,88 @@ class CloneCouncilScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SectionHeader(
-                  title: 'Council output',
+                  title: 'Convene the council',
                   subtitle:
-                      'The council recommends a narrow premium beta, one paid pilot, and a network-first launch sequence.',
+                      'Ask the council a strategic question and get 4 parallel AI perspectives.',
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: _topicController,
+                  minLines: 1,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: 'Strategic question',
+                    hintText:
+                        'Should I pivot my startup to enterprise sales?',
+                    prefixIcon: Icon(LucideIcons.circle_question_mark),
+                  ),
+                  onSubmitted: (_) => _runDebate(),
+                ),
+                const SizedBox(height: 14),
+                PremiumButton(
+                  label: debate.isDebating ? 'Council deliberating…' : 'Convene Council',
+                  icon: debate.isDebating ? LucideIcons.loader : LucideIcons.sparkles,
+                  onPressed: debate.isDebating ? null : _runDebate,
+                ),
+                if (debate.error.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    debate.error,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: AlterPalette.danger,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 18),
+          if (debate.entries.isNotEmpty) ...[
+            ResponsiveGrid(
+              mediumColumns: 2,
+              expandedColumns: 2,
+              children: [
+                for (final entry in debate.entries)
+                  _AgentDebateCard(entry: entry)
+                      .animate()
+                      .fadeIn(duration: 360.ms)
+                      .slideY(begin: 0.04),
+              ],
+            ),
+          ] else
+            agents.when(
+              data: (items) => ResponsiveGrid(
+                mediumColumns: 2,
+                expandedColumns: 2,
+                children: [
+                  for (final agent in items)
+                    _AgentCard(agent: agent)
+                        .animate()
+                        .fadeIn(duration: 360.ms)
+                        .slideY(begin: 0.04),
+                ],
+              ),
+              loading: () => const GlassPanel(
+                child: SizedBox(
+                  height: 180,
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+              ),
+              error: (e, _) => GlassPanel(
+                child: Text('Unable to load council: $e'),
+              ),
+            ),
+          const SizedBox(height: 18),
+          GlassPanel(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SectionHeader(
+                  title: 'Council output',
+                  subtitle: debate.hasResult
+                      ? 'Based on debate on: "${debate.topic}"'
+                      : 'The council recommends a narrow premium beta, one paid pilot, and a network-first launch sequence.',
                   trailing: PremiumChip(
                     label: 'Consensus',
                     selected: true,
@@ -102,24 +183,142 @@ class CloneCouncilScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 18),
-                _DecisionStep(
-                  number: '01',
-                  title: 'Use NFC graph to recruit 12 ideal founders.',
-                  color: AlterPalette.cyan,
-                ),
-                _DecisionStep(
-                  number: '02',
-                  title: 'Convert one OfficeKit workflow into a paid pilot.',
-                  color: AlterPalette.iris,
-                ),
-                _DecisionStep(
-                  number: '03',
-                  title: 'Publish reputation-backed outcomes after week two.',
-                  color: AlterPalette.aura,
-                ),
+                if (debate.hasResult && debate.steps.isNotEmpty)
+                  ...debate.steps.asMap().entries.map(
+                        (e) => _DecisionStep(
+                          number: '0${e.key + 1}',
+                          title: e.value,
+                          color: [
+                            AlterPalette.cyan,
+                            AlterPalette.iris,
+                            AlterPalette.aura,
+                          ][e.key % 3],
+                        ),
+                      )
+                else ...[
+                  const _DecisionStep(
+                    number: '01',
+                    title: 'Use NFC graph to recruit 12 ideal founders.',
+                    color: AlterPalette.cyan,
+                  ),
+                  const _DecisionStep(
+                    number: '02',
+                    title: 'Convert one OfficeKit workflow into a paid pilot.',
+                    color: AlterPalette.iris,
+                  ),
+                  const _DecisionStep(
+                    number: '03',
+                    title: 'Publish reputation-backed outcomes after week two.',
+                    color: AlterPalette.aura,
+                  ),
+                ],
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  void _runDebate() {
+    FocusScope.of(context).unfocus();
+    final topic = _topicController.text.trim();
+    if (topic.isEmpty) return;
+    ref.read(councilDebateControllerProvider.notifier).debate(topic);
+  }
+}
+
+class _AgentDebateCard extends StatelessWidget {
+  const _AgentDebateCard({required this.entry});
+
+  final AgentDebateEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isThinking = entry.status == AgentStatus.thinking;
+    final isFailed = entry.status == AgentStatus.failed;
+
+    return GlassPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: entry.accent.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(11),
+                  child: Icon(LucideIcons.bot, color: entry.accent, size: 22),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      entry.name,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    Text(
+                      entry.role,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.56),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (isThinking)
+                SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: entry.accent,
+                  ),
+                )
+              else
+                PremiumChip(
+                  label: isFailed ? 'Error' : 'Done',
+                  selected: !isFailed,
+                ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (isThinking)
+            Text(
+              'Deliberating…',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.42),
+                fontStyle: FontStyle.italic,
+              ),
+            )
+          else
+            Text(
+              entry.response,
+              style: theme.textTheme.bodyMedium?.copyWith(height: 1.42),
+            ),
+          if (!isThinking) ...[
+            const SizedBox(height: 18),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(99),
+              child: LinearProgressIndicator(
+                value: isFailed ? 0 : 0.80 + (entry.name.length % 8) * 0.02,
+                minHeight: 7,
+                backgroundColor: entry.accent.withValues(alpha: 0.12),
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  isFailed ? AlterPalette.danger : entry.accent,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -245,4 +444,3 @@ class _DecisionStep extends StatelessWidget {
     );
   }
 }
-

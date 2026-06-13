@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/theme/alter_palette.dart';
 import '../../../core/widgets/ambient_scaffold.dart';
@@ -24,10 +25,13 @@ class _SplashScreenState extends State<SplashScreen> {
   void initState() {
     super.initState();
     _navigationTimer = Timer(const Duration(milliseconds: 1800), () {
-      if (!mounted) {
-        return;
+      if (!mounted) return;
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user != null) {
+        context.go('/agent');
+      } else {
+        context.go('/login');
       }
-      context.go('/onboarding');
     });
   }
 

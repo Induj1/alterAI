@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/theme/alter_palette.dart';
 import '../../../core/utils/responsive.dart';
@@ -27,20 +28,41 @@ class SocialGraphScreen extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          GradientText(
-            'Social Graph',
-            style: theme.textTheme.displaySmall?.copyWith(
-              fontWeight: FontWeight.w900,
-              height: 1.02,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Relationship intelligence for warm paths, NFC exchanges, and network compounding.',
-            style: theme.textTheme.bodyLarge?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.62),
-              height: 1.4,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    GradientText(
+                      'Social Graph',
+                      style: theme.textTheme.displaySmall?.copyWith(
+                        fontWeight: FontWeight.w900,
+                        height: 1.02,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Relationship intelligence for warm paths, NFC exchanges, and network compounding.',
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.62),
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              IconButton.filled(
+                tooltip: 'Add contact',
+                style: IconButton.styleFrom(
+                  backgroundColor: AlterPalette.iris,
+                  foregroundColor: Colors.white,
+                ),
+                icon: const Icon(LucideIcons.user_plus),
+                onPressed: () => _showAddContactDialog(context, ref),
+              ),
+            ],
           ),
           const SizedBox(height: 20),
           ResponsiveGrid(
@@ -54,9 +76,9 @@ class SocialGraphScreen extends ConsumerWidget {
                   child: const _GraphView(),
                 ),
               ),
-              const MetricTile(
-                label: 'Warm paths',
-                value: '18',
+              MetricTile(
+                label: 'Contacts',
+                value: contacts.asData?.value?.length.toString() ?? '—',
                 icon: LucideIcons.network,
                 accent: AlterPalette.iris,
               ),
@@ -111,25 +133,270 @@ class SocialGraphScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 18),
           contacts.when(
-            data: (items) => ResponsiveGrid(
-              mediumColumns: 2,
-              expandedColumns: 2,
-              children: [
-                for (final contact in items) _ContactCard(contact: contact),
-              ],
-            ),
+            data: (items) => items.isEmpty
+                ? GlassPanel(
+                    child: Column(
+                      children: [
+                        const Icon(
+                          LucideIcons.users,
+                          size: 40,
+                          color: AlterPalette.iris,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'No contacts yet',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Tap the + button to add your first contact.',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.58),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        PremiumButton(
+                          label: 'Add contact',
+                          icon: LucideIcons.user_plus,
+                          compact: true,
+                          onPressed: () => _showAddContactDialog(context, ref),
+                        ),
+                      ],
+                    ),
+                  )
+                : ResponsiveGrid(
+                    mediumColumns: 2,
+                    expandedColumns: 2,
+                    children: [
+                      for (final contact in items)
+                        _ContactCard(
+                          contact: contact,
+                          onDelete: () => _deleteContact(context, ref, contact.name),
+                        ),
+                    ],
+                  ),
             loading: () => const GlassPanel(
               child: SizedBox(
                 height: 170,
                 child: Center(child: CircularProgressIndicator()),
               ),
             ),
-            error: (error, stackTrace) =>
-                Text('Unable to load social graph: $error'),
+            error: (e, _) => Text('Unable to load social graph: $e'),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _showAddContactDialog(BuildContext context, WidgetRef ref) async {
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (_) => const _AddContactDialog(),
+    );
+    if (result == null) return;
+
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+
+    try {
+      await Supabase.instance.client.from('social_contacts').insert({
+        'user_id': userId,
+        'name': result['name'],
+        'context': result['context'],
+        'strength': result['strength'],
+        'tags': result['tags'],
+      });
+      ref.invalidate(socialGraphProvider);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to add contact: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteContact(
+    BuildContext context,
+    WidgetRef ref,
+    String name,
+  ) async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+
+    await Supabase.instance.client
+        .from('social_contacts')
+        .delete()
+        .eq('user_id', userId)
+        .eq('name', name);
+    ref.invalidate(socialGraphProvider);
+  }
+}
+
+class _AddContactDialog extends StatefulWidget {
+  const _AddContactDialog();
+
+  @override
+  State<_AddContactDialog> createState() => _AddContactDialogState();
+}
+
+class _AddContactDialogState extends State<_AddContactDialog> {
+  final _nameCtrl = TextEditingController();
+  final _contextCtrl = TextEditingController();
+  final _tagCtrl = TextEditingController();
+  double _strength = 0.5;
+  final _tags = <String>[];
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _contextCtrl.dispose();
+    _tagCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Add Contact',
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 18),
+            TextField(
+              controller: _nameCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Name *',
+                prefixIcon: Icon(LucideIcons.user),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _contextCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Role / context',
+                prefixIcon: Icon(LucideIcons.briefcase),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Connection strength',
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                Text(
+                  '${(_strength * 100).round()}%',
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: AlterPalette.iris,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+            Slider(
+              value: _strength,
+              onChanged: (v) => setState(() => _strength = v),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _tagCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Add tag',
+                      prefixIcon: Icon(LucideIcons.tag),
+                    ),
+                    onSubmitted: _addTag,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton.filled(
+                  style: IconButton.styleFrom(
+                    backgroundColor: AlterPalette.iris,
+                    foregroundColor: Colors.white,
+                  ),
+                  icon: const Icon(LucideIcons.plus, size: 18),
+                  onPressed: () => _addTag(_tagCtrl.text),
+                ),
+              ],
+            ),
+            if (_tags.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final tag in _tags)
+                    Chip(
+                      label: Text(tag),
+                      onDeleted: () => setState(() => _tags.remove(tag)),
+                      deleteIcon: const Icon(LucideIcons.x, size: 14),
+                    ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Cancel'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AlterPalette.iris,
+                    ),
+                    onPressed: _submit,
+                    child: const Text('Add'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _addTag(String tag) {
+    final trimmed = tag.trim();
+    if (trimmed.isEmpty || _tags.contains(trimmed)) return;
+    setState(() => _tags.add(trimmed));
+    _tagCtrl.clear();
+  }
+
+  void _submit() {
+    final name = _nameCtrl.text.trim();
+    if (name.isEmpty) return;
+    Navigator.pop(context, {
+      'name': name,
+      'context': _contextCtrl.text.trim(),
+      'strength': _strength,
+      'tags': List<String>.from(_tags),
+    });
   }
 }
 
@@ -196,9 +463,10 @@ class _GraphPainter extends CustomPainter {
 }
 
 class _ContactCard extends StatelessWidget {
-  const _ContactCard({required this.contact});
+  const _ContactCard({required this.contact, required this.onDelete});
 
   final SocialContact contact;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -242,6 +510,13 @@ class _ContactCard extends StatelessWidget {
               PremiumChip(
                 label: '${(contact.strength * 100).round()}%',
                 selected: true,
+              ),
+              const SizedBox(width: 4),
+              IconButton(
+                icon: const Icon(LucideIcons.trash_2, size: 16),
+                color: AlterPalette.danger.withValues(alpha: 0.7),
+                tooltip: 'Remove',
+                onPressed: onDelete,
               ),
             ],
           ),

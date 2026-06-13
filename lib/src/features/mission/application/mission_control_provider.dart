@@ -1,22 +1,40 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../profile/application/profile_provider.dart';
 import '../data/mission_control_api_client.dart';
 import '../domain/mission_control_models.dart';
+import 'mission_ai.dart';
+
+const _kNoAiMessage =
+    'Sign in to run Mission Control intelligence. Analysis runs through your account.';
+
+/// Returns a [MissionAi] bound to the current OpenAI proxy + profile, or null
+/// when there is no signed-in session.
+MissionAi? _missionAi(Ref ref) {
+  final openai = ref.read(openAIServiceProvider);
+  if (openai == null) return null;
+  final profile = ref.read(userProfileProvider).asData?.value;
+  return MissionAi(openai, profile);
+}
+
+/// Optional self-hosted Mission Control gateway. Empty by default — when unset,
+/// the dashboard renders the local snapshot instead of calling a backend.
+const _missionGatewayUrl = String.fromEnvironment('ALTER_API_GATEWAY_URL');
 
 final missionControlApiClientProvider = Provider<MissionControlApiClient>((
   ref,
 ) {
-  final client = MissionControlApiClient(
-    baseUrl: const String.fromEnvironment(
-      'ALTER_API_GATEWAY_URL',
-      defaultValue: 'http://localhost:8060',
-    ),
-  );
+  final client = MissionControlApiClient(baseUrl: _missionGatewayUrl);
   ref.onDispose(client.close);
   return client;
 });
 
 final missionControlProvider = FutureProvider<MissionControlSnapshot>((ref) {
+  // No external gateway configured → use the local snapshot directly. This
+  // avoids a doomed network round-trip and console noise in production.
+  if (_missionGatewayUrl.isEmpty) {
+    return fallbackMissionControlSnapshot;
+  }
   return ref
       .watch(missionControlApiClientProvider)
       .loadSnapshot(fallbackMissionControlSnapshot);
@@ -61,17 +79,25 @@ class ProofCaptureController extends Notifier<ProofCaptureState> {
       state = state.copyWith(errorMessage: 'Add at least one proof item.');
       return;
     }
+    final ai = _missionAi(ref);
+    if (ai == null) {
+      state = state.copyWith(errorMessage: _kNoAiMessage);
+      return;
+    }
     state = state.copyWith(isRunning: true, errorMessage: '');
     try {
-      final result = await ref.read(missionControlApiClientProvider).captureProof(
-            objective: trimmed,
-            linkedGoal: linkedGoal.trim(),
-            linkedAction: linkedAction.trim(),
-            evidence: evidence,
-          );
+      final result = await ai.captureProof(
+        objective: trimmed,
+        linkedGoal: linkedGoal.trim(),
+        linkedAction: linkedAction.trim(),
+        evidence: evidence,
+      );
       state = state.copyWith(isRunning: false, result: result);
     } catch (error) {
-      state = state.copyWith(isRunning: false, errorMessage: error.toString());
+      state = state.copyWith(
+        isRunning: false,
+        errorMessage: error.toString().replaceFirst('Exception: ', ''),
+      );
     }
   }
 }
@@ -113,14 +139,20 @@ class FutureTwinController extends Notifier<FutureTwinState> {
       state = state.copyWith(errorMessage: 'Enter an objective for your Future Twin.');
       return;
     }
+    final ai = _missionAi(ref);
+    if (ai == null) {
+      state = state.copyWith(errorMessage: _kNoAiMessage);
+      return;
+    }
     state = state.copyWith(isRunning: true, errorMessage: '');
     try {
-      final result = await ref
-          .read(missionControlApiClientProvider)
-          .buildFutureTwin(objective: trimmed, evidence: evidence);
+      final result = await ai.buildTwin(objective: trimmed, evidence: evidence);
       state = state.copyWith(isRunning: false, result: result);
     } catch (error) {
-      state = state.copyWith(isRunning: false, errorMessage: error.toString());
+      state = state.copyWith(
+        isRunning: false,
+        errorMessage: error.toString().replaceFirst('Exception: ', ''),
+      );
     }
   }
 }
@@ -159,18 +191,24 @@ class IntelligenceKernelController extends Notifier<IntelligenceKernelState> {
       state = state.copyWith(errorMessage: 'Enter a decision to reason through.');
       return;
     }
+    final ai = _missionAi(ref);
+    if (ai == null) {
+      state = state.copyWith(errorMessage: _kNoAiMessage);
+      return;
+    }
     state = state.copyWith(
       isRunning: true,
       errorMessage: '',
       clearOutcomeResult: true,
     );
     try {
-      final report = await ref
-          .read(missionControlApiClientProvider)
-          .decide(question: trimmed);
+      final report = await ai.decide(trimmed);
       state = state.copyWith(isRunning: false, report: report);
     } catch (error) {
-      state = state.copyWith(isRunning: false, errorMessage: error.toString());
+      state = state.copyWith(
+        isRunning: false,
+        errorMessage: error.toString().replaceFirst('Exception: ', ''),
+      );
     }
   }
 
@@ -194,18 +232,21 @@ class IntelligenceKernelController extends Notifier<IntelligenceKernelState> {
       );
       return;
     }
+    final ai = _missionAi(ref);
+    if (ai == null) {
+      state = state.copyWith(outcomeErrorMessage: _kNoAiMessage);
+      return;
+    }
     state = state.copyWith(isSubmittingOutcome: true, outcomeErrorMessage: '');
     try {
-      final outcome = await ref
-          .read(missionControlApiClientProvider)
-          .recordOutcome(
-            report: report,
-            didIt: didIt,
-            whatHappened: whatHappened.trim(),
-            whatLearned: whatLearned.trim(),
-            successMetricResult: successMetricResult.trim(),
-            outcomeScore: outcomeScore,
-          );
+      final outcome = await ai.recordOutcome(
+        report: report,
+        didIt: didIt,
+        whatHappened: whatHappened.trim(),
+        whatLearned: whatLearned.trim(),
+        successMetricResult: successMetricResult.trim(),
+        outcomeScore: outcomeScore,
+      );
       state = state.copyWith(
         isSubmittingOutcome: false,
         outcomeResult: outcome,
@@ -214,7 +255,7 @@ class IntelligenceKernelController extends Notifier<IntelligenceKernelState> {
     } catch (error) {
       state = state.copyWith(
         isSubmittingOutcome: false,
-        outcomeErrorMessage: error.toString(),
+        outcomeErrorMessage: error.toString().replaceFirst('Exception: ', ''),
       );
     }
   }
@@ -269,14 +310,20 @@ class MissionDemoController extends Notifier<MissionDemoState> {
       state = state.copyWith(errorMessage: 'Enter a decision to simulate.');
       return;
     }
+    final ai = _missionAi(ref);
+    if (ai == null) {
+      state = state.copyWith(errorMessage: _kNoAiMessage);
+      return;
+    }
     state = state.copyWith(isRunning: true, errorMessage: '');
     try {
-      final result = await ref
-          .read(missionControlApiClientProvider)
-          .runFutureOsDemo(objective: trimmed);
+      final result = await ai.runDemo(trimmed);
       state = state.copyWith(isRunning: false, result: result);
     } catch (error) {
-      state = state.copyWith(isRunning: false, errorMessage: error.toString());
+      state = state.copyWith(
+        isRunning: false,
+        errorMessage: error.toString().replaceFirst('Exception: ', ''),
+      );
     }
   }
 }
