@@ -48,6 +48,7 @@ class DeviceAdminStatus {
 
 class VisibleNode {
   const VisibleNode({
+    required this.nodeId,
     required this.text,
     required this.className,
     required this.viewId,
@@ -60,6 +61,7 @@ class VisibleNode {
   factory VisibleNode.fromMap(Object? raw) {
     final map = raw is Map<Object?, Object?> ? raw : const <Object?, Object?>{};
     return VisibleNode(
+      nodeId: map['nodeId'] is num ? (map['nodeId'] as num).round() : -1,
       text: map['text']?.toString() ?? '',
       className: map['className']?.toString() ?? '',
       viewId: map['viewId']?.toString() ?? '',
@@ -72,6 +74,7 @@ class VisibleNode {
     );
   }
 
+  final int nodeId;
   final String text;
   final String className;
   final String viewId;
@@ -163,6 +166,10 @@ class DeviceControlBridge {
 
   Future<DeviceControlResult> openDialer(String number) async {
     return _result('openDialer', {'number': number});
+  }
+
+  Future<DeviceControlResult> openBrowserSearch(String query) async {
+    return _result('openBrowserSearch', {'query': query});
   }
 
   Future<DeviceControlResult> openSmsDraft({

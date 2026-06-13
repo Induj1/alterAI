@@ -13,7 +13,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// always requires the function.
 class OpenAIService {
   OpenAIService({SupabaseClient? client, this.byokKey})
-      : _client = client ?? Supabase.instance.client;
+    : _client = client ?? Supabase.instance.client;
 
   final SupabaseClient _client;
   final String? byokKey;
@@ -37,8 +37,10 @@ class OpenAIService {
     };
 
     try {
-      final response =
-          await _client.functions.invoke('openai-chat', body: body);
+      final response = await _client.functions.invoke(
+        'openai-chat',
+        body: body,
+      );
       final data = response.data;
       if (data is! Map) throw const FormatException('Unexpected AI response.');
       final content = data['content'];
@@ -66,8 +68,9 @@ class OpenAIService {
           'ALTER now, or deploy the openai-chat Edge Function.',
         );
       }
-      throw Exception(_messageFromDetails(e.details) ??
-          'AI request failed (${e.status}).');
+      throw Exception(
+        _messageFromDetails(e.details) ?? 'AI request failed (${e.status}).',
+      );
     } catch (e) {
       // Network-level failure reaching the function. Fall back if we can.
       if (_hasByok) {
@@ -103,8 +106,10 @@ class OpenAIService {
       if (_hasByok) 'byok_key': byokKey,
     };
     try {
-      final response =
-          await _client.functions.invoke('openai-chat', body: body);
+      final response = await _client.functions.invoke(
+        'openai-chat',
+        body: body,
+      );
       final data = response.data;
       if (data is Map) return Map<String, dynamic>.from(data);
       throw const FormatException('Unexpected AI response.');
@@ -112,8 +117,9 @@ class OpenAIService {
       if (e.status == 404 && _hasByok) {
         return _directTools(messages, tools, model, temperature, maxTokens);
       }
-      throw Exception(_messageFromDetails(e.details) ??
-          'AI request failed (${e.status}).');
+      throw Exception(
+        _messageFromDetails(e.details) ?? 'AI request failed (${e.status}).',
+      );
     } catch (_) {
       if (_hasByok) {
         return _directTools(messages, tools, model, temperature, maxTokens);
@@ -179,7 +185,7 @@ class OpenAIService {
     if (res.statusCode != 200) {
       final msg = (decoded is Map && decoded['error'] is Map)
           ? (decoded['error']['message']?.toString() ??
-              'OpenAI request failed (${res.statusCode})')
+                'OpenAI request failed (${res.statusCode})')
           : 'OpenAI request failed (${res.statusCode})';
       throw Exception(msg);
     }

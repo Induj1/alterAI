@@ -15,4 +15,3 @@ abstract class AlterRepository {
 
   Future<List<LensInsight>> loadLensInsights();
 }
-

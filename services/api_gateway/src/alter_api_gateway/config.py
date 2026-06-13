@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     sarvam_tts_model: str = Field(default="bulbul:v3", alias="ALTER_SARVAM_TTS_MODEL")
     sarvam_tts_speaker: str = Field(default="shubh", alias="ALTER_SARVAM_TTS_SPEAKER")
     sarvam_base_url: str = Field(default="https://api.sarvam.ai", alias="ALTER_SARVAM_BASE_URL")
+    rate_limit_per_minute: int = Field(default=120, alias="ALTER_RATE_LIMIT_PER_MINUTE")
 
     def service_urls(self) -> dict[str, str]:
         return {

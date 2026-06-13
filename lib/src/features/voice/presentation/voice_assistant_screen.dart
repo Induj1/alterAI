@@ -19,6 +19,7 @@ import '../../../core/widgets/metric_tile.dart';
 import '../../../core/widgets/premium_controls.dart';
 import '../../profile/application/profile_provider.dart';
 import '../../shared/application/alter_data_providers.dart';
+import '../../agent/application/persistent_intelligence_store.dart';
 import '../application/native_wake_service_controller.dart';
 import '../application/voice_runtime_controller.dart';
 import '../data/voice_runtime_api_client.dart';
@@ -47,10 +48,7 @@ class _VoiceAssistantScreenState extends ConsumerState<VoiceAssistantScreen> {
   @override
   void initState() {
     super.initState();
-    _transcriptController = TextEditingController(
-      text:
-          'Hey Alter, should I build ALTER into a startup and what should I do today?',
-    );
+    _transcriptController = TextEditingController();
   }
 
   @override
@@ -300,6 +298,7 @@ class _VoiceAssistantScreenState extends ConsumerState<VoiceAssistantScreen> {
     final brief = ref.watch(assistantBriefProvider);
     final runtime = ref.watch(voiceRuntimeControllerProvider);
     final nativeWake = ref.watch(nativeWakeServiceControllerProvider);
+    final store = ref.watch(persistentIntelligenceStoreProvider);
     final hasOpenAI = ref.watch(openAIServiceProvider) != null;
     final theme = Theme.of(context);
     final locale = _localeForLanguage(appState.selectedLanguage);
@@ -552,26 +551,33 @@ class _VoiceAssistantScreenState extends ConsumerState<VoiceAssistantScreen> {
           ),
           const SizedBox(height: 18),
           ResponsiveGrid(
-            children: const [
+            children: [
               MetricTile(
-                label: 'Wake word latency',
-                value: '128 ms',
+                label: 'Wake events',
+                value: nativeWake.lastEvent == null
+                    ? '--'
+                    : nativeWake.lastEvent!.onDevice
+                    ? 'On device'
+                    : 'Captured',
                 icon: LucideIcons.audio_waveform,
-                detail: 'On-device activation target',
+                detail: '${nativeWake.wakeCount} wake events captured',
                 accent: AlterPalette.cyan,
               ),
               MetricTile(
-                label: 'Memory confidence',
-                value: '92%',
+                label: 'Memory records',
+                value: '${store.asData?.value.memories.length ?? 0}',
                 icon: LucideIcons.brain_circuit,
-                detail: 'Personal graph freshness',
+                detail:
+                    '${store.asData?.value.audit.length ?? 0} audited actions',
                 accent: AlterPalette.iris,
               ),
               MetricTile(
-                label: 'Next best move',
-                value: '1',
+                label: 'Next actions',
+                value: '${runtime.result?.nextActions.length ?? 0}',
                 icon: LucideIcons.radar,
-                detail: 'Opportunity is time-sensitive',
+                detail: runtime.result == null
+                    ? 'Run a command to populate actions'
+                    : runtime.result!.inferredIntent.replaceAll('_', ' '),
                 accent: AlterPalette.aura,
               ),
             ],

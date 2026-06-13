@@ -182,6 +182,7 @@ class AlterAccessibilityService : AccessibilityService() {
                     val bounds = Rect()
                     node.getBoundsInScreen(bounds)
                     output += mapOf(
+                        "nodeId" to output.size,
                         "text" to label,
                         "className" to node.className?.toString().orEmpty(),
                         "viewId" to node.viewIdResourceName.orEmpty(),

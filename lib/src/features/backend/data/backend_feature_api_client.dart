@@ -29,6 +29,9 @@ class BackendFeatureApiClient {
   Future<List<alter.OpportunitySignal>> fetchOpportunities({
     UserProfile? profile,
   }) async {
+    if (!_hasProfileSignal(profile)) {
+      return const <alter.OpportunitySignal>[];
+    }
     final body = await _postJson(
       '/v1/opportunities/pipeline',
       <String, Object?>{
@@ -57,6 +60,9 @@ class BackendFeatureApiClient {
     double riskTolerance = 0.62,
     int horizonMonths = 36,
   }) async {
+    if (!_hasProfileSignal(profile)) {
+      return const <alter.FutureScenario>[];
+    }
     final body = await _postJson(
       '/v1/future-simulation/simulate',
       _futureSimulationPayload(
@@ -125,8 +131,9 @@ class BackendFeatureApiClient {
     required String mimeType,
     String userContext = '',
   }) async {
-    if (!isConfigured)
+    if (!isConfigured) {
       throw const BackendFeatureApiException('Backend URL is empty.');
+    }
     final request =
         http.MultipartRequest(
             'POST',
@@ -151,8 +158,9 @@ class BackendFeatureApiClient {
   void close() => _client.close();
 
   Future<Map<String, dynamic>> _getJson(String path) async {
-    if (!isConfigured)
+    if (!isConfigured) {
       throw const BackendFeatureApiException('Backend URL is empty.');
+    }
     final response = await _client
         .get(
           Uri.parse('$_baseUrl$path'),
@@ -166,8 +174,9 @@ class BackendFeatureApiClient {
     String path,
     Map<String, Object?> payload,
   ) async {
-    if (!isConfigured)
+    if (!isConfigured) {
       throw const BackendFeatureApiException('Backend URL is empty.');
+    }
     final response = await _client
         .post(
           Uri.parse('$_baseUrl$path'),
@@ -233,18 +242,14 @@ Map<String, Object?> _futureSimulationPayload({
   required double riskTolerance,
   required int horizonMonths,
 }) {
-  final skills = _stringsOr(profile?.skills, const ['AI agents', 'Flutter']);
-  final goals = _stringsOr(profile?.goals, const [
-    'Build a useful AI operating system',
-  ]);
+  final skills = _stringsOr(profile?.skills, const <String>[]);
+  final goals = _stringsOr(profile?.goals, const <String>[]);
   return <String, Object?>{
     'user_profile': <String, Object?>{
-      'name': _nonEmpty(profile?.displayName, 'ALTER Operator'),
-      'current_role': _nonEmpty(profile?.role, 'Student founder'),
-      'industry': _nonEmpty(profile?.industry, 'AI'),
-      'current_network_size': 180,
+      'name': _nonEmpty(profile?.displayName, ''),
+      'current_role': _nonEmpty(profile?.role, ''),
+      'industry': _nonEmpty(profile?.industry, ''),
       'risk_tolerance': riskTolerance,
-      'weekly_learning_hours': 8,
     },
     'skills': [
       for (final skill in skills)
@@ -265,40 +270,40 @@ Map<String, Object?> _futureSimulationPayload({
         },
     ],
     'experience': const <Map<String, Object?>>[],
-    'interests': _stringsOr(profile?.interests, const ['AI assistants']),
+    'interests': _stringsOr(profile?.interests, const <String>[]),
     'horizon_months': horizonMonths,
-    'currency': 'USD',
+    'currency': null,
   };
 }
 
 Map<String, Object?> _opportunityProfile(UserProfile? profile) {
   return <String, Object?>{
-    'career_stage': _nonEmpty(profile?.careerStage, 'early'),
-    'skills': _stringsOr(profile?.skills, const ['AI agents', 'Flutter']),
-    'goals': _stringsOr(profile?.goals, const ['Build ALTER']),
-    'interests': _stringsOr(profile?.interests, const ['AI', 'startups']),
+    'career_stage': _nonEmpty(profile?.careerStage, ''),
+    'skills': _stringsOr(profile?.skills, const <String>[]),
+    'goals': _stringsOr(profile?.goals, const <String>[]),
+    'interests': _stringsOr(profile?.interests, const <String>[]),
     'preferred_locations': const <String>[],
     'preferred_categories': const <String>[],
-    'risk_tolerance': 0.62,
   };
 }
 
 Map<String, Object?> _profileSummary(UserProfile? profile) {
   return <String, Object?>{
-    'name': _nonEmpty(profile?.displayName, 'ALTER Operator'),
-    'role': _nonEmpty(profile?.role, 'Student founder'),
-    'career_stage': _nonEmpty(profile?.careerStage, 'early'),
-    'industry': _nonEmpty(profile?.industry, 'AI'),
-    'skills': _stringsOr(profile?.skills, const ['AI agents', 'Flutter']),
-    'goals': _stringsOr(profile?.goals, const ['Build ALTER']),
-    'interests': _stringsOr(profile?.interests, const ['AI assistants']),
+    'name': _nonEmpty(profile?.displayName, ''),
+    'role': _nonEmpty(profile?.role, ''),
+    'career_stage': _nonEmpty(profile?.careerStage, ''),
+    'industry': _nonEmpty(profile?.industry, ''),
+    'skills': _stringsOr(profile?.skills, const <String>[]),
+    'goals': _stringsOr(profile?.goals, const <String>[]),
+    'interests': _stringsOr(profile?.interests, const <String>[]),
   };
 }
 
 String _profileQuery(UserProfile? profile) {
   final terms = [
-    ..._stringsOr(profile?.goals, const ['AI opportunities']),
-    ..._stringsOr(profile?.skills, const ['Flutter', 'AI agents']),
+    ..._stringsOr(profile?.goals, const <String>[]),
+    ..._stringsOr(profile?.skills, const <String>[]),
+    ..._stringsOr(profile?.interests, const <String>[]),
   ];
   return terms.take(6).join(' ');
 }
@@ -428,6 +433,19 @@ List<String> _stringsOr(List<String>? values, List<String> fallback) {
       .where((item) => item.isNotEmpty)
       .toList(growable: false);
   return clean == null || clean.isEmpty ? fallback : clean;
+}
+
+bool _hasProfileSignal(UserProfile? profile) {
+  if (profile == null) return false;
+  return [
+    profile.displayName,
+    profile.role,
+    profile.careerStage,
+    profile.industry,
+    ...profile.skills,
+    ...profile.goals,
+    ...profile.interests,
+  ].any((item) => item.trim().isNotEmpty);
 }
 
 double _double(Object? raw) {

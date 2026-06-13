@@ -215,18 +215,10 @@ class _FutureTwinPanelState extends ConsumerState<_FutureTwinPanel> {
   @override
   void initState() {
     super.initState();
-    _objectiveController = TextEditingController(
-      text: 'Make ALTER a market-changing future OS for students and founders.',
-    );
-    _prototypeEvidenceController = TextEditingController(
-      text: 'ALTER has a Flutter app, FastAPI gateway, memory, opportunities, social graph, NFC, Lens, reputation, and voice runtime running end to end.',
-    );
-    _voiceEvidenceController = TextEditingController(
-      text: 'Hey Alter voice runtime detects intent, reasons through futures, creates an experiment, and writes memory.',
-    );
-    _marketEvidenceController = TextEditingController(
-      text: 'Target users need help turning high-stakes career/startup decisions into concrete proof and follow-through.',
-    );
+    _objectiveController = TextEditingController();
+    _prototypeEvidenceController = TextEditingController();
+    _voiceEvidenceController = TextEditingController();
+    _marketEvidenceController = TextEditingController();
   }
 
   @override
@@ -243,7 +235,9 @@ class _FutureTwinPanelState extends ConsumerState<_FutureTwinPanel> {
     final theme = Theme.of(context);
     final twin = ref.watch(futureTwinControllerProvider);
     void runFutureTwin() {
-      ref.read(futureTwinControllerProvider.notifier).buildTwin(
+      ref
+          .read(futureTwinControllerProvider.notifier)
+          .buildTwin(
             objective: _objectiveController.text,
             evidence: _evidenceInputs(),
           );
@@ -255,11 +249,14 @@ class _FutureTwinPanelState extends ConsumerState<_FutureTwinPanel> {
         children: [
           SectionHeader(
             title: 'Future Twin',
-            subtitle: 'Compares ambition with evidence, predicts drift, and compiles action.',
+            subtitle:
+                'Compares ambition with evidence, predicts drift, and compiles action.',
             trailing: PremiumButton(
               label: twin.isRunning ? 'Modeling' : 'Build Twin',
               compact: true,
-              icon: twin.isRunning ? LucideIcons.loader : LucideIcons.scan_search,
+              icon: twin.isRunning
+                  ? LucideIcons.loader
+                  : LucideIcons.scan_search,
               onPressed: twin.isRunning ? null : runFutureTwin,
             ),
           ),
@@ -314,9 +311,13 @@ class _FutureTwinPanelState extends ConsumerState<_FutureTwinPanel> {
             runSpacing: 8,
             children: [
               PremiumChip(
-                label: twin.isRunning ? 'Modeling Future Twin' : 'Build Future Twin',
+                label: twin.isRunning
+                    ? 'Modeling Future Twin'
+                    : 'Build Future Twin',
                 selected: true,
-                icon: twin.isRunning ? LucideIcons.loader : LucideIcons.sparkles,
+                icon: twin.isRunning
+                    ? LucideIcons.loader
+                    : LucideIcons.sparkles,
                 onTap: twin.isRunning ? null : runFutureTwin,
               ),
               PremiumChip(
@@ -359,28 +360,46 @@ class _FutureTwinPanelState extends ConsumerState<_FutureTwinPanel> {
 
   List<FutureTwinEvidenceInput> _evidenceInputs() {
     return [
-      FutureTwinEvidenceInput(
+      _futureEvidence(
         evidenceType: 'project_artifact',
-        title: 'Working ALTER prototype',
+        title: 'Project artifact',
         summary: _prototypeEvidenceController.text,
         source: 'mission_control',
         confidence: 0.9,
       ),
-      FutureTwinEvidenceInput(
+      _futureEvidence(
         evidenceType: 'behavior_signal',
-        title: 'Voice runtime verified',
+        title: 'Behavior signal',
         summary: _voiceEvidenceController.text,
         source: 'voice_runtime',
         confidence: 0.86,
       ),
-      FutureTwinEvidenceInput(
+      _futureEvidence(
         evidenceType: 'market_signal',
-        title: 'Future-decision pain signal',
+        title: 'Market signal',
         summary: _marketEvidenceController.text,
-        source: 'founder_hypothesis',
+        source: 'manual_entry',
         confidence: 0.74,
       ),
-    ];
+    ].nonNulls.toList(growable: false);
+  }
+
+  FutureTwinEvidenceInput? _futureEvidence({
+    required String evidenceType,
+    required String title,
+    required String summary,
+    required String source,
+    required double confidence,
+  }) {
+    final clean = summary.trim();
+    if (clean.isEmpty) return null;
+    return FutureTwinEvidenceInput(
+      evidenceType: evidenceType,
+      title: title,
+      summary: clean,
+      source: source,
+      confidence: confidence,
+    );
   }
 }
 
@@ -401,7 +420,9 @@ class _FutureTwinResultPanel extends StatelessWidget {
           decoration: BoxDecoration(
             color: AlterPalette.iris.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AlterPalette.iris.withValues(alpha: 0.18)),
+            border: Border.all(
+              color: AlterPalette.iris.withValues(alpha: 0.18),
+            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -416,7 +437,9 @@ class _FutureTwinResultPanel extends StatelessWidget {
                     icon: LucideIcons.brain_circuit,
                   ),
                   PremiumChip(
-                    label: result.memorySaved ? 'Twin memory saved' : 'Memory pending',
+                    label: result.memorySaved
+                        ? 'Twin memory saved'
+                        : 'Memory pending',
                     selected: result.memorySaved,
                     icon: result.memorySaved
                         ? LucideIcons.database_zap
@@ -498,7 +521,7 @@ class _FutureTwinResultPanel extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 14),
-        _DemoListColumn(
+        _ResultListColumn(
           title: 'Model Updates',
           icon: LucideIcons.refresh_ccw,
           items: result.modelUpdates,
@@ -616,10 +639,9 @@ class _ScoreRail extends StatelessWidget {
               Container(
                 height: 7,
                 decoration: BoxDecoration(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .onSurface
-                      .withValues(alpha: 0.08),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(99),
                 ),
               ),
@@ -717,7 +739,9 @@ class _ActionCompilerPanel extends StatelessWidget {
             action.whyNow,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               height: 1.35,
-              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.68),
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.68),
             ),
           ),
           const SizedBox(height: 12),
@@ -794,7 +818,9 @@ class _EvidenceEnginePanel extends StatelessWidget {
                   Text(
                     signal.summary,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.62),
+                      color: theme.colorScheme.onSurface.withValues(
+                        alpha: 0.62,
+                      ),
                       height: 1.34,
                     ),
                   ),
@@ -858,7 +884,9 @@ class _ArbitragePanel extends StatelessWidget {
                   Text(
                     move.whyThisMatters,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.62),
+                      color: theme.colorScheme.onSurface.withValues(
+                        alpha: 0.62,
+                      ),
                       height: 1.34,
                     ),
                   ),
@@ -898,24 +926,12 @@ class _ProofCapturePanelState extends ConsumerState<_ProofCapturePanel> {
   @override
   void initState() {
     super.initState();
-    _objectiveController = TextEditingController(
-      text: 'Make ALTER a market-changing future OS for students and founders.',
-    );
-    _goalController = TextEditingController(
-      text: 'Validate that users trust ALTER for high-stakes future decisions.',
-    );
-    _actionController = TextEditingController(
-      text: 'Create one shareable proof artifact and collect real feedback today.',
-    );
-    _artifactController = TextEditingController(
-      text: 'Mission Control now contains Future Twin, Decision Intelligence, Outcome Learning, and Voice Runtime connected to live backend services.',
-    );
-    _conversationController = TextEditingController(
-      text: 'User interviews should test whether ALTER feels more useful than existing assistants for life decisions.',
-    );
-    _applicationController = TextEditingController(
-      text: 'Submit ALTER to one hackathon, grant, accelerator, or founder program and save the outcome.',
-    );
+    _objectiveController = TextEditingController();
+    _goalController = TextEditingController();
+    _actionController = TextEditingController();
+    _artifactController = TextEditingController();
+    _conversationController = TextEditingController();
+    _applicationController = TextEditingController();
   }
 
   @override
@@ -934,7 +950,9 @@ class _ProofCapturePanelState extends ConsumerState<_ProofCapturePanel> {
     final theme = Theme.of(context);
     final proof = ref.watch(proofCaptureControllerProvider);
     void captureProof() {
-      ref.read(proofCaptureControllerProvider.notifier).capture(
+      ref
+          .read(proofCaptureControllerProvider.notifier)
+          .capture(
             objective: _objectiveController.text,
             linkedGoal: _goalController.text,
             linkedAction: _actionController.text,
@@ -948,7 +966,8 @@ class _ProofCapturePanelState extends ConsumerState<_ProofCapturePanel> {
         children: [
           SectionHeader(
             title: 'Proof Capture OS',
-            subtitle: 'Evidence inbox, proof graph, daily briefing, trust update.',
+            subtitle:
+                'Evidence inbox, proof graph, daily briefing, trust update.',
             trailing: PremiumButton(
               label: proof.isRunning ? 'Capturing' : 'Capture Proof',
               compact: true,
@@ -1030,9 +1049,13 @@ class _ProofCapturePanelState extends ConsumerState<_ProofCapturePanel> {
             runSpacing: 8,
             children: [
               PremiumChip(
-                label: proof.isRunning ? 'Writing proof memory' : 'Capture Evidence',
+                label: proof.isRunning
+                    ? 'Writing proof memory'
+                    : 'Capture Evidence',
                 selected: true,
-                icon: proof.isRunning ? LucideIcons.loader : LucideIcons.database_zap,
+                icon: proof.isRunning
+                    ? LucideIcons.loader
+                    : LucideIcons.database_zap,
                 onTap: proof.isRunning ? null : captureProof,
               ),
               PremiumChip(
@@ -1075,28 +1098,46 @@ class _ProofCapturePanelState extends ConsumerState<_ProofCapturePanel> {
 
   List<ProofEvidenceInput> _evidenceInputs() {
     return [
-      ProofEvidenceInput(
+      _proofEvidence(
         evidenceType: 'project_artifact',
-        title: 'ALTER live product artifact',
+        title: 'Project artifact',
         summary: _artifactController.text,
         source: 'mission_control',
         confidence: 0.9,
       ),
-      ProofEvidenceInput(
+      _proofEvidence(
         evidenceType: 'user_conversation',
-        title: 'Decision pain conversation',
+        title: 'User conversation',
         summary: _conversationController.text,
-        source: 'user_interview',
+        source: 'manual_entry',
         confidence: 0.78,
       ),
-      ProofEvidenceInput(
+      _proofEvidence(
         evidenceType: 'opportunity_application',
-        title: 'Opportunity application proof',
+        title: 'Opportunity application',
         summary: _applicationController.text,
-        source: 'opportunity_radar',
+        source: 'manual_entry',
         confidence: 0.72,
       ),
-    ];
+    ].nonNulls.toList(growable: false);
+  }
+
+  ProofEvidenceInput? _proofEvidence({
+    required String evidenceType,
+    required String title,
+    required String summary,
+    required String source,
+    required double confidence,
+  }) {
+    final clean = summary.trim();
+    if (clean.isEmpty) return null;
+    return ProofEvidenceInput(
+      evidenceType: evidenceType,
+      title: title,
+      summary: clean,
+      source: source,
+      confidence: confidence,
+    );
   }
 }
 
@@ -1109,9 +1150,12 @@ class _ProofCaptureResultPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final trust = result.trustProfile;
     final delta = result.futureTwinDelta;
-    final memoryCount = result.evidenceRecords.where((item) => item.memorySaved).length;
-    final reputationCount =
-        result.evidenceRecords.where((item) => item.reputationLogged).length;
+    final memoryCount = result.evidenceRecords
+        .where((item) => item.memorySaved)
+        .length;
+    final reputationCount = result.evidenceRecords
+        .where((item) => item.reputationLogged)
+        .length;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1120,7 +1164,9 @@ class _ProofCaptureResultPanel extends StatelessWidget {
           decoration: BoxDecoration(
             color: AlterPalette.mint.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AlterPalette.mint.withValues(alpha: 0.18)),
+            border: Border.all(
+              color: AlterPalette.mint.withValues(alpha: 0.18),
+            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1214,7 +1260,10 @@ class _ProofCaptureResultPanel extends StatelessWidget {
           expandedColumns: 2,
           children: [
             _EvidenceInboxPanel(records: result.evidenceRecords),
-            _ProofGraphPanel(nodes: result.graphNodes, edges: result.graphEdges),
+            _ProofGraphPanel(
+              nodes: result.graphNodes,
+              edges: result.graphEdges,
+            ),
           ],
         ),
         const SizedBox(height: 14),
@@ -1222,12 +1271,12 @@ class _ProofCaptureResultPanel extends StatelessWidget {
           mediumColumns: 2,
           expandedColumns: 2,
           children: [
-            _DemoListColumn(
+            _ResultListColumn(
               title: 'Next Proof Actions',
               icon: LucideIcons.check_check,
               items: result.nextActions,
             ),
-            _DemoListColumn(
+            _ResultListColumn(
               title: 'Trust Profile',
               icon: LucideIcons.shield_check,
               items: [...trust.strengths, ...trust.risks],
@@ -1260,7 +1309,10 @@ class _DailyProofBriefingPanel extends StatelessWidget {
           const SectionHeader(
             title: 'Daily Proof Briefing',
             subtitle: 'Morning intent, night outcome, proactive nudges.',
-            trailing: Icon(LucideIcons.calendar_check, color: AlterPalette.iris),
+            trailing: Icon(
+              LucideIcons.calendar_check,
+              color: AlterPalette.iris,
+            ),
           ),
           const SizedBox(height: 12),
           ResponsiveGrid(
@@ -1376,7 +1428,9 @@ class _EvidenceInboxPanel extends StatelessWidget {
                   Text(
                     record.summary,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.62),
+                      color: theme.colorScheme.onSurface.withValues(
+                        alpha: 0.62,
+                      ),
                       height: 1.34,
                     ),
                   ),
@@ -1476,18 +1530,10 @@ class _IntelligenceKernelPanelState
   @override
   void initState() {
     super.initState();
-    _controller = TextEditingController(
-      text: 'Should I build ALTER into a startup after this hackathon?',
-    );
-    _happenedController = TextEditingController(
-      text: 'I completed the first validation step and spoke with target users.',
-    );
-    _learnedController = TextEditingController(
-      text: 'The strongest signal was whether people would trust ALTER with real decisions.',
-    );
-    _metricController = TextEditingController(
-      text: '5 conversations completed, 2 users asked for a beta invite.',
-    );
+    _controller = TextEditingController();
+    _happenedController = TextEditingController();
+    _learnedController = TextEditingController();
+    _metricController = TextEditingController();
   }
 
   @override
@@ -1510,7 +1556,8 @@ class _IntelligenceKernelPanelState
         children: [
           SectionHeader(
             title: 'Decision Intelligence',
-            subtitle: 'Memory, futures, agents, radar, and execution in one loop.',
+            subtitle:
+                'Memory, futures, agents, radar, and execution in one loop.',
             trailing: PremiumButton(
               label: kernel.isRunning ? 'Reasoning' : 'Run Decision Loop',
               compact: true,
@@ -1574,22 +1621,22 @@ class _IntelligenceKernelPanelState
               mediumColumns: 2,
               expandedColumns: 4,
               children: [
-                _DemoListColumn(
+                _ResultListColumn(
                   title: 'Next Actions',
                   icon: LucideIcons.check_check,
                   items: report.nextActions,
                 ),
-                _DemoListColumn(
+                _ResultListColumn(
                   title: 'Opportunities',
                   icon: LucideIcons.zap,
                   items: report.opportunities,
                 ),
-                _DemoListColumn(
+                _ResultListColumn(
                   title: 'Risks',
                   icon: LucideIcons.triangle_alert,
                   items: report.risks,
                 ),
-                _DemoListColumn(
+                _ResultListColumn(
                   title: 'Memory Context',
                   icon: LucideIcons.brain,
                   items: report.memoryContext.isEmpty
@@ -1946,7 +1993,8 @@ class _OutcomeResultPanel extends StatelessWidget {
                 icon: LucideIcons.badge_check,
               ),
               PremiumChip(
-                label: '${result.confidenceDelta >= 0 ? '+' : ''}${result.confidenceDelta.toStringAsFixed(2)} confidence',
+                label:
+                    '${result.confidenceDelta >= 0 ? '+' : ''}${result.confidenceDelta.toStringAsFixed(2)} confidence',
                 selected: result.confidenceDelta >= 0,
                 icon: LucideIcons.refresh_ccw,
               ),
@@ -1957,7 +2005,9 @@ class _OutcomeResultPanel extends StatelessWidget {
                   icon: LucideIcons.trophy,
                 ),
               PremiumChip(
-                label: result.memorySaved ? 'Outcome memory saved' : 'Memory pending',
+                label: result.memorySaved
+                    ? 'Outcome memory saved'
+                    : 'Memory pending',
                 selected: result.memorySaved,
                 icon: result.memorySaved
                     ? LucideIcons.database_zap
@@ -2071,7 +2121,9 @@ class _FutureOptionCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: color.withValues(alpha: selected ? 0.12 : 0.06),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: selected ? 0.32 : 0.16)),
+        border: Border.all(
+          color: color.withValues(alpha: selected ? 0.32 : 0.16),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2177,8 +2229,8 @@ class _MiniScore extends StatelessWidget {
   }
 }
 
-class _DemoListColumn extends StatelessWidget {
-  const _DemoListColumn({
+class _ResultListColumn extends StatelessWidget {
+  const _ResultListColumn({
     required this.title,
     required this.icon,
     required this.items,

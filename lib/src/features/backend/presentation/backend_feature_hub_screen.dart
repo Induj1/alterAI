@@ -869,7 +869,7 @@ const backendFeatureSpecs = <BackendFeatureSpec>[
       'POST /v1/agent/plan',
       'GET /v1/privacy/export',
       'POST /v1/privacy/delete',
-      'POST /v1/demo/future-os',
+      'POST /v1/orchestration/future-os',
       'POST /v1/intelligence/decide',
       'POST /v1/intelligence/outcomes',
       'POST /v1/intelligence/future-twin',
@@ -1039,7 +1039,7 @@ const backendFeatureSpecs = <BackendFeatureSpec>[
     ],
     capabilities: [
       'Future Simulator cards and run button.',
-      'Mission Control demo orchestration.',
+      'Mission Control orchestration.',
       'Future Twin trajectory inputs.',
     ],
   ),
@@ -1195,7 +1195,7 @@ const backendFeatureSpecs = <BackendFeatureSpec>[
     capabilities: [
       'OfficeKit briefing endpoint visible in frontend.',
       'ContextOS Mission Control route.',
-      'Voice Gateway route target and Mission demo step.',
+      'Voice Gateway route target and Mission orchestration step.',
     ],
   ),
 ];

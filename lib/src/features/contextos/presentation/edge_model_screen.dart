@@ -62,25 +62,33 @@ class _EdgeModelScreenState extends ConsumerState<EdgeModelScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Downloading model…',
-                      style: theme.textTheme.titleSmall
-                          ?.copyWith(fontWeight: FontWeight.w900)),
+                  Text(
+                    'Downloading model…',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
                   const SizedBox(height: 12),
                   ClipRRect(
                     borderRadius: BorderRadius.circular(99),
                     child: LinearProgressIndicator(
                       value: gemma.progress == 0 ? null : gemma.progress,
                       minHeight: 8,
-                      backgroundColor: AlterPalette.cyan.withValues(alpha: 0.12),
+                      backgroundColor: AlterPalette.cyan.withValues(
+                        alpha: 0.12,
+                      ),
                       valueColor: const AlwaysStoppedAnimation<Color>(
-                          AlterPalette.cyan),
+                        AlterPalette.cyan,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     '${(gemma.progress * 100).round()}% — large model, keep the app open.',
                     style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
+                      color: theme.colorScheme.onSurface.withValues(
+                        alpha: 0.55,
+                      ),
                     ),
                   ),
                 ],
@@ -93,15 +101,20 @@ class _EdgeModelScreenState extends ConsumerState<EdgeModelScreen> {
                 children: [
                   Row(
                     children: [
-                      Icon(LucideIcons.circle_check,
-                          color: AlterPalette.mint, size: 20),
+                      Icon(
+                        LucideIcons.circle_check,
+                        color: AlterPalette.mint,
+                        size: 20,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           'Gemma is running on-device. Edge analysis now uses the '
                           'real model.',
-                          style: theme.textTheme.bodyMedium
-                              ?.copyWith(fontWeight: FontWeight.w700, height: 1.3),
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            height: 1.3,
+                          ),
                         ),
                       ),
                     ],
@@ -131,9 +144,12 @@ class _EdgeModelScreenState extends ConsumerState<EdgeModelScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Install a LiteRT model',
-                      style: theme.textTheme.titleSmall
-                          ?.copyWith(fontWeight: FontWeight.w900)),
+                  Text(
+                    'Install a LiteRT model',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
                   const SizedBox(height: 10),
                   Text(
                     'Default is a small Gemma 3 model. Point it at Gemma 3n E4B '
@@ -220,16 +236,37 @@ class _StatusCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final (label, color, icon) = switch (state.status) {
-      GemmaStatus.ready => ('On-device · active', AlterPalette.mint, LucideIcons.cpu),
-      GemmaStatus.downloading =>
-        ('Downloading', AlterPalette.cyan, LucideIcons.download),
+      GemmaStatus.ready => (
+        'On-device · active',
+        AlterPalette.mint,
+        LucideIcons.cpu,
+      ),
+      GemmaStatus.downloading => (
+        'Downloading',
+        AlterPalette.cyan,
+        LucideIcons.download,
+      ),
       GemmaStatus.loading => ('Loading', AlterPalette.cyan, LucideIcons.loader),
-      GemmaStatus.checking => ('Checking', AlterPalette.slate, LucideIcons.loader),
-      GemmaStatus.unsupported =>
-        ('Heuristics (web)', AlterPalette.amber, LucideIcons.globe),
-      GemmaStatus.error => ('Error', AlterPalette.danger, LucideIcons.triangle_alert),
-      GemmaStatus.notInstalled =>
-        ('Not installed · heuristics', AlterPalette.amber, LucideIcons.cpu),
+      GemmaStatus.checking => (
+        'Checking',
+        AlterPalette.slate,
+        LucideIcons.loader,
+      ),
+      GemmaStatus.unsupported => (
+        'Heuristics (web)',
+        AlterPalette.amber,
+        LucideIcons.globe,
+      ),
+      GemmaStatus.error => (
+        'Error',
+        AlterPalette.danger,
+        LucideIcons.triangle_alert,
+      ),
+      GemmaStatus.notInstalled => (
+        'Not installed · heuristics',
+        AlterPalette.amber,
+        LucideIcons.cpu,
+      ),
     };
     return GlassPanel(
       child: Row(
@@ -249,16 +286,20 @@ class _StatusCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Edge status',
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                      fontWeight: FontWeight.w800,
-                    )),
-                Text(label,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: color,
-                      fontWeight: FontWeight.w900,
-                    )),
+                Text(
+                  'Edge status',
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                Text(
+                  label,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
               ],
             ),
           ),

@@ -21,9 +21,10 @@ class ReputationDashboardScreen extends ConsumerWidget {
     final events = ref.watch(reputationEventsProvider);
     final theme = Theme.of(context);
 
-    final liveScore = events.asData?.value != null
-        ? 700 + events.value!.fold<int>(0, (sum, e) => sum + e.delta)
-        : null;
+    final eventItems = events.asData?.value ?? const <ReputationEvent>[];
+    final liveScore = eventItems.isEmpty
+        ? null
+        : eventItems.fold<int>(0, (sum, e) => sum + e.delta);
 
     final trend = events.asData?.value != null
         ? events.value!.take(5).fold<int>(0, (sum, e) => sum + e.delta)
@@ -50,7 +51,9 @@ class ReputationDashboardScreen extends ConsumerWidget {
                     Text(
                       'Track trust, responsiveness, delivery, and relationship quality as durable assets.',
                       style: theme.textTheme.bodyLarge?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.62),
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.62,
+                        ),
                         height: 1.4,
                       ),
                     ),
@@ -79,7 +82,7 @@ class ReputationDashboardScreen extends ConsumerWidget {
                 label: 'Recent trend',
                 value: trend != null
                     ? (trend >= 0 ? '+$trend' : '$trend')
-                    : '+26',
+                    : '--',
                 icon: trend != null && trend >= 0
                     ? LucideIcons.trending_up
                     : LucideIcons.trending_down,
@@ -89,7 +92,7 @@ class ReputationDashboardScreen extends ConsumerWidget {
               ),
               MetricTile(
                 label: 'Events logged',
-                value: events.asData?.value?.length.toString() ?? '—',
+                value: events.asData?.value.length.toString() ?? '--',
                 icon: LucideIcons.list_checks,
                 accent: AlterPalette.amber,
               ),
@@ -102,13 +105,42 @@ class ReputationDashboardScreen extends ConsumerWidget {
               children: [
                 const SectionHeader(
                   title: 'Reputation vector',
-                  subtitle: 'Signals are weighted by recency, trust, and impact.',
+                  subtitle: 'Built from logged reputation events only.',
                 ),
                 const SizedBox(height: 18),
-                _Bar(label: 'Reliability', value: 0.91, color: AlterPalette.mint),
-                _Bar(label: 'Follow-through', value: 0.84, color: AlterPalette.iris),
-                _Bar(label: 'Generosity', value: 0.77, color: AlterPalette.cyan),
-                _Bar(label: 'Visibility', value: 0.68, color: AlterPalette.aura),
+                events.maybeWhen(
+                  data: (items) => items.isEmpty
+                      ? Text(
+                          'No reputation vectors available yet.',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.58,
+                            ),
+                          ),
+                        )
+                      : Column(
+                          children: [
+                            _Bar(
+                              label: 'Positive delta',
+                              value: _eventRatio(items, positive: true),
+                              color: AlterPalette.mint,
+                            ),
+                            _Bar(
+                              label: 'Negative delta',
+                              value: _eventRatio(items, positive: false),
+                              color: AlterPalette.danger,
+                            ),
+                          ],
+                        ),
+                  orElse: () => Text(
+                    'Load reputation events to calculate vectors.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurface.withValues(
+                        alpha: 0.58,
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -134,7 +166,9 @@ class ReputationDashboardScreen extends ConsumerWidget {
                         Text(
                           'Log reputation events to track your trust over time.',
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurface.withValues(alpha: 0.58),
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.58,
+                            ),
                           ),
                           textAlign: TextAlign.center,
                         ),
@@ -182,8 +216,7 @@ class ReputationDashboardScreen extends ConsumerWidget {
 
     try {
       final now = DateTime.now();
-      final ts =
-          '${now.day}/${now.month}/${now.year}';
+      final ts = '${now.day}/${now.month}/${now.year}';
       await Supabase.instance.client.from('reputation_events').insert({
         'user_id': userId,
         'title': result['title'],
@@ -194,9 +227,9 @@ class ReputationDashboardScreen extends ConsumerWidget {
       ref.invalidate(reputationEventsProvider);
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to log event: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to log event: $e')));
       }
     }
   }
@@ -360,27 +393,31 @@ class _ReputationScore extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final displayScore = score ?? 700;
-    final label = displayScore >= 900
-        ? 'Elite reputation'
-        : displayScore >= 800
-            ? 'High trust operator'
-            : displayScore >= 700
-                ? 'Trusted professional'
-                : 'Building reputation';
+    final displayScore = score;
+    final label = displayScore == null
+        ? 'No score yet'
+        : displayScore > 0
+        ? 'Positive reputation movement'
+        : displayScore < 0
+        ? 'Negative reputation movement'
+        : 'Neutral reputation movement';
 
     return GlassPanel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const PremiumChip(
-            label: 'Live score',
+            label: 'Net delta',
             selected: true,
             icon: LucideIcons.trophy,
           ),
           const SizedBox(height: 20),
           GradientText(
-            '$displayScore',
+            displayScore == null
+                ? '--'
+                : displayScore >= 0
+                ? '+$displayScore'
+                : '$displayScore',
             style: theme.textTheme.displayMedium?.copyWith(
               fontWeight: FontWeight.w900,
               height: 0.95,
@@ -448,6 +485,15 @@ class _Bar extends StatelessWidget {
       ),
     );
   }
+}
+
+double _eventRatio(List<ReputationEvent> events, {required bool positive}) {
+  final total = events.fold<int>(0, (sum, event) => sum + event.delta.abs());
+  if (total == 0) return 0;
+  final selected = events
+      .where((event) => positive ? event.delta >= 0 : event.delta < 0)
+      .fold<int>(0, (sum, event) => sum + event.delta.abs());
+  return selected / total;
 }
 
 class _EventCard extends StatelessWidget {

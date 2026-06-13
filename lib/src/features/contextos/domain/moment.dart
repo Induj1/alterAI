@@ -28,7 +28,8 @@ class Moment {
 
   final String id;
   final MomentSource sourceSurface;
-  final String sourceType; // text | sms | chat | link | image_text | transcript | day
+  final String
+  sourceType; // text | sms | chat | link | image_text | transcript | day
   final String rawContent;
   final DateTime timestamp;
   final Map<String, String> deviceContext;
@@ -41,25 +42,60 @@ class Moment {
   }
 
   Moment copyWith({PrivacyLevel? privacyLevel}) => Moment(
-        id: id,
-        sourceSurface: sourceSurface,
-        sourceType: sourceType,
-        rawContent: rawContent,
-        timestamp: timestamp,
-        deviceContext: deviceContext,
-        privacyLevel: privacyLevel ?? this.privacyLevel,
-      );
+    id: id,
+    sourceSurface: sourceSurface,
+    sourceType: sourceType,
+    rawContent: rawContent,
+    timestamp: timestamp,
+    deviceContext: deviceContext,
+    privacyLevel: privacyLevel ?? this.privacyLevel,
+  );
 }
 
 /// What kind of moment this is — decides which ContextOS mode handles it.
 enum MomentCategory {
-  safeInfo('Safe info', 'lifeshield', AlterPalette.mint, Icons.check_circle_outline),
-  riskyAction('Risky action', 'lifeshield', AlterPalette.danger, Icons.gpp_maybe_outlined),
-  hiddenDecision('Hidden decision', 'lifeshield', AlterPalette.iris, Icons.visibility_outlined),
-  dayPressurePoint('Day pressure point', 'daytwin', AlterPalette.cyan, Icons.schedule),
-  futureDecision('Future decision', 'futuretwin', AlterPalette.violet, Icons.alt_route),
-  reminderActionItem('Action item', 'reminder', AlterPalette.amber, Icons.task_alt),
-  ignore('No action needed', 'none', AlterPalette.slate, Icons.do_not_disturb_on_outlined);
+  safeInfo(
+    'Safe info',
+    'lifeshield',
+    AlterPalette.mint,
+    Icons.check_circle_outline,
+  ),
+  riskyAction(
+    'Risky action',
+    'lifeshield',
+    AlterPalette.danger,
+    Icons.gpp_maybe_outlined,
+  ),
+  hiddenDecision(
+    'Hidden decision',
+    'lifeshield',
+    AlterPalette.iris,
+    Icons.visibility_outlined,
+  ),
+  dayPressurePoint(
+    'Day pressure point',
+    'daytwin',
+    AlterPalette.cyan,
+    Icons.schedule,
+  ),
+  futureDecision(
+    'Future decision',
+    'futuretwin',
+    AlterPalette.violet,
+    Icons.alt_route,
+  ),
+  reminderActionItem(
+    'Action item',
+    'reminder',
+    AlterPalette.amber,
+    Icons.task_alt,
+  ),
+  ignore(
+    'No action needed',
+    'none',
+    AlterPalette.slate,
+    Icons.do_not_disturb_on_outlined,
+  );
 
   const MomentCategory(this.label, this.mode, this.color, this.icon);
 
@@ -97,15 +133,15 @@ class ContextExtraction {
   ];
 
   factory ContextExtraction.empty() => const ContextExtraction(
-        entities: [],
-        requestedAction: '',
-        deadline: '',
-        risks: {},
-        sensitiveDataRequest: false,
-        missingInfo: [],
-        confidence: 0,
-        cloudEnriched: false,
-      );
+    entities: [],
+    requestedAction: '',
+    deadline: '',
+    risks: {},
+    sensitiveDataRequest: false,
+    missingInfo: [],
+    confidence: 0,
+    cloudEnriched: false,
+  );
 
   final List<String> entities;
   final String requestedAction;
@@ -157,7 +193,9 @@ class ContextExtraction {
       missingInfo: strs(json['missing_info']).isEmpty
           ? missingInfo
           : strs(json['missing_info']),
-      confidence: dbl(json['confidence']) > 0 ? dbl(json['confidence']) : confidence,
+      confidence: dbl(json['confidence']) > 0
+          ? dbl(json['confidence'])
+          : confidence,
       cloudEnriched: true,
     );
   }

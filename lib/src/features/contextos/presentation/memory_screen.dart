@@ -56,9 +56,12 @@ class _MemoryScreenState extends ConsumerState<MemoryScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Add a trusted source',
-                    style: theme.textTheme.titleSmall
-                        ?.copyWith(fontWeight: FontWeight.w900)),
+                Text(
+                  'Add a trusted source',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
                 const SizedBox(height: 12),
                 SegmentedButton<String>(
                   segments: const [
@@ -79,8 +82,8 @@ class _MemoryScreenState extends ConsumerState<MemoryScreen> {
                           hintText: _type == 'domain'
                               ? 'amazon.in'
                               : _type == 'contact'
-                                  ? 'Mom / +9198…'
-                                  : 'WhatsApp',
+                              ? 'Mom / +9198…'
+                              : 'WhatsApp',
                           prefixIcon: const Icon(LucideIcons.shield_check),
                         ),
                       ),
@@ -110,25 +113,33 @@ class _MemoryScreenState extends ConsumerState<MemoryScreen> {
                 child: Center(child: CircularProgressIndicator()),
               ),
             ),
-            error: (e, _) => GlassPanel(child: Text('Could not load memory: $e')),
+            error: (e, _) =>
+                GlassPanel(child: Text('Could not load memory: $e')),
             data: (trusted) => trusted.isEmpty
                 ? GlassPanel(
                     child: Column(
                       children: [
-                        const Icon(LucideIcons.brain,
-                            size: 40, color: AlterPalette.iris),
+                        const Icon(
+                          LucideIcons.brain,
+                          size: 40,
+                          color: AlterPalette.iris,
+                        ),
                         const SizedBox(height: 12),
-                        Text('No trusted sources yet',
-                            style: theme.textTheme.titleMedium
-                                ?.copyWith(fontWeight: FontWeight.w900)),
+                        Text(
+                          'No trusted sources yet',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
                         const SizedBox(height: 6),
                         Text(
                           'When LifeShield over-warns you about a safe sender, '
                           'tap “Trust source” — it lands here.',
                           textAlign: TextAlign.center,
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color:
-                                theme.colorScheme.onSurface.withValues(alpha: 0.58),
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.58,
+                            ),
                           ),
                         ),
                       ],
@@ -179,9 +190,12 @@ class _TrustedRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(entity.value,
-                    style: theme.textTheme.titleSmall
-                        ?.copyWith(fontWeight: FontWeight.w900)),
+                Text(
+                  entity.value,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
                 Text(
                   entity.type,
                   style: theme.textTheme.labelSmall?.copyWith(

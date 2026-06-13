@@ -17,7 +17,6 @@ import '../application/gemma_model_manager.dart';
 import '../application/lifeshield_controller.dart';
 import '../application/memory_engine.dart';
 import '../application/openclaw_adapter.dart';
-import '../data/demo_fixtures.dart';
 import '../domain/contextos_models.dart';
 import '../domain/moment.dart';
 
@@ -83,7 +82,9 @@ class _LifeShieldScreenState extends ConsumerState<LifeShieldScreen> {
                     Text(
                       'Understands the moment before you act — tap, pay, reply, scan, install.',
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.6,
+                        ),
                         height: 1.35,
                       ),
                     ),
@@ -108,11 +109,6 @@ class _LifeShieldScreenState extends ConsumerState<LifeShieldScreen> {
               FocusScope.of(context).unfocus();
               notifier.capture();
             },
-            onPickFixture: (f) {
-              _controller.text = f.text;
-              notifier.setInput(f.text);
-              notifier.setSource(f.source);
-            },
           ),
           if (state.error.isNotEmpty) ...[
             const SizedBox(height: 12),
@@ -124,9 +120,10 @@ class _LifeShieldScreenState extends ConsumerState<LifeShieldScreen> {
           ],
           if (state.category != null) ...[
             const SizedBox(height: 16),
-            _MomentTypeBar(category: state.category!, moment: state.moment)
-                .animate()
-                .fadeIn(duration: 280.ms),
+            _MomentTypeBar(
+              category: state.category!,
+              moment: state.moment,
+            ).animate().fadeIn(duration: 280.ms),
           ],
           if (state.routedElsewhere) ...[
             const SizedBox(height: 12),
@@ -140,10 +137,9 @@ class _LifeShieldScreenState extends ConsumerState<LifeShieldScreen> {
             ],
           ] else if (state.analysis != null) ...[
             const SizedBox(height: 12),
-            _VerdictBanner(analysis: state.analysis!)
-                .animate()
-                .fadeIn(duration: 320.ms)
-                .slideY(begin: 0.05),
+            _VerdictBanner(
+              analysis: state.analysis!,
+            ).animate().fadeIn(duration: 320.ms).slideY(begin: 0.05),
             const SizedBox(height: 12),
             _EdgeCheckCard(state: state, onRunCloud: notifier.runCloud),
             if (state.extraction.activeRisks.isNotEmpty ||
@@ -239,7 +235,6 @@ class _CaptureCard extends StatelessWidget {
     required this.onChanged,
     required this.onSelectSurface,
     required this.onAnalyze,
-    required this.onPickFixture,
   });
 
   final TextEditingController controller;
@@ -248,7 +243,6 @@ class _CaptureCard extends StatelessWidget {
   final ValueChanged<String> onChanged;
   final ValueChanged<MomentSource> onSelectSurface;
   final VoidCallback onAnalyze;
-  final ValueChanged<MomentFixture> onPickFixture;
 
   static const _surfaces = [
     MomentSource.notification,
@@ -280,7 +274,7 @@ class _CaptureCard extends StatelessWidget {
               const Spacer(),
               _Pill(
                 icon: LucideIcons.cpu,
-                text: realGemma ? 'Gemma on-device' : 'Edge heuristics (demo)',
+                text: realGemma ? 'Gemma on-device' : 'Edge heuristics',
                 color: realGemma ? AlterPalette.cyan : AlterPalette.mint,
               ),
             ],
@@ -317,26 +311,6 @@ class _CaptureCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          Text(
-            'Or try a real-world moment:',
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final f in kMomentFixtures)
-                PremiumChip(
-                  label: f.label,
-                  icon: f.source.icon,
-                  onTap: () => onPickFixture(f),
-                ),
-            ],
-          ),
           const SizedBox(height: 14),
           SizedBox(
             width: double.infinity,
@@ -410,8 +384,9 @@ class _VerdictBanner extends StatelessWidget {
                       Text(
                         'risk ${(analysis.riskScore * 100).round()}',
                         style: theme.textTheme.labelSmall?.copyWith(
-                          color: theme.colorScheme.onSurface
-                              .withValues(alpha: 0.55),
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.55,
+                          ),
                           fontWeight: FontWeight.w800,
                         ),
                       ),
@@ -430,8 +405,9 @@ class _VerdictBanner extends StatelessWidget {
                     Text(
                       analysis.whyItMatters,
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface
-                            .withValues(alpha: 0.7),
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.7,
+                        ),
                         height: 1.35,
                       ),
                     ),
@@ -515,16 +491,20 @@ class _EdgeCheckCard extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        Icon(LucideIcons.cloud_upload,
-                            size: 16, color: AlterPalette.cyan),
+                        Icon(
+                          LucideIcons.cloud_upload,
+                          size: 16,
+                          color: AlterPalette.cyan,
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             'Cloud reasoning can add proof & consequences. '
                             'This is exactly what will leave your device:',
                             style: theme.textTheme.labelSmall?.copyWith(
-                              color: theme.colorScheme.onSurface
-                                  .withValues(alpha: 0.7),
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.7,
+                              ),
                               height: 1.3,
                             ),
                           ),
@@ -607,14 +587,19 @@ class _MomentCard extends StatelessWidget {
               ),
             )
           else
-            ...flags.take(5).map(
+            ...flags
+                .take(5)
+                .map(
                   (f) => Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(LucideIcons.flag,
-                            size: 14, color: analysis.verdict.color),
+                        Icon(
+                          LucideIcons.flag,
+                          size: 14,
+                          color: analysis.verdict.color,
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
@@ -643,15 +628,15 @@ class _SecondaryActions extends ConsumerWidget {
     if (state.extraction.entities.isNotEmpty) {
       return state.extraction.entities.first;
     }
-    final m = RegExp(r'\b[\w-]+\.(?:com|in|org|net|top|xyz|live|info)\b',
-            caseSensitive: false)
-        .firstMatch(state.moment?.rawContent ?? '');
+    final m = RegExp(
+      r'\b[\w-]+\.(?:com|in|org|net|top|xyz|live|info)\b',
+      caseSensitive: false,
+    ).firstMatch(state.moment?.rawContent ?? '');
     return m?.group(0);
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
     final candidate = _trustCandidate();
     final alreadyTrusted = state.trustedMatch != null;
 
@@ -679,12 +664,18 @@ class _SecondaryActions extends ConsumerWidget {
                   ),
                   onPressed: () {
                     HapticFeedback.selectionClick();
-                    ref.read(memoryProvider.notifier).addTrusted(
+                    ref
+                        .read(memoryProvider.notifier)
+                        .addTrusted(
                           candidate.contains('.') ? 'domain' : 'contact',
                           candidate,
                         );
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Trusted $candidate — re-analyze to apply')),
+                      SnackBar(
+                        content: Text(
+                          'Trusted $candidate — re-analyze to apply',
+                        ),
+                      ),
                     );
                   },
                 ),
@@ -696,8 +687,9 @@ class _SecondaryActions extends ConsumerWidget {
                 label: const Text('Convene Council'),
                 onPressed: () {
                   HapticFeedback.selectionClick();
-                  ref.read(decisionCouncilProvider.notifier).seed(
-                      state.moment?.rawContent ?? state.input);
+                  ref
+                      .read(decisionCouncilProvider.notifier)
+                      .seed(state.moment?.rawContent ?? state.input);
                   context.go('/decision-council');
                 },
               ),
@@ -780,15 +772,15 @@ class _RoutedCard extends ConsumerWidget {
     final dest = category.mode == 'daytwin'
         ? 'DayTwin'
         : category.mode == 'futuretwin'
-            ? 'FutureTwin'
-            : 'Reminders';
+        ? 'FutureTwin'
+        : 'Reminders';
     final desc = category.mode == 'daytwin'
         ? 'This is a pressure point on your day. DayTwin will fold it into your '
-            'living timeline and simulate Default / Risk / Optimized paths.'
+              'living timeline and simulate Default / Risk / Optimized paths.'
         : category.mode == 'futuretwin'
-            ? 'This is a bigger decision. FutureTwin will simulate safe, smart, '
-                'and bold paths with a regret score and a roadmap.'
-            : 'Captured as an action item — ALTER can set a reminder for it.';
+        ? 'This is a bigger decision. FutureTwin will simulate safe, smart, '
+              'and bold paths with a regret score and a roadmap.'
+        : 'Captured as an action item — ALTER can set a reminder for it.';
     return GlassPanel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -820,8 +812,9 @@ class _RoutedCard extends ConsumerWidget {
                     Text(
                       'LifeShield saw no immediate danger here.',
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color:
-                            theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.6,
+                        ),
                       ),
                     ),
                   ],
@@ -830,10 +823,7 @@ class _RoutedCard extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 12),
-          Text(
-            desc,
-            style: theme.textTheme.bodySmall?.copyWith(height: 1.4),
-          ),
+          Text(desc, style: theme.textTheme.bodySmall?.copyWith(height: 1.4)),
           const SizedBox(height: 14),
           if (category.isRoutedElsewhere)
             SizedBox(
@@ -955,8 +945,8 @@ class _RiskBar extends StatelessWidget {
   Color get _color => value >= 0.66
       ? AlterPalette.danger
       : value >= 0.33
-          ? AlterPalette.amber
-          : AlterPalette.mint;
+      ? AlterPalette.amber
+      : AlterPalette.mint;
 
   @override
   Widget build(BuildContext context) {
@@ -1063,16 +1053,20 @@ class _ProofSheet extends StatelessWidget {
               decoration: BoxDecoration(
                 color: AlterPalette.danger.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(8),
-                border:
-                    Border.all(color: AlterPalette.danger.withValues(alpha: 0.25)),
+                border: Border.all(
+                  color: AlterPalette.danger.withValues(alpha: 0.25),
+                ),
               ),
               child: Padding(
                 padding: const EdgeInsets.all(12),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(LucideIcons.shield_alert,
-                        size: 16, color: AlterPalette.danger),
+                    Icon(
+                      LucideIcons.shield_alert,
+                      size: 16,
+                      color: AlterPalette.danger,
+                    ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Column(
@@ -1087,8 +1081,9 @@ class _ProofSheet extends StatelessWidget {
                           const SizedBox(height: 4),
                           Text(
                             analysis.whatCouldMakeWrong,
-                            style: theme.textTheme.bodySmall
-                                ?.copyWith(height: 1.35),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              height: 1.35,
+                            ),
                           ),
                         ],
                       ),
@@ -1169,7 +1164,9 @@ class _ProofBlock extends StatelessWidget {
                     Expanded(
                       child: Text(
                         it,
-                        style: theme.textTheme.bodySmall?.copyWith(height: 1.35),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          height: 1.35,
+                        ),
                       ),
                     ),
                   ],
@@ -1204,8 +1201,9 @@ class _ActionSheet extends ConsumerWidget {
               'No actions needed — this looks safe.',
               style: theme.textTheme.bodyMedium,
             ),
-          ...analysis.actions
-              .map((a) => _ActionRow(action: a, momentExcerpt: momentExcerpt)),
+          ...analysis.actions.map(
+            (a) => _ActionRow(action: a, momentExcerpt: momentExcerpt),
+          ),
           if (steps.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(
@@ -1216,30 +1214,31 @@ class _ActionSheet extends ConsumerWidget {
             ),
             const SizedBox(height: 8),
             ...steps.asMap().entries.map(
-                  (e) => Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '${e.key + 1}.',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: AlterPalette.mint,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            e.value,
-                            style:
-                                theme.textTheme.bodySmall?.copyWith(height: 1.35),
-                          ),
-                        ),
-                      ],
+              (e) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${e.key + 1}.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: AlterPalette.mint,
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        e.value,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
+              ),
+            ),
           ],
           const SizedBox(height: 10),
           Text(
@@ -1295,8 +1294,9 @@ class _ActionRow extends ConsumerWidget {
                       Text(
                         action.detail,
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color:
-                              theme.colorScheme.onSurface.withValues(alpha: 0.62),
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.62,
+                          ),
                           height: 1.3,
                         ),
                       ),
@@ -1310,11 +1310,14 @@ class _ActionRow extends ConsumerWidget {
                   backgroundColor: danger
                       ? AlterPalette.danger.withValues(alpha: 0.16)
                       : AlterPalette.mint.withValues(alpha: 0.16),
-                  foregroundColor:
-                      danger ? AlterPalette.danger : AlterPalette.mint,
+                  foregroundColor: danger
+                      ? AlterPalette.danger
+                      : AlterPalette.mint,
                   elevation: 0,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
                 ),
                 onPressed: () => _enqueue(context, ref),
                 child: const Text(
@@ -1420,8 +1423,9 @@ class BackdropFilterPanel extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: (isDark ? AlterPalette.graphite : AlterPalette.white)
-            .withValues(alpha: 0.96),
+        color: (isDark ? AlterPalette.graphite : AlterPalette.white).withValues(
+          alpha: 0.96,
+        ),
         border: Border(
           top: BorderSide(
             color: AlterPalette.iris.withValues(alpha: 0.2),

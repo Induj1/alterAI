@@ -8,6 +8,8 @@ import '../../contextos/application/openclaw_adapter.dart';
 import '../../contextos/domain/contextos_models.dart';
 import '../../device_control/application/phone_control_controller.dart';
 import '../data/device_actions.dart';
+import 'agent_execution_runtime.dart';
+import 'notification_monitor.dart';
 
 /// OpenAI tool schemas the agent can call. Engine tools route to the ContextOS
 /// engines; device tools launch permissioned OS surfaces the user confirms.
@@ -318,6 +320,37 @@ const kAgentTools = <Map<String, dynamic>>[
       },
     },
   },
+  {
+    'type': 'function',
+    'function': {
+      'name': 'notification_reply',
+      'description':
+          'Reply to the latest Android notification only when Android exposes a quick-reply action. Use only after explicit user confirmation.',
+      'parameters': {
+        'type': 'object',
+        'properties': {
+          'text': {'type': 'string'},
+          'package_name': {'type': 'string'},
+        },
+        'required': ['text'],
+      },
+    },
+  },
+  {
+    'type': 'function',
+    'function': {
+      'name': 'run_phone_agent_loop',
+      'description':
+          'Run the observe-plan-act phone loop: observe screen, plan, execute safe step, re-observe, and audit.',
+      'parameters': {
+        'type': 'object',
+        'properties': {
+          'goal': {'type': 'string'},
+        },
+        'required': ['goal'],
+      },
+    },
+  },
 ];
 
 /// Short human label for a tool, shown as a chip while it runs.
@@ -331,6 +364,8 @@ String agentToolLabel(String name) => switch (name) {
   'send_message' => 'Opening message…',
   'open_url' => 'Opening link…',
   'web_search' => 'Searching the web…',
+  'notification_reply' => 'Replying to notification...',
+  'run_phone_agent_loop' => 'Running phone agent loop...',
   'add_calendar_event' => 'Opening calendar…',
   'open_app' => 'Opening app...',
   'open_settings' => 'Opening settings...',
@@ -404,7 +439,15 @@ Future<String> executeAgentTool(
     case 'open_url':
       return device.openUrl(s('url'));
     case 'web_search':
-      return device.webSearch(s('query'));
+      return phone.browserSearch(s('query'));
+    case 'notification_reply':
+      return ref
+          .read(notificationMonitorProvider.notifier)
+          .replyToLatest(text: s('text'), packageName: s('package_name'));
+    case 'run_phone_agent_loop':
+      await ref.read(agentExecutionRuntimeProvider.notifier).runGoal(s('goal'));
+      final runtime = ref.read(agentExecutionRuntimeProvider);
+      return 'Phone loop completed ${runtime.completedSteps}/${runtime.plan.length} steps. Latest audit: ${runtime.audit.isEmpty ? 'none' : runtime.audit.first.summary}';
     case 'add_calendar_event':
       return device.addCalendarEvent(
         title: s('title'),

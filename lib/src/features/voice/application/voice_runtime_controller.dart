@@ -34,7 +34,11 @@ class VoiceRuntimeController extends Notifier<VoiceRuntimeState> {
       if (config.hasGateway) {
         final client = VoiceRuntimeApiClient(baseUrl: config.gatewayUrl);
         try {
-          final result = await client.run(transcript: trimmed, locale: locale);
+          final result = await client.run(
+            transcript: trimmed,
+            locale: locale,
+            profile: ref.read(userProfileProvider).asData?.value,
+          );
           state = state.copyWith(isRunning: false, result: result);
           client.close();
           return;
@@ -113,21 +117,31 @@ class VoiceRuntimeController extends Notifier<VoiceRuntimeState> {
   }
 
   String _buildSystemPrompt(UserProfile? profile, String locale) {
-    final name = profile?.displayName.isNotEmpty == true
-        ? profile!.displayName
-        : 'the user';
-    final role = profile?.role.isNotEmpty == true
-        ? profile!.role
-        : 'professional';
-    final skills = profile?.skills.isNotEmpty == true
-        ? profile!.skills.join(', ')
-        : 'diverse skills';
-    final goals = profile?.goals.isNotEmpty == true
-        ? profile!.goals.join('; ')
-        : 'professional growth';
+    final hasProfile =
+        profile != null &&
+        [
+          profile.displayName,
+          profile.role,
+          profile.careerStage,
+          profile.industry,
+          ...profile.skills,
+          ...profile.goals,
+          ...profile.interests,
+        ].any((item) => item.trim().isNotEmpty);
+    final profileBlock = hasProfile
+        ? [
+            if (profile.displayName.isNotEmpty) 'name=${profile.displayName}',
+            if (profile.role.isNotEmpty) 'role=${profile.role}',
+            if (profile.skills.isNotEmpty)
+              'skills=${profile.skills.join(', ')}',
+            if (profile.goals.isNotEmpty) 'goals=${profile.goals.join('; ')}',
+            if (profile.interests.isNotEmpty)
+              'interests=${profile.interests.join(', ')}',
+          ].join(' | ')
+        : 'profile_context=unavailable; do not invent personal facts';
 
-    return '''You are ALTER, an AI Future OS for $name. You are their strategic intelligence layer — think Siri + Google Assistant + a McKinsey partner.
-User profile: role=$role | skills=$skills | goals=$goals | locale=$locale
+    return '''You are ALTER, a phone-native AI assistant. Use only the user profile fields below when personalizing. If profile_context is unavailable, ask for missing context instead of inventing it.
+User profile: $profileBlock | locale=$locale
 
 Analyze the voice command and respond ONLY with valid JSON (no markdown fences, no extra text):
 {
@@ -140,16 +154,16 @@ Analyze the voice command and respond ONLY with valid JSON (no markdown fences, 
   "action_graph": ["step 1", "step 2", "step 3"],
   "experiment_plan": {
     "action": "specific 24-48h action",
-    "why_it_matters": "why this matters for ${profile?.displayName ?? name}\'s goals",
+    "why_it_matters": "why this matters based on the provided command/profile",
     "deadline": "48 hours",
     "success_metric": "measurable outcome"
   },
   "next_actions": ["action 1", "action 2", "action 3"],
   "follow_up_questions": ["question 1", "question 2"],
   "signals": [
-    {"title": "Memory", "status": "ok", "summary": "Personal context loaded", "latency_ms": 38},
-    {"title": "Reasoning", "status": "ok", "summary": "Strategic analysis complete", "latency_ms": 195},
-    {"title": "Profile", "status": "ok", "summary": "User profile matched", "latency_ms": 12}
+    {"title": "Memory", "status": "ok", "summary": "Available context checked", "latency_ms": 38},
+    {"title": "Reasoning", "status": "ok", "summary": "Command analysis complete", "latency_ms": 195},
+    {"title": "Profile", "status": "ok", "summary": "Profile fields used only if provided", "latency_ms": 12}
   ]
 }''';
   }

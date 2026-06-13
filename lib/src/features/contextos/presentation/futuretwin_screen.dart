@@ -74,7 +74,11 @@ class _FutureTwinScreenState extends ConsumerState<FutureTwinScreen> {
               children: [
                 Row(
                   children: [
-                    Icon(LucideIcons.git_fork, size: 18, color: AlterPalette.violet),
+                    Icon(
+                      LucideIcons.git_fork,
+                      size: 18,
+                      color: AlterPalette.violet,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       'The decision you’re weighing',
@@ -99,7 +103,9 @@ class _FutureTwinScreenState extends ConsumerState<FutureTwinScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: PremiumButton(
-                    label: state.isSimulating ? 'Simulating…' : 'Simulate futures',
+                    label: state.isSimulating
+                        ? 'Simulating…'
+                        : 'Simulate futures',
                     icon: state.isSimulating
                         ? LucideIcons.loader
                         : LucideIcons.git_fork,
@@ -121,10 +127,9 @@ class _FutureTwinScreenState extends ConsumerState<FutureTwinScreen> {
           ],
           if (state.result != null) ...[
             const SizedBox(height: 16),
-            _FutureResult(result: state.result!)
-                .animate()
-                .fadeIn(duration: 320.ms)
-                .slideY(begin: 0.04),
+            _FutureResult(
+              result: state.result!,
+            ).animate().fadeIn(duration: 320.ms).slideY(begin: 0.04),
           ],
           const SizedBox(height: 8),
         ],
@@ -164,18 +169,20 @@ class _FutureResult extends StatelessWidget {
         const SizedBox(height: 8),
         if (!result.cloudUsed)
           SimTag(
-            label: 'On-device model (demo)',
+            label: 'On-device model',
             color: AlterPalette.mint,
             icon: LucideIcons.cpu,
           ),
         const SizedBox(height: 14),
-        ...result.paths.map((p) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _FuturePathCard(
-                path: p,
-                recommended: result.recommendedType == p.type,
-              ),
-            )),
+        ...result.paths.map(
+          (p) => Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _FuturePathCard(
+              path: p,
+              recommended: result.recommendedType == p.type,
+            ),
+          ),
+        ),
         if (result.regretMinimizer.isNotEmpty) ...[
           DecoratedBox(
             decoration: BoxDecoration(
@@ -186,14 +193,19 @@ class _FutureResult extends StatelessWidget {
                 ],
               ),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AlterPalette.iris.withValues(alpha: 0.45)),
+              border: Border.all(
+                color: AlterPalette.iris.withValues(alpha: 0.45),
+              ),
             ),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
-                  Icon(LucideIcons.shield_check,
-                      color: AlterPalette.iris, size: 24),
+                  Icon(
+                    LucideIcons.shield_check,
+                    color: AlterPalette.iris,
+                    size: 24,
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -267,39 +279,56 @@ class _FuturePathCard extends StatelessWidget {
               style: theme.textTheme.bodyMedium?.copyWith(height: 1.35),
             ),
             const SizedBox(height: 14),
-            SimMetricBar(label: 'Effort', value: path.effort, color: AlterPalette.cyan),
             SimMetricBar(
-                label: 'Risk', value: path.risk, color: c, invertGood: true),
-            SimMetricBar(label: 'Upside', value: path.upside, color: AlterPalette.mint),
+              label: 'Effort',
+              value: path.effort,
+              color: AlterPalette.cyan,
+            ),
             SimMetricBar(
-                label: 'Regret', value: path.regret, color: c, invertGood: true),
+              label: 'Risk',
+              value: path.risk,
+              color: c,
+              invertGood: true,
+            ),
+            SimMetricBar(
+              label: 'Upside',
+              value: path.upside,
+              color: AlterPalette.mint,
+            ),
+            SimMetricBar(
+              label: 'Regret',
+              value: path.regret,
+              color: c,
+              invertGood: true,
+            ),
             if (path.roadmap.isNotEmpty) ...[
               const SizedBox(height: 8),
               ...path.roadmap.asMap().entries.map(
-                    (e) => Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${e.key + 1}.',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: c,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              e.value,
-                              style: theme.textTheme.bodySmall
-                                  ?.copyWith(height: 1.35),
-                            ),
-                          ),
-                        ],
+                (e) => Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${e.key + 1}.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: c,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          e.value,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            height: 1.35,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
+                ),
+              ),
             ],
           ],
         ),

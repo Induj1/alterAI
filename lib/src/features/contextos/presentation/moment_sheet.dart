@@ -53,11 +53,17 @@ class _MomentSheetState extends ConsumerState<_MomentSheet> {
           borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
           border: Border(
             top: BorderSide(
-                color: AlterPalette.iris.withValues(alpha: 0.25), width: 1.3),
+              color: AlterPalette.iris.withValues(alpha: 0.25),
+              width: 1.3,
+            ),
           ),
         ),
         padding: EdgeInsets.fromLTRB(
-            20, 12, 20, 20 + MediaQuery.paddingOf(context).bottom),
+          20,
+          12,
+          20,
+          20 + MediaQuery.paddingOf(context).bottom,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -82,14 +88,19 @@ class _MomentSheetState extends ConsumerState<_MomentSheet> {
                   ),
                   child: const Padding(
                     padding: EdgeInsets.all(8),
-                    child: Icon(LucideIcons.shield, color: Colors.white, size: 18),
+                    child: Icon(
+                      LucideIcons.shield,
+                      color: Colors.white,
+                      size: 18,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 10),
                 Text(
                   'Drop a moment',
-                  style: theme.textTheme.titleLarge
-                      ?.copyWith(fontWeight: FontWeight.w900),
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
               ],
             ),
@@ -109,9 +120,7 @@ class _MomentSheetState extends ConsumerState<_MomentSheet> {
               minLines: 2,
               maxLines: 4,
               onChanged: notifier.setInput,
-              decoration: const InputDecoration(
-                hintText: 'Paste the moment…',
-              ),
+              decoration: const InputDecoration(hintText: 'Paste the moment…'),
             ),
             const SizedBox(height: 12),
             if (analysis != null) _MiniVerdict(analysis: analysis),
@@ -131,11 +140,14 @@ class _MomentSheetState extends ConsumerState<_MomentSheet> {
                         minimumSize: const Size(0, 50),
                       ),
                       icon: Icon(
-                          state.isAnalyzing
-                              ? LucideIcons.loader
-                              : LucideIcons.shield_check,
-                          size: 18),
-                      label: Text(state.isAnalyzing ? 'Checking…' : 'Check moment'),
+                        state.isAnalyzing
+                            ? LucideIcons.loader
+                            : LucideIcons.shield_check,
+                        size: 18,
+                      ),
+                      label: Text(
+                        state.isAnalyzing ? 'Checking…' : 'Check moment',
+                      ),
                       onPressed: state.isAnalyzing
                           ? null
                           : () {
@@ -205,8 +217,10 @@ class _MiniVerdict extends StatelessWidget {
                 ),
                 Text(
                   analysis.headline,
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(fontWeight: FontWeight.w700, height: 1.25),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    height: 1.25,
+                  ),
                 ),
               ],
             ),

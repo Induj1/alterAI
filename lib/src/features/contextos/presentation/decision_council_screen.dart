@@ -75,7 +75,10 @@ class _DecisionCouncilScreenState extends ConsumerState<DecisionCouncilScreen> {
             children: [
               for (final a in CouncilAgent.values)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: a.color.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(99),
@@ -141,10 +144,9 @@ class _DecisionCouncilScreenState extends ConsumerState<DecisionCouncilScreen> {
           ],
           if (state.result != null) ...[
             const SizedBox(height: 16),
-            _CouncilResultView(result: state.result!)
-                .animate()
-                .fadeIn(duration: 320.ms)
-                .slideY(begin: 0.04),
+            _CouncilResultView(
+              result: state.result!,
+            ).animate().fadeIn(duration: 320.ms).slideY(begin: 0.04),
           ],
           const SizedBox(height: 8),
         ],
@@ -166,12 +168,16 @@ class _CouncilResultView extends StatelessWidget {
       children: [
         DecoratedBox(
           decoration: BoxDecoration(
-            gradient: LinearGradient(colors: [
-              AlterPalette.iris.withValues(alpha: 0.2),
-              AlterPalette.cyan.withValues(alpha: 0.08),
-            ]),
+            gradient: LinearGradient(
+              colors: [
+                AlterPalette.iris.withValues(alpha: 0.2),
+                AlterPalette.cyan.withValues(alpha: 0.08),
+              ],
+            ),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AlterPalette.iris.withValues(alpha: 0.45)),
+            border: Border.all(
+              color: AlterPalette.iris.withValues(alpha: 0.45),
+            ),
           ),
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -202,8 +208,10 @@ class _CouncilResultView extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 8),
-                Text(result.consensus,
-                    style: theme.textTheme.bodyMedium?.copyWith(height: 1.4)),
+                Text(
+                  result.consensus,
+                  style: theme.textTheme.bodyMedium?.copyWith(height: 1.4),
+                ),
                 if (result.recommendation.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   Text(
@@ -219,17 +227,22 @@ class _CouncilResultView extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 14),
-        ...result.voices.map((v) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _VoiceCard(voice: v),
-            )),
+        ...result.voices.map(
+          (v) => Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _VoiceCard(voice: v),
+          ),
+        ),
         if (result.dissent.isNotEmpty)
           GlassPanel(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(LucideIcons.message_circle_warning,
-                    size: 18, color: AlterPalette.amber),
+                Icon(
+                  LucideIcons.message_circle_warning,
+                  size: 18,
+                  color: AlterPalette.amber,
+                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(
@@ -243,9 +256,12 @@ class _CouncilResultView extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 4),
-                      Text(result.dissent,
-                          style:
-                              theme.textTheme.bodySmall?.copyWith(height: 1.35)),
+                      Text(
+                        result.dissent,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          height: 1.35,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -287,9 +303,12 @@ class _VoiceCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(voice.agent.label,
-                        style: theme.textTheme.titleSmall
-                            ?.copyWith(fontWeight: FontWeight.w900)),
+                    Text(
+                      voice.agent.label,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
                     Text(
                       voice.stance,
                       style: theme.textTheme.bodySmall?.copyWith(
@@ -311,8 +330,10 @@ class _VoiceCard extends StatelessWidget {
           ),
           if (voice.take.isNotEmpty) ...[
             const SizedBox(height: 10),
-            Text(voice.take,
-                style: theme.textTheme.bodySmall?.copyWith(height: 1.4)),
+            Text(
+              voice.take,
+              style: theme.textTheme.bodySmall?.copyWith(height: 1.4),
+            ),
           ],
         ],
       ),

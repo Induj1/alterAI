@@ -149,8 +149,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                       PremiumChip(
                         label: stage,
                         selected: _careerStage == stage,
-                        onTap: () =>
-                            setState(() => _careerStage = stage),
+                        onTap: () => setState(() => _careerStage = stage),
                       ),
                   ],
                 ),
@@ -161,7 +160,8 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                   maxLines: 4,
                   decoration: const InputDecoration(
                     labelText: 'Bio (optional)',
-                    hintText: 'A sentence or two about yourself and what you\'re building',
+                    hintText:
+                        'A sentence or two about yourself and what you\'re building',
                     prefixIcon: Icon(LucideIcons.file_text),
                   ),
                 ),
@@ -176,7 +176,8 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
               children: [
                 const SectionHeader(
                   title: 'What you\'re good at',
-                  subtitle: 'ALTER uses your skills to give contextually sharp advice.',
+                  subtitle:
+                      'ALTER uses your skills to give contextually sharp advice.',
                 ),
                 const SizedBox(height: 14),
                 Row(
@@ -230,7 +231,8 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
               children: [
                 const SectionHeader(
                   title: 'Your goals',
-                  subtitle: 'ALTER aligns every recommendation to what you\'re building toward.',
+                  subtitle:
+                      'ALTER aligns every recommendation to what you\'re building toward.',
                 ),
                 const SizedBox(height: 14),
                 Row(
@@ -266,8 +268,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                       for (final goal in _goals)
                         Chip(
                           label: Text(goal),
-                          onDeleted: () =>
-                              setState(() => _goals.remove(goal)),
+                          onDeleted: () => setState(() => _goals.remove(goal)),
                           deleteIcon: const Icon(LucideIcons.x, size: 14),
                         ),
                     ],
@@ -299,7 +300,8 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                     labelText: 'OpenAI API Key',
                     hintText: 'sk-...',
                     prefixIcon: const Icon(LucideIcons.key_round),
-                    helperText: 'Get your key at platform.openai.com → API keys',
+                    helperText:
+                        'Get your key at platform.openai.com → API keys',
                     suffixIcon: IconButton(
                       icon: Icon(
                         _keyObscured ? LucideIcons.eye : LucideIcons.eye_off,

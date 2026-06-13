@@ -90,4 +90,3 @@ class _IconBadge extends StatelessWidget {
     );
   }
 }
-

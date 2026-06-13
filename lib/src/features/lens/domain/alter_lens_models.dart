@@ -58,11 +58,14 @@ class LensScanResult {
       confidence: _double(json['confidence']),
       insights: _list(json['insights'], LensInsightSignal.fromJson),
       opportunities: _list(json['opportunities'], LensOpportunity.fromJson),
-      recommendations:
-          _list(json['recommendations'], LensRecommendation.fromJson),
+      recommendations: _list(
+        json['recommendations'],
+        LensRecommendation.fromJson,
+      ),
       extractedEntities: _entityMap(json['extracted_entities']),
       memoryCandidates: _stringList(json['memory_candidates']),
-      createdAt: DateTime.tryParse(json['created_at']?.toString() ?? '') ??
+      createdAt:
+          DateTime.tryParse(json['created_at']?.toString() ?? '') ??
           DateTime.now(),
     );
   }
@@ -180,7 +183,5 @@ Map<String, List<String>> _entityMap(Object? value) {
   if (value is! Map<dynamic, dynamic>) {
     return const {};
   }
-  return value.map(
-    (key, item) => MapEntry(key.toString(), _stringList(item)),
-  );
+  return value.map((key, item) => MapEntry(key.toString(), _stringList(item)));
 }

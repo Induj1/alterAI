@@ -16,6 +16,7 @@ import '../../../domain/entities/alter_models.dart';
 import '../../backend/application/backend_config_controller.dart';
 import '../../backend/data/backend_feature_api_client.dart';
 import '../../profile/application/profile_provider.dart';
+import '../../profile/domain/user_profile.dart';
 import '../../shared/application/alter_data_providers.dart';
 
 class FutureSimulatorScreen extends ConsumerStatefulWidget {
@@ -36,6 +37,11 @@ class _FutureSimulatorScreenState extends ConsumerState<FutureSimulatorScreen> {
   Widget build(BuildContext context) {
     final scenarios = ref.watch(futureScenariosProvider);
     final theme = Theme.of(context);
+    final scenarioItems = scenarios.asData?.value ?? const <FutureScenario>[];
+    final averageConfidence = scenarioItems.isEmpty
+        ? null
+        : scenarioItems.fold<double>(0, (sum, item) => sum + item.probability) /
+              scenarioItems.length;
 
     return AmbientScaffold(
       child: Column(
@@ -63,9 +69,7 @@ class _FutureSimulatorScreenState extends ConsumerState<FutureSimulatorScreen> {
             children: [
               MetricTile(
                 label: 'Scenario runs',
-                value: scenarios.hasValue
-                    ? '${scenarios.value!.length * 32}'
-                    : '128',
+                value: '${scenarioItems.length}',
                 icon: LucideIcons.route,
                 accent: AlterPalette.iris,
               ),
@@ -81,9 +85,11 @@ class _FutureSimulatorScreenState extends ConsumerState<FutureSimulatorScreen> {
                 icon: LucideIcons.calendar,
                 accent: AlterPalette.cyan,
               ),
-              const MetricTile(
+              MetricTile(
                 label: 'Confidence',
-                value: '71%',
+                value: averageConfidence == null
+                    ? '--'
+                    : '${(averageConfidence * 100).round()}%',
                 icon: LucideIcons.shield_check,
                 accent: AlterPalette.mint,
               ),
@@ -166,11 +172,18 @@ class _FutureSimulatorScreenState extends ConsumerState<FutureSimulatorScreen> {
     Object? backendError;
     try {
       final profile = ref.read(userProfileProvider).asData?.value;
+      if (!_hasProfileSignal(profile)) {
+        setState(
+          () => _simError =
+              'Complete your profile with skills, goals, or interests before running the simulator.',
+        );
+        return;
+      }
       final name = profile?.displayName.isNotEmpty == true
           ? profile!.displayName
-          : 'the user';
-      final role = profile?.role ?? 'professional';
-      final goals = profile?.goals.join('; ') ?? 'professional growth';
+          : 'profile not provided';
+      final role = profile?.role.trim() ?? '';
+      final goals = profile?.goals.join('; ') ?? '';
       final riskPct = (_riskTolerance * 100).round();
       final horizonMo = (_timeHorizon * 60).round();
 
@@ -235,17 +248,24 @@ class _FutureSimulatorScreenState extends ConsumerState<FutureSimulatorScreen> {
       final json = jsonDecode(cleaned) as Map<String, dynamic>;
       final list = (json['scenarios'] as List<dynamic>)
           .cast<Map<String, dynamic>>();
-      final scenarios = [
-        for (final s in list)
+      final scenarios = <FutureScenario>[];
+      for (final s in list) {
+        final title = s['title']?.toString().trim() ?? '';
+        final probability = s['probability'];
+        if (title.isEmpty || probability is! num) {
+          continue;
+        }
+        scenarios.add(
           FutureScenario(
-            title: s['title']?.toString() ?? '',
+            title: title,
             horizon: s['horizon']?.toString() ?? '$horizonMo months',
-            probability: (s['probability'] as num?)?.toDouble() ?? 0.5,
+            probability: probability.toDouble(),
             upside: s['upside']?.toString() ?? '',
             risk: s['risk']?.toString() ?? '',
             levers: (s['levers'] as List<dynamic>?)?.cast<String>() ?? const [],
           ),
-      ];
+        );
+      }
       await _persistScenarios(scenarios);
       ref.invalidate(futureScenariosProvider);
     } catch (e) {
@@ -276,6 +296,19 @@ class _FutureSimulatorScreenState extends ConsumerState<FutureSimulatorScreen> {
       });
     }
   }
+}
+
+bool _hasProfileSignal(UserProfile? profile) {
+  if (profile == null) return false;
+  return [
+    profile.displayName,
+    profile.role,
+    profile.careerStage,
+    profile.industry,
+    ...profile.skills,
+    ...profile.goals,
+    ...profile.interests,
+  ].any((item) => item.trim().isNotEmpty);
 }
 
 class _EmptyScenarios extends StatelessWidget {

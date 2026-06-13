@@ -63,7 +63,8 @@ class DashboardData {
 
 final contextDashboardProvider =
     AsyncNotifierProvider<ContextDashboardController, DashboardData>(
-        ContextDashboardController.new);
+      ContextDashboardController.new,
+    );
 
 class ContextDashboardController extends AsyncNotifier<DashboardData> {
   @override
@@ -86,51 +87,63 @@ class ContextDashboardController extends AsyncNotifier<DashboardData> {
     var momentCount = 0;
 
     try {
-      final rows = (await client
-              .from('risk_analyses')
-              .select('verdict, headline, confidence, cloud_used, created_at')
-              .eq('user_id', userId)
-              .order('created_at', ascending: false)
-              .limit(40) as List)
-          .cast<Map<String, dynamic>>();
+      final rows =
+          (await client
+                      .from('risk_analyses')
+                      .select(
+                        'verdict, headline, confidence, cloud_used, created_at',
+                      )
+                      .eq('user_id', userId)
+                      .order('created_at', ascending: false)
+                      .limit(40)
+                  as List)
+              .cast<Map<String, dynamic>>();
       persisted = true;
       for (final r in rows) {
         final v = RiskVerdict.fromId((r['verdict'] ?? '').toString());
         riskMap[v] = (riskMap[v] ?? 0) + 1;
-        ledger.add(LedgerEntry(
-          headline: (r['headline'] ?? 'Moment').toString(),
-          verdict: v,
-          confidence: _d(r['confidence']),
-          cloudUsed: r['cloud_used'] == true,
-          timeLabel: _time(r['created_at']),
-        ));
+        ledger.add(
+          LedgerEntry(
+            headline: (r['headline'] ?? 'Moment').toString(),
+            verdict: v,
+            confidence: _d(r['confidence']),
+            cloudUsed: r['cloud_used'] == true,
+            timeLabel: _time(r['created_at']),
+          ),
+        );
       }
     } catch (_) {}
 
     try {
-      final rows = (await client
-              .from('audit_events')
-              .select('kind, detail, edge_state, created_at')
-              .eq('user_id', userId)
-              .order('created_at', ascending: false)
-              .limit(30) as List)
-          .cast<Map<String, dynamic>>();
+      final rows =
+          (await client
+                      .from('audit_events')
+                      .select('kind, detail, edge_state, created_at')
+                      .eq('user_id', userId)
+                      .order('created_at', ascending: false)
+                      .limit(30)
+                  as List)
+              .cast<Map<String, dynamic>>();
       persisted = true;
       for (final r in rows) {
-        audit.add(AuditEntry(
-          kind: (r['kind'] ?? '').toString(),
-          detail: (r['detail'] ?? '').toString(),
-          edgeState: (r['edge_state'] ?? 'edge').toString(),
-          timeLabel: _time(r['created_at']),
-        ));
+        audit.add(
+          AuditEntry(
+            kind: (r['kind'] ?? '').toString(),
+            detail: (r['detail'] ?? '').toString(),
+            edgeState: (r['edge_state'] ?? 'edge').toString(),
+            timeLabel: _time(r['created_at']),
+          ),
+        );
       }
     } catch (_) {}
 
     try {
-      final rows = (await client
-              .from('captured_moments')
-              .select('id')
-              .eq('user_id', userId) as List);
+      final rows =
+          (await client
+                  .from('captured_moments')
+                  .select('id')
+                  .eq('user_id', userId)
+              as List);
       momentCount = rows.length;
       persisted = true;
     } catch (_) {}

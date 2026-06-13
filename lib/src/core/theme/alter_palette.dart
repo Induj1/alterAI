@@ -29,4 +29,3 @@ class AlterPalette {
     end: Alignment.bottomRight,
   );
 }
-

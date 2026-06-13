@@ -22,6 +22,16 @@ class OpportunityRadarScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final opportunities = ref.watch(opportunitySignalsProvider);
     final theme = Theme.of(context);
+    final opportunityItems =
+        opportunities.asData?.value ?? const <OpportunitySignal>[];
+    final heatScore = opportunityItems.isEmpty
+        ? '--'
+        : '${(opportunityItems.map((item) => item.score).reduce(math.max) * 100).round()}';
+    final sourceCount = opportunityItems
+        .map((item) => item.source.trim())
+        .where((item) => item.isNotEmpty)
+        .toSet()
+        .length;
 
     return AmbientScaffold(
       child: Column(
@@ -54,35 +64,39 @@ class OpportunityRadarScreen extends ConsumerWidget {
                   child: const _RadarView(),
                 ),
               ),
-              const MetricTile(
+              MetricTile(
                 label: 'Heat score',
-                value: '94',
+                value: heatScore,
                 icon: LucideIcons.radar,
-                detail: 'Partnership lane is peaking',
+                detail: opportunityItems.isEmpty
+                    ? 'No ranked opportunities yet'
+                    : 'Highest current opportunity score',
                 accent: AlterPalette.aura,
               ),
-              const MetricTile(
+              MetricTile(
                 label: 'Fresh sources',
-                value: '37',
+                value: '$sourceCount',
                 icon: LucideIcons.globe,
-                detail: 'Firecrawl and social graph inputs',
+                detail: 'Distinct sources in loaded results',
                 accent: AlterPalette.cyan,
               ),
             ],
           ),
           const SizedBox(height: 18),
-          const _OpportunityHeatmap(),
+          _OpportunityHeatmap(items: opportunityItems),
           const SizedBox(height: 18),
           opportunities.when(
-            data: (items) => Column(
-              children: [
-                for (final opportunity in items)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _OpportunityCard(opportunity: opportunity),
+            data: (items) => items.isEmpty
+                ? const _EmptyOpportunities()
+                : Column(
+                    children: [
+                      for (final opportunity in items)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: _OpportunityCard(opportunity: opportunity),
+                        ),
+                    ],
                   ),
-              ],
-            ),
             loading: () => const GlassPanel(
               child: SizedBox(
                 height: 180,
@@ -99,18 +113,21 @@ class OpportunityRadarScreen extends ConsumerWidget {
 }
 
 class _OpportunityHeatmap extends StatelessWidget {
-  const _OpportunityHeatmap();
+  const _OpportunityHeatmap({required this.items});
+
+  final List<OpportunitySignal> items;
 
   @override
   Widget build(BuildContext context) {
-    final cells = const [
-      ('AI ops', 0.94, AlterPalette.aura),
-      ('Events', 0.87, AlterPalette.iris),
-      ('OfficeKit', 0.78, AlterPalette.cyan),
-      ('Enterprise', 0.69, AlterPalette.mint),
-      ('Creator', 0.44, AlterPalette.amber),
-      ('Hiring', 0.36, AlterPalette.danger),
-    ];
+    final grouped = <String, double>{};
+    for (final item in items) {
+      final category = item.category.trim().isEmpty
+          ? 'Uncategorized'
+          : item.category;
+      grouped[category] = math.max(grouped[category] ?? 0, item.score);
+    }
+    final cells = grouped.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
 
     return GlassPanel(
       child: Column(
@@ -118,36 +135,86 @@ class _OpportunityHeatmap extends StatelessWidget {
         children: [
           const SectionHeader(
             title: 'Opportunity heatmap',
-            subtitle: 'Weighted by intent velocity, network fit, and timing.',
+            subtitle:
+                'Grouped by categories returned from the backend/data store.',
           ),
           const SizedBox(height: 16),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final compact = constraints.maxWidth < 560;
-              final width = compact
-                  ? constraints.maxWidth
-                  : (constraints.maxWidth - 10) / 2;
-              return Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  for (final cell in cells)
-                    SizedBox(
-                      width: width,
-                      child: _HeatCell(
-                        label: cell.$1,
-                        value: cell.$2,
-                        color: cell.$3,
+          if (cells.isEmpty)
+            Text(
+              'No opportunity categories loaded yet.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withValues(alpha: 0.58),
+              ),
+            )
+          else
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final compact = constraints.maxWidth < 560;
+                final width = compact
+                    ? constraints.maxWidth
+                    : (constraints.maxWidth - 10) / 2;
+                return Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    for (final entry in cells.take(6))
+                      SizedBox(
+                        width: width,
+                        child: _HeatCell(
+                          label: entry.key,
+                          value: entry.value,
+                          color: _heatColor(entry.value),
+                        ),
                       ),
-                    ),
-                ],
-              );
-            },
+                  ],
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyOpportunities extends StatelessWidget {
+  const _EmptyOpportunities();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return GlassPanel(
+      child: Column(
+        children: [
+          const Icon(LucideIcons.radar, size: 40, color: AlterPalette.iris),
+          const SizedBox(height: 12),
+          Text(
+            'No opportunities loaded',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Connect the backend and complete your profile to rank real signals.',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.58),
+            ),
           ),
         ],
       ),
     );
   }
+}
+
+Color _heatColor(double value) {
+  if (value >= 0.85) return AlterPalette.aura;
+  if (value >= 0.7) return AlterPalette.iris;
+  if (value >= 0.55) return AlterPalette.cyan;
+  if (value >= 0.4) return AlterPalette.amber;
+  return AlterPalette.slate;
 }
 
 class _HeatCell extends StatelessWidget {
@@ -201,20 +268,22 @@ class _RadarView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
-      painter: _RadarPainter(),
-      child: Center(
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: AlterPalette.premiumGradient,
-            borderRadius: BorderRadius.circular(8),
+          painter: _RadarPainter(),
+          child: Center(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: AlterPalette.premiumGradient,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Padding(
+                padding: EdgeInsets.all(16),
+                child: Icon(LucideIcons.radar, color: Colors.white, size: 34),
+              ),
+            ),
           ),
-          child: const Padding(
-            padding: EdgeInsets.all(16),
-            child: Icon(LucideIcons.radar, color: Colors.white, size: 34),
-          ),
-        ),
-      ),
-    ).animate(onPlay: (controller) => controller.repeat()).shimmer(
+        )
+        .animate(onPlay: (controller) => controller.repeat())
+        .shimmer(
           duration: 2400.ms,
           color: Colors.white.withValues(alpha: 0.28),
         );
@@ -317,8 +386,9 @@ class _OpportunityCard extends StatelessWidget {
               value: opportunity.score,
               minHeight: 8,
               backgroundColor: AlterPalette.aura.withValues(alpha: 0.12),
-              valueColor:
-                  const AlwaysStoppedAnimation<Color>(AlterPalette.aura),
+              valueColor: const AlwaysStoppedAnimation<Color>(
+                AlterPalette.aura,
+              ),
             ),
           ),
           const SizedBox(height: 14),

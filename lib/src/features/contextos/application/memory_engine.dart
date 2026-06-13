@@ -12,8 +12,9 @@ class TrustedEntity {
 /// MemoryEngine (trust slice) — remembers contacts/domains/apps the user has
 /// vouched for so LifeShield stops re-warning about them. Backed by
 /// `trusted_entities`; best-effort + in-memory so it works pre-migration.
-final memoryProvider =
-    AsyncNotifierProvider<MemoryEngine, List<TrustedEntity>>(MemoryEngine.new);
+final memoryProvider = AsyncNotifierProvider<MemoryEngine, List<TrustedEntity>>(
+  MemoryEngine.new,
+);
 
 class MemoryEngine extends AsyncNotifier<List<TrustedEntity>> {
   @override
@@ -23,18 +24,22 @@ class MemoryEngine extends AsyncNotifier<List<TrustedEntity>> {
     final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId == null) return const [];
     try {
-      final rows = (await Supabase.instance.client
-              .from('trusted_entities')
-              .select('id, entity_type, value')
-              .eq('user_id', userId)
-              .order('created_at', ascending: false) as List)
-          .cast<Map<String, dynamic>>();
+      final rows =
+          (await Supabase.instance.client
+                      .from('trusted_entities')
+                      .select('id, entity_type, value')
+                      .eq('user_id', userId)
+                      .order('created_at', ascending: false)
+                  as List)
+              .cast<Map<String, dynamic>>();
       return rows
-          .map((r) => TrustedEntity(
-                id: r['id']?.toString(),
-                type: (r['entity_type'] ?? 'domain').toString(),
-                value: (r['value'] ?? '').toString(),
-              ))
+          .map(
+            (r) => TrustedEntity(
+              id: r['id']?.toString(),
+              type: (r['entity_type'] ?? 'domain').toString(),
+              value: (r['value'] ?? '').toString(),
+            ),
+          )
           .toList();
     } catch (_) {
       return const [];
@@ -65,7 +70,8 @@ class MemoryEngine extends AsyncNotifier<List<TrustedEntity>> {
   Future<void> remove(TrustedEntity entity) async {
     final current = state.asData?.value ?? const [];
     state = AsyncValue.data(
-        current.where((e) => e.value != entity.value).toList());
+      current.where((e) => e.value != entity.value).toList(),
+    );
     if (entity.id == null) return;
     try {
       await Supabase.instance.client

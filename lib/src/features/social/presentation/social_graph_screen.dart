@@ -45,7 +45,9 @@ class SocialGraphScreen extends ConsumerWidget {
                     Text(
                       'Relationship intelligence for warm paths, NFC exchanges, and network compounding.',
                       style: theme.textTheme.bodyLarge?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.62),
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.62,
+                        ),
                         height: 1.4,
                       ),
                     ),
@@ -78,13 +80,13 @@ class SocialGraphScreen extends ConsumerWidget {
               ),
               MetricTile(
                 label: 'Contacts',
-                value: contacts.asData?.value?.length.toString() ?? '—',
+                value: contacts.asData?.value.length.toString() ?? '--',
                 icon: LucideIcons.network,
                 accent: AlterPalette.iris,
               ),
               const MetricTile(
                 label: 'NFC exchanges',
-                value: '42',
+                value: '--',
                 icon: LucideIcons.nfc,
                 accent: AlterPalette.cyan,
               ),
@@ -118,8 +120,9 @@ class SocialGraphScreen extends ConsumerWidget {
                           Text(
                             'Tap exchange with match intelligence.',
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurface
-                                  .withValues(alpha: 0.58),
+                              color: theme.colorScheme.onSurface.withValues(
+                                alpha: 0.58,
+                              ),
                             ),
                           ),
                         ],
@@ -153,8 +156,9 @@ class SocialGraphScreen extends ConsumerWidget {
                         Text(
                           'Tap the + button to add your first contact.',
                           style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurface
-                                .withValues(alpha: 0.58),
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.58,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -174,7 +178,8 @@ class SocialGraphScreen extends ConsumerWidget {
                       for (final contact in items)
                         _ContactCard(
                           contact: contact,
-                          onDelete: () => _deleteContact(context, ref, contact.name),
+                          onDelete: () =>
+                              _deleteContact(context, ref, contact.name),
                         ),
                     ],
                   ),
@@ -191,7 +196,10 @@ class SocialGraphScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _showAddContactDialog(BuildContext context, WidgetRef ref) async {
+  Future<void> _showAddContactDialog(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (_) => const _AddContactDialog(),
@@ -212,9 +220,9 @@ class SocialGraphScreen extends ConsumerWidget {
       ref.invalidate(socialGraphProvider);
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to add contact: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to add contact: $e')));
       }
     }
   }
@@ -501,7 +509,9 @@ class _ContactCard extends StatelessWidget {
                     Text(
                       contact.context,
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.56),
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.56,
+                        ),
                       ),
                     ),
                   ],
@@ -524,9 +534,7 @@ class _ContactCard extends StatelessWidget {
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: [
-              for (final tag in contact.tags) PremiumChip(label: tag),
-            ],
+            children: [for (final tag in contact.tags) PremiumChip(label: tag)],
           ),
         ],
       ),

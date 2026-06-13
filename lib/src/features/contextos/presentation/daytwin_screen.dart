@@ -74,8 +74,11 @@ class _DayTwinScreenState extends ConsumerState<DayTwinScreen> {
               children: [
                 Row(
                   children: [
-                    Icon(LucideIcons.calendar_clock,
-                        size: 18, color: AlterPalette.cyan),
+                    Icon(
+                      LucideIcons.calendar_clock,
+                      size: 18,
+                      color: AlterPalette.cyan,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       'Describe today',
@@ -122,10 +125,9 @@ class _DayTwinScreenState extends ConsumerState<DayTwinScreen> {
           ],
           if (state.result != null) ...[
             const SizedBox(height: 16),
-            _DayResult(result: state.result!)
-                .animate()
-                .fadeIn(duration: 320.ms)
-                .slideY(begin: 0.04),
+            _DayResult(
+              result: state.result!,
+            ).animate().fadeIn(duration: 320.ms).slideY(begin: 0.04),
           ],
           const SizedBox(height: 8),
         ],
@@ -155,7 +157,7 @@ class _DayResult extends StatelessWidget {
         const SizedBox(height: 6),
         if (!result.cloudUsed)
           SimTag(
-            label: 'On-device model (demo)',
+            label: 'On-device model',
             color: AlterPalette.mint,
             icon: LucideIcons.cpu,
           ),
@@ -170,7 +172,9 @@ class _DayResult extends StatelessWidget {
                 ],
               ),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AlterPalette.mint.withValues(alpha: 0.45)),
+              border: Border.all(
+                color: AlterPalette.mint.withValues(alpha: 0.45),
+              ),
             ),
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -213,8 +217,11 @@ class _DayResult extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Icon(LucideIcons.triangle_alert,
-                        size: 16, color: AlterPalette.amber),
+                    Icon(
+                      LucideIcons.triangle_alert,
+                      size: 16,
+                      color: AlterPalette.amber,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       'Pressure points',
@@ -246,8 +253,9 @@ class _DayResult extends StatelessWidget {
                         Expanded(
                           child: Text(
                             p,
-                            style:
-                                theme.textTheme.bodySmall?.copyWith(height: 1.35),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              height: 1.35,
+                            ),
                           ),
                         ),
                       ],
@@ -259,10 +267,12 @@ class _DayResult extends StatelessWidget {
           ),
         ],
         const SizedBox(height: 14),
-        ...result.paths.map((p) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _DayPathCard(path: p),
-            )),
+        ...result.paths.map(
+          (p) => Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _DayPathCard(path: p),
+          ),
+        ),
       ],
     );
   }
@@ -319,8 +329,8 @@ class _TimelineBlock extends StatelessWidget {
     final stressColor = block.stress >= 0.66
         ? AlterPalette.danger
         : block.stress >= 0.33
-            ? AlterPalette.amber
-            : AlterPalette.mint;
+        ? AlterPalette.amber
+        : AlterPalette.mint;
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
@@ -341,9 +351,16 @@ class _TimelineBlock extends StatelessWidget {
               Container(
                 width: 9,
                 height: 9,
-                decoration: BoxDecoration(color: stressColor, shape: BoxShape.circle),
+                decoration: BoxDecoration(
+                  color: stressColor,
+                  shape: BoxShape.circle,
+                ),
               ),
-              Container(width: 2, height: 26, color: color.withValues(alpha: 0.2)),
+              Container(
+                width: 2,
+                height: 26,
+                color: color.withValues(alpha: 0.2),
+              ),
             ],
           ),
           const SizedBox(width: 12),
@@ -361,7 +378,9 @@ class _TimelineBlock extends StatelessWidget {
                   Text(
                     block.note,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.56),
+                      color: theme.colorScheme.onSurface.withValues(
+                        alpha: 0.56,
+                      ),
                     ),
                   ),
               ],

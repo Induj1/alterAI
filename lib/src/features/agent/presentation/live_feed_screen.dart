@@ -55,16 +55,18 @@ class LiveFeedScreen extends ConsumerWidget {
             Row(
               children: [
                 _Stat(
-                    icon: LucideIcons.radio,
-                    label: 'Monitoring',
-                    value: 'on-device',
-                    color: AlterPalette.mint),
+                  icon: LucideIcons.radio,
+                  label: 'Monitoring',
+                  value: 'on-device',
+                  color: AlterPalette.mint,
+                ),
                 const SizedBox(width: 10),
                 _Stat(
-                    icon: LucideIcons.flag,
-                    label: 'Flagged',
-                    value: '${m.flaggedCount}',
-                    color: AlterPalette.danger),
+                  icon: LucideIcons.flag,
+                  label: 'Flagged',
+                  value: '${m.flaggedCount}',
+                  color: AlterPalette.danger,
+                ),
               ],
             ),
             const SizedBox(height: 12),
@@ -88,39 +90,49 @@ class LiveFeedScreen extends ConsumerWidget {
               GlassPanel(
                 child: Column(
                   children: [
-                    const Icon(LucideIcons.radio, size: 36, color: AlterPalette.iris),
+                    const Icon(
+                      LucideIcons.radio,
+                      size: 36,
+                      color: AlterPalette.iris,
+                    ),
                     const SizedBox(height: 10),
-                    Text('Listening…',
-                        style: theme.textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w900)),
+                    Text(
+                      'Listening…',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
                     const SizedBox(height: 4),
                     Text(
                       'New notifications will appear here, each triaged on-device.',
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color:
-                            theme.colorScheme.onSurface.withValues(alpha: 0.55),
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.55,
+                        ),
                       ),
                     ),
                   ],
                 ),
               )
             else
-              ...m.moments.map((lm) => Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: _MomentRow(
-                      moment: lm,
-                      onOpen: () {
-                        ref
-                            .read(lifeShieldControllerProvider.notifier)
-                            .setSource(MomentSource.notification);
-                        ref
-                            .read(lifeShieldControllerProvider.notifier)
-                            .setInput(lm.excerpt);
-                        context.go('/shield');
-                      },
-                    ),
-                  )),
+              ...m.moments.map(
+                (lm) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _MomentRow(
+                    moment: lm,
+                    onOpen: () {
+                      ref
+                          .read(lifeShieldControllerProvider.notifier)
+                          .setSource(MomentSource.notification);
+                      ref
+                          .read(lifeShieldControllerProvider.notifier)
+                          .setInput(lm.excerpt);
+                      context.go('/shield');
+                    },
+                  ),
+                ),
+              ),
           ],
           const SizedBox(height: 8),
         ],
@@ -146,9 +158,12 @@ class _ConsentCard extends StatelessWidget {
             children: [
               Icon(LucideIcons.shield, size: 20, color: AlterPalette.iris),
               const SizedBox(width: 10),
-              Text('Turn on monitoring',
-                  style: theme.textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w900)),
+              Text(
+                'Turn on monitoring',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -169,9 +184,12 @@ class _ConsentCard extends StatelessWidget {
           ),
           if (error.isNotEmpty) ...[
             const SizedBox(height: 10),
-            Text(error,
-                style: theme.textTheme.labelSmall
-                    ?.copyWith(color: AlterPalette.amber)),
+            Text(
+              error,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: AlterPalette.amber,
+              ),
+            ),
           ],
         ],
       ),
@@ -179,22 +197,24 @@ class _ConsentCard extends StatelessWidget {
   }
 
   List<Widget> _points(ThemeData theme, List<String> items) => [
-        for (final t in items)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(LucideIcons.check, size: 15, color: AlterPalette.mint),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(t,
-                      style: theme.textTheme.bodySmall?.copyWith(height: 1.35)),
-                ),
-              ],
+    for (final t in items)
+      Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(LucideIcons.check, size: 15, color: AlterPalette.mint),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                t,
+                style: theme.textTheme.bodySmall?.copyWith(height: 1.35),
+              ),
             ),
-          ),
-      ];
+          ],
+        ),
+      ),
+  ];
 }
 
 class _MomentRow extends StatelessWidget {
@@ -227,29 +247,38 @@ class _MomentRow extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Text(moment.app,
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          fontWeight: FontWeight.w900,
-                        )),
+                    Text(
+                      moment.app,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
                     const SizedBox(width: 8),
-                    Text('$h:$min',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color:
-                              theme.colorScheme.onSurface.withValues(alpha: 0.45),
-                        )),
+                    Text(
+                      '$h:$min',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.45,
+                        ),
+                      ),
+                    ),
                     const Spacer(),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
                         color: c.withValues(alpha: 0.14),
                         borderRadius: BorderRadius.circular(99),
                       ),
-                      child: Text(moment.verdict.label,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: c,
-                            fontWeight: FontWeight.w900,
-                          )),
+                      child: Text(
+                        moment.verdict.label,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: c,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -292,17 +321,21 @@ class _Stat extends StatelessWidget {
           children: [
             Icon(icon, size: 18, color: color),
             const SizedBox(width: 10),
-            Text(value,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  color: color,
-                  fontWeight: FontWeight.w900,
-                )),
+            Text(
+              value,
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
             const SizedBox(width: 6),
-            Text(label,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                  fontWeight: FontWeight.w700,
-                )),
+            Text(
+              label,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ],
         ),
       ),

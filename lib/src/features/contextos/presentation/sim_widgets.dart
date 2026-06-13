@@ -25,10 +25,10 @@ class SimMetricBar extends StatelessWidget {
     final shown = value.clamp(0, 1).toDouble();
     final c = invertGood
         ? (shown >= 0.66
-            ? AlterPalette.danger
-            : shown >= 0.33
-                ? AlterPalette.amber
-                : AlterPalette.mint)
+              ? AlterPalette.danger
+              : shown >= 0.33
+              ? AlterPalette.amber
+              : AlterPalette.mint)
         : color;
     return Padding(
       padding: const EdgeInsets.only(bottom: 9),

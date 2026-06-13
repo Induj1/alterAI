@@ -79,6 +79,10 @@ class MainActivity : FlutterActivity() {
             DeviceControlBridge.handle(this, call, result)
         }
 
+        MethodChannel(messenger, AUDIO_CAPTURE_CHANNEL).setMethodCallHandler { call, result ->
+            NativeAudioBridge.handle(this, call, result)
+        }
+
         MethodChannel(messenger, PERMISSIONS_CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
                 "getPermissionStatuses" -> result.success(permissionStatuses())
@@ -303,6 +307,7 @@ class MainActivity : FlutterActivity() {
         private const val WAKE_SERVICE_CHANNEL = "alter.ai/wake_service"
         private const val WAKE_EVENTS_CHANNEL = "alter.ai/wake_events"
         private const val DEVICE_CONTROL_CHANNEL = "alter.ai/device_control"
+        private const val AUDIO_CAPTURE_CHANNEL = "alter.ai/audio_capture"
         private const val PERMISSIONS_CHANNEL = "alter.ai/permissions"
         private const val WAKE_PERMISSION_REQUEST = 9124
         private const val HUB_PERMISSION_REQUEST = 9125

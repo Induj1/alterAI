@@ -14,7 +14,11 @@ enum OutcomeKind {
   delayed('delayed', 'Delayed', false),
   failed('failed', 'Failed', false),
   regretted('regretted', 'Regretted', false),
-  needsStrongerWarning('needs_stronger_warning', 'Needs stronger warning', false);
+  needsStrongerWarning(
+    'needs_stronger_warning',
+    'Needs stronger warning',
+    false,
+  );
 
   const OutcomeKind(this.id, this.label, this.positive);
   final String id;
@@ -59,7 +63,8 @@ class DecisionDna {
 
 final decisionDnaProvider =
     AsyncNotifierProvider<DecisionDnaController, DecisionDna>(
-        DecisionDnaController.new);
+      DecisionDnaController.new,
+    );
 
 class DecisionDnaController extends AsyncNotifier<DecisionDna> {
   @override
@@ -67,8 +72,11 @@ class DecisionDnaController extends AsyncNotifier<DecisionDna> {
 
   /// OutcomeLearningEngine entry point — record how an action turned out, then
   /// recompute Decision DNA.
-  Future<void> recordOutcome(ClawAction action, OutcomeKind outcome,
-      {String note = ''}) async {
+  Future<void> recordOutcome(
+    ClawAction action,
+    OutcomeKind outcome, {
+    String note = '',
+  }) async {
     final userId = Supabase.instance.client.auth.currentUser?.id;
     if (userId != null) {
       try {
@@ -118,18 +126,24 @@ class DecisionDnaController extends AsyncNotifier<DecisionDna> {
     }
 
     final total = rows.length;
-    final positives =
-        counts.entries.where((e) => e.key.positive).fold<int>(0, (s, e) => s + e.value);
-    final trust = total == 0 ? 0.5 : (positives / total).clamp(0.0, 1.0).toDouble();
+    final positives = counts.entries
+        .where((e) => e.key.positive)
+        .fold<int>(0, (s, e) => s + e.value);
+    final trust = total == 0
+        ? 0.5
+        : (positives / total).clamp(0.0, 1.0).toDouble();
 
     final patterns = <DnaPattern>[];
     if (total == 0) {
-      patterns.add(const DnaPattern(
-        pattern: 'Learning starts now',
-        evidence: 'Confirm a few actions and log how they turned out — ALTER '
-            'builds your Decision DNA from real outcomes.',
-        weight: 0.3,
-      ));
+      patterns.add(
+        const DnaPattern(
+          pattern: 'Learning starts now',
+          evidence:
+              'Confirm a few actions and log how they turned out — ALTER '
+              'builds your Decision DNA from real outcomes.',
+          weight: 0.3,
+        ),
+      );
     } else {
       final verified = counts[OutcomeKind.verifiedSafe] ?? 0;
       final correct = counts[OutcomeKind.correctWarning] ?? 0;
@@ -138,41 +152,51 @@ class DecisionDnaController extends AsyncNotifier<DecisionDna> {
       final stronger = counts[OutcomeKind.needsStrongerWarning] ?? 0;
 
       if (verified + correct > 0) {
-        patterns.add(DnaPattern(
-          pattern: 'You verify before you act',
-          evidence:
-              '${verified + correct} of $total flagged moments were checked and '
-              'handled safely.',
-          weight: ((verified + correct) / total).clamp(0.2, 1).toDouble(),
-        ));
+        patterns.add(
+          DnaPattern(
+            pattern: 'You verify before you act',
+            evidence:
+                '${verified + correct} of $total flagged moments were checked and '
+                'handled safely.',
+            weight: ((verified + correct) / total).clamp(0.2, 1).toDouble(),
+          ),
+        );
       }
       if (falseAlarms > 0) {
-        patterns.add(DnaPattern(
-          pattern: 'ALTER is over-warning you',
-          evidence: '$falseAlarms false alarm(s) — tune sensitivity down for '
-              'sources you trust.',
-          weight: (falseAlarms / total).clamp(0.2, 1).toDouble(),
-        ));
+        patterns.add(
+          DnaPattern(
+            pattern: 'ALTER is over-warning you',
+            evidence:
+                '$falseAlarms false alarm(s) — tune sensitivity down for '
+                'sources you trust.',
+            weight: (falseAlarms / total).clamp(0.2, 1).toDouble(),
+          ),
+        );
       }
       if (stronger > 0 || regretted > 0) {
-        patterns.add(DnaPattern(
-          pattern: 'Some risks slipped through',
-          evidence: '${stronger + regretted} moment(s) needed a stronger warning '
-              '— ALTER will escalate similar ones faster.',
-          weight: ((stronger + regretted) / total).clamp(0.2, 1).toDouble(),
-        ));
+        patterns.add(
+          DnaPattern(
+            pattern: 'Some risks slipped through',
+            evidence:
+                '${stronger + regretted} moment(s) needed a stronger warning '
+                '— ALTER will escalate similar ones faster.',
+            weight: ((stronger + regretted) / total).clamp(0.2, 1).toDouble(),
+          ),
+        );
       }
-      patterns.add(DnaPattern(
-        pattern: trust >= 0.7
-            ? 'High follow-through operator'
-            : trust >= 0.45
-                ? 'Building follow-through'
-                : 'Follow-through needs work',
-        evidence:
-            '${(trust * 100).round()}% of logged outcomes were positive across '
-            '$total actions.',
-        weight: trust,
-      ));
+      patterns.add(
+        DnaPattern(
+          pattern: trust >= 0.7
+              ? 'High follow-through operator'
+              : trust >= 0.45
+              ? 'Building follow-through'
+              : 'Follow-through needs work',
+          evidence:
+              '${(trust * 100).round()}% of logged outcomes were positive across '
+              '$total actions.',
+          weight: trust,
+        ),
+      );
     }
 
     return DecisionDna(

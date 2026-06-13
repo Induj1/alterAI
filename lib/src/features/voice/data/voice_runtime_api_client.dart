@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../../profile/domain/user_profile.dart';
+
 const _voiceRuntimeTimeout = Duration(seconds: 20);
 
 class VoiceRuntimeApiClient {
@@ -15,6 +17,7 @@ class VoiceRuntimeApiClient {
   Future<VoiceRuntimeResult> run({
     required String transcript,
     required String locale,
+    UserProfile? profile,
   }) async {
     final response = await _client
         .post(
@@ -24,32 +27,10 @@ class VoiceRuntimeApiClient {
             'transcript': transcript,
             'locale': locale,
             'device_surface': 'phone',
-            'user_profile': const <String, Object>{
-              'name': 'ALTER Operator',
-              'current_role': 'Student founder',
-              'career_stage': 'student founder',
-              'industry': 'AI',
-              'current_network_size': 180,
-              'risk_tolerance': 0.72,
-              'weekly_learning_hours': 12,
-            },
-            'skills': const <String>[
-              'AI agents',
-              'Flutter',
-              'FastAPI',
-              'Product strategy',
-              'Founder storytelling',
-            ],
-            'goals': const <String>[
-              'Build ALTER into a real startup',
-              'Validate strong user demand',
-              'Create a trusted personal AI operating system',
-            ],
-            'interests': const <String>[
-              'AI assistants',
-              'future decisions',
-              'startup networks',
-            ],
+            'user_profile': _profilePayload(profile),
+            'skills': _cleanList(profile?.skills),
+            'goals': _cleanList(profile?.goals),
+            'interests': _cleanList(profile?.interests),
           }),
         )
         .timeout(_voiceRuntimeTimeout);
@@ -222,4 +203,25 @@ double _double(Object? raw) {
 
 String _string(Object? raw, {String fallback = ''}) {
   return raw is String && raw.isNotEmpty ? raw : fallback;
+}
+
+Map<String, Object> _profilePayload(UserProfile? profile) {
+  return <String, Object>{
+    'name': _string(profile?.displayName),
+    'current_role': _string(profile?.role),
+    'career_stage': _string(profile?.careerStage),
+    'industry': _string(profile?.industry),
+    'bio': _string(profile?.bio),
+    'skills': _cleanList(profile?.skills),
+    'goals': _cleanList(profile?.goals),
+    'interests': _cleanList(profile?.interests),
+  };
+}
+
+List<String> _cleanList(List<String>? values) {
+  return values
+          ?.map((item) => item.trim())
+          .where((item) => item.isNotEmpty)
+          .toList(growable: false) ??
+      const <String>[];
 }

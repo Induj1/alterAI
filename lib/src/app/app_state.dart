@@ -91,7 +91,4 @@ class AlterAppController extends Notifier<AlterAppState> {
 }
 
 final alterAppControllerProvider =
-    NotifierProvider<AlterAppController, AlterAppState>(
-  AlterAppController.new,
-);
-
+    NotifierProvider<AlterAppController, AlterAppState>(AlterAppController.new);

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../../profile/domain/user_profile.dart';
 import '../domain/mission_control_models.dart';
 
 const _missionControlTimeout = Duration(seconds: 20);
@@ -87,14 +88,14 @@ class MissionControlApiClient {
           time: 'Live',
           title: 'Gateway mission briefing loaded',
           source: 'API',
-          impact: 'Flutter is connected to FastAPI Mission Control.',
+          impact: 'Flutter received a live FastAPI Mission Control response.',
         ),
         MissionEvent(
           time: 'Live',
           title: '$okCount services responded to health checks',
           source: 'Backend',
           impact: degraded.isEmpty
-              ? 'System is ready for end-to-end demos.'
+              ? 'All configured backend services are reachable.'
               : 'Degraded services are visible in Mission Control.',
         ),
         ...fallback.events.take(2),
@@ -102,51 +103,29 @@ class MissionControlApiClient {
     );
   }
 
-  Future<MissionDemoRun> runFutureOsDemo({required String objective}) async {
-    final body = await _postJson('/v1/demo/future-os', <String, Object>{
-      'objective': objective,
-      'device_context': 'flutter-mission-control',
-    });
-    return MissionDemoRun.fromJson(body);
+  Future<MissionOrchestrationRun> runFutureOsOrchestration({
+    required String objective,
+    UserProfile? profile,
+  }) async {
+    final body =
+        await _postJson('/v1/orchestration/future-os', <String, Object>{
+          'objective': objective,
+          'device_context': 'flutter-mission-control',
+          'profile': _profilePayload(profile),
+        });
+    return MissionOrchestrationRun.fromJson(body);
   }
 
   Future<IntelligenceDecisionReport> decide({
     required String question,
-    Map<String, Object> userProfile = const <String, Object>{
-      'name': 'ALTER Operator',
-      'current_role': 'Student founder',
-      'career_stage': 'student founder',
-      'industry': 'AI',
-      'current_salary': 70000,
-      'current_network_size': 180,
-      'risk_tolerance': 0.72,
-      'weekly_learning_hours': 12,
-    },
-    List<String> skills = const <String>[
-      'AI agents',
-      'Flutter',
-      'FastAPI',
-      'Product strategy',
-      'Founder storytelling',
-    ],
-    List<String> goals = const <String>[
-      'Build ALTER into a real startup',
-      'Validate strong user demand',
-      'Earn reputation through follow-through',
-    ],
-    List<String> interests = const <String>[
-      'AI agents',
-      'future of work',
-      'career decisions',
-      'startup networks',
-    ],
+    UserProfile? profile,
   }) async {
     final body = await _postJson('/v1/intelligence/decide', <String, Object>{
       'question': question,
-      'user_profile': userProfile,
-      'skills': skills,
-      'goals': goals,
-      'interests': interests,
+      'user_profile': _profilePayload(profile),
+      'skills': _cleanList(profile?.skills),
+      'goals': _cleanList(profile?.goals),
+      'interests': _cleanList(profile?.interests),
       'decision_horizon_months': 36,
       'write_memory': true,
     });
@@ -177,43 +156,16 @@ class MissionControlApiClient {
 
   Future<FutureTwinResult> buildFutureTwin({
     required String objective,
-    Map<String, Object> userProfile = const <String, Object>{
-      'name': 'ALTER Operator',
-      'current_role': 'Student founder',
-      'career_stage': 'student founder',
-      'industry': 'AI',
-      'current_salary': 70000,
-      'current_network_size': 180,
-      'risk_tolerance': 0.72,
-      'weekly_learning_hours': 12,
-    },
-    List<String> skills = const <String>[
-      'AI agents',
-      'Flutter',
-      'FastAPI',
-      'Product strategy',
-      'Founder storytelling',
-    ],
-    List<String> goals = const <String>[
-      'Build ALTER into a real startup',
-      'Validate strong user demand',
-      'Earn reputation through follow-through',
-    ],
-    List<String> interests = const <String>[
-      'AI agents',
-      'future of work',
-      'career decisions',
-      'startup networks',
-    ],
+    UserProfile? profile,
     List<FutureTwinEvidenceInput> evidence = const <FutureTwinEvidenceInput>[],
   }) async {
     final body =
         await _postJson('/v1/intelligence/future-twin', <String, Object>{
           'objective': objective,
-          'user_profile': userProfile,
-          'skills': skills,
-          'goals': goals,
-          'interests': interests,
+          'user_profile': _profilePayload(profile),
+          'skills': _cleanList(profile?.skills),
+          'goals': _cleanList(profile?.goals),
+          'interests': _cleanList(profile?.interests),
           'recent_evidence': evidence.map((item) => item.toJson()).toList(),
           'horizon_days': 90,
           'write_memory': true,
@@ -370,8 +322,8 @@ const _moduleToService = <String, String>{
   'reputation': 'reputation_engine',
 };
 
-class MissionDemoRun {
-  const MissionDemoRun({
+class MissionOrchestrationRun {
+  const MissionOrchestrationRun({
     required this.headline,
     required this.executiveSummary,
     required this.steps,
@@ -381,11 +333,11 @@ class MissionDemoRun {
     required this.opportunities,
   });
 
-  factory MissionDemoRun.fromJson(Map<String, dynamic> json) {
-    return MissionDemoRun(
+  factory MissionOrchestrationRun.fromJson(Map<String, dynamic> json) {
+    return MissionOrchestrationRun(
       headline: _string(json['headline']),
       executiveSummary: _string(json['executive_summary']),
-      steps: _parseDemoSteps(json['steps']),
+      steps: _parseOrchestrationSteps(json['steps']),
       keyMetrics: _parseStringMap(json['key_metrics']),
       nextActions: _parseStringList(json['next_actions']),
       risks: _parseStringList(json['risks']),
@@ -395,15 +347,15 @@ class MissionDemoRun {
 
   final String headline;
   final String executiveSummary;
-  final List<MissionDemoStep> steps;
+  final List<MissionOrchestrationStep> steps;
   final Map<String, String> keyMetrics;
   final List<String> nextActions;
   final List<String> risks;
   final List<String> opportunities;
 }
 
-class MissionDemoStep {
-  const MissionDemoStep({
+class MissionOrchestrationStep {
+  const MissionOrchestrationStep({
     required this.name,
     required this.title,
     required this.status,
@@ -411,8 +363,8 @@ class MissionDemoStep {
     required this.latencyMs,
   });
 
-  factory MissionDemoStep.fromJson(Map<String, dynamic> json) {
-    return MissionDemoStep(
+  factory MissionOrchestrationStep.fromJson(Map<String, dynamic> json) {
+    return MissionOrchestrationStep(
       name: _string(json['name']),
       title: _string(json['title']),
       status: _string(json['status'], fallback: 'unknown'),
@@ -432,13 +384,13 @@ class MissionDemoStep {
   bool get isHealthy => status == 'ok';
 }
 
-List<MissionDemoStep> _parseDemoSteps(Object? raw) {
+List<MissionOrchestrationStep> _parseOrchestrationSteps(Object? raw) {
   if (raw is! List<dynamic>) {
-    return const <MissionDemoStep>[];
+    return const <MissionOrchestrationStep>[];
   }
   return raw
       .whereType<Map<String, dynamic>>()
-      .map(MissionDemoStep.fromJson)
+      .map(MissionOrchestrationStep.fromJson)
       .toList(growable: false);
 }
 
@@ -1260,4 +1212,25 @@ double _double(Object? raw) {
 
 String _string(Object? raw, {String fallback = ''}) {
   return raw is String && raw.isNotEmpty ? raw : fallback;
+}
+
+Map<String, Object> _profilePayload(UserProfile? profile) {
+  return <String, Object>{
+    'name': _string(profile?.displayName),
+    'current_role': _string(profile?.role),
+    'career_stage': _string(profile?.careerStage),
+    'industry': _string(profile?.industry),
+    'bio': _string(profile?.bio),
+    'skills': _cleanList(profile?.skills),
+    'goals': _cleanList(profile?.goals),
+    'interests': _cleanList(profile?.interests),
+  };
+}
+
+List<String> _cleanList(List<String>? values) {
+  return values
+          ?.map((item) => item.trim())
+          .where((item) => item.isNotEmpty)
+          .toList(growable: false) ??
+      const <String>[];
 }

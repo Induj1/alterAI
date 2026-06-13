@@ -367,19 +367,17 @@ class _AboutYouScreenState extends ConsumerState<AboutYouScreen> {
         id: user.id,
         displayName: existingName != null && existingName.isNotEmpty
             ? existingName
-            : user.email?.split('@').first ?? 'Alter user',
+            : user.email?.split('@').first ?? '',
         role: role,
         careerStage: role,
         industry: existing?.industry ?? '',
-        bio: existing?.bio.isNotEmpty == true
-            ? existing!.bio
-            : 'Aspiring AI Engineer',
+        bio: existing?.bio.isNotEmpty == true ? existing!.bio : '',
         skills: existing?.skills.isNotEmpty == true
             ? existing!.skills
-            : const ['Python', 'React', 'ML'],
+            : const <String>[],
         goals: existing?.goals.isNotEmpty == true
             ? existing!.goals
-            : const ['Become an AI Engineer'],
+            : const <String>[],
         interests: existing?.interests ?? const [],
         openaiKey: existing?.openaiKey ?? '',
         onboardingDone: true,

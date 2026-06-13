@@ -2,8 +2,8 @@ import 'package:alter/src/features/mission/data/mission_control_api_client.dart'
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('MissionDemoRun parses gateway judge-mode response', () {
-    final run = MissionDemoRun.fromJson(const <String, dynamic>{
+  test('MissionOrchestrationRun parses gateway orchestration response', () {
+    final run = MissionOrchestrationRun.fromJson(const <String, dynamic>{
       'headline': 'ALTER ran 9/9 systems.',
       'executive_summary': 'A full future operating loop completed.',
       'key_metrics': <String, dynamic>{
@@ -41,7 +41,8 @@ void main() {
       'experiment_plan': <String, dynamic>{
         'experiment_id': '22222222-2222-4222-8222-222222222222',
         'action': 'Interview ten target users.',
-        'why_it_matters': 'This tests whether the startup path has real demand.',
+        'why_it_matters':
+            'This tests whether the startup path has real demand.',
         'deadline': '2026-06-19',
         'success_metric': 'Ten conversations and three beta requests.',
       },
@@ -87,9 +88,7 @@ void main() {
       'reputation_event_id': '44444444-4444-4444-8444-444444444444',
       'reputation_score': 652,
       'trust_level': 'strong',
-      'profile_updates': <String>[
-        'Execution reliability signal: 86.5/100.',
-      ],
+      'profile_updates': <String>['Execution reliability signal: 86.5/100.'],
       'next_recommendation': 'Double down for one more sprint.',
       'memory_summary': 'Experiment completed.',
       'signals': <Map<String, dynamic>>[

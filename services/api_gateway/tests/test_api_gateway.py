@@ -145,11 +145,11 @@ def test_consent_ingestion_planner_privacy_surfaces() -> None:
     assert export.json()["download_ready"] is True
 
 
-def test_demo_endpoint_returns_story_even_when_services_are_unavailable() -> None:
+def test_orchestration_endpoint_returns_story_even_when_services_are_unavailable() -> None:
     client = TestClient(app)
 
     response = client.post(
-        "/v1/demo/future-os",
+        "/v1/orchestration/future-os",
         json={"objective": "Choose the best hackathon launch path"},
     )
 

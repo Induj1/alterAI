@@ -7,7 +7,7 @@ import '../domain/simulations.dart';
 
 /// DayTwinEngine — builds a living model of the day: Default / Risk / Optimized
 /// paths, pressure points, and the single next best move. Cloud-structured when
-/// available; deterministic on-device sample otherwise (shown honestly).
+/// available; otherwise the screen reports that a reasoning backend is needed.
 final dayTwinControllerProvider =
     NotifierProvider<DayTwinController, DayTwinState>(DayTwinController.new);
 
@@ -29,13 +29,12 @@ class DayTwinState {
     bool? isSimulating,
     DayTwinResult? result,
     String? error,
-  }) =>
-      DayTwinState(
-        input: input ?? this.input,
-        isSimulating: isSimulating ?? this.isSimulating,
-        result: result ?? this.result,
-        error: error ?? this.error,
-      );
+  }) => DayTwinState(
+    input: input ?? this.input,
+    isSimulating: isSimulating ?? this.isSimulating,
+    result: result ?? this.result,
+    error: error ?? this.error,
+  );
 }
 
 class DayTwinController extends Notifier<DayTwinState> {
@@ -45,20 +44,23 @@ class DayTwinController extends Notifier<DayTwinState> {
   void setInput(String v) => state = state.copyWith(input: v, error: '');
 
   /// Seed the day context from another surface (e.g. a routed moment).
-  void seed(String context) =>
-      state = DayTwinState(input: context);
+  void seed(String context) => state = DayTwinState(input: context);
 
   Future<void> simulate() async {
     final ctx = state.input.trim();
     if (ctx.length < 6) {
-      state = state.copyWith(error: 'Describe today (plans, deadlines, commute).');
+      state = state.copyWith(
+        error: 'Describe today (plans, deadlines, commute).',
+      );
       return;
     }
 
     final openai = ref.read(openAIServiceProvider);
     if (openai == null) {
-      // Honest local fallback so the view is never empty.
-      state = state.copyWith(result: DayTwinResult.sample(ctx), error: '');
+      state = state.copyWith(
+        error:
+            'Connect the backend or sign in with AI access to simulate DayTwin.',
+      );
       return;
     }
 
@@ -68,7 +70,7 @@ class DayTwinController extends Notifier<DayTwinState> {
       final who = profile == null || profile.displayName.isEmpty
           ? ''
           : 'Operator: ${profile.displayName}'
-              '${profile.role.isNotEmpty ? ', ${profile.role}' : ''}. ';
+                '${profile.role.isNotEmpty ? ', ${profile.role}' : ''}. ';
       final raw = await openai.chat(
         jsonMode: true,
         temperature: 0.5,
@@ -86,8 +88,8 @@ class DayTwinController extends Notifier<DayTwinState> {
     } catch (e) {
       state = state.copyWith(
         isSimulating: false,
-        result: DayTwinResult.sample(ctx),
-        error: 'Cloud simulation failed (${e.toString().replaceFirst('Exception: ', '')}). Showing on-device model.',
+        error:
+            'DayTwin simulation failed: ${e.toString().replaceFirst('Exception: ', '')}',
       );
     }
   }

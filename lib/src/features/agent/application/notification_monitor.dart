@@ -7,23 +7,32 @@ import 'package:notification_listener_service/notification_listener_service.dart
 
 import '../../contextos/application/gemma_model_manager.dart';
 import '../../contextos/domain/contextos_models.dart';
+import 'persistent_intelligence_store.dart';
 
 /// One notification ALTER watched and triaged ON-DEVICE. Only the redacted
 /// excerpt + verdict are kept; nothing is sent to the cloud here.
 class LiveMoment {
   const LiveMoment({
     required this.app,
+    required this.packageName,
+    required this.notificationId,
     required this.title,
     required this.excerpt,
     required this.verdict,
     required this.at,
+    required this.canReply,
+    this.event,
   });
 
   final String app;
+  final String packageName;
+  final int notificationId;
   final String title;
   final String excerpt; // redacted on-device
   final RiskVerdict verdict;
   final DateTime at;
+  final bool canReply;
+  final ServiceNotificationEvent? event;
 }
 
 class MonitorState {
@@ -124,6 +133,34 @@ class NotificationMonitor extends Notifier<MonitorState> {
 
   void clear() => state = state.copyWith(moments: const []);
 
+  Future<String> replyToLatest({
+    required String text,
+    String packageName = '',
+  }) async {
+    LiveMoment? target;
+    for (final moment in state.moments) {
+      final packageMatches =
+          packageName.trim().isEmpty ||
+          moment.packageName == packageName ||
+          moment.app.toLowerCase() == packageName.toLowerCase();
+      if (moment.canReply && moment.event != null && packageMatches) {
+        target = moment;
+        break;
+      }
+    }
+    if (target == null) {
+      return 'No replyable notification is available right now.';
+    }
+    try {
+      final ok = await target.event!.sendReply(text);
+      return ok
+          ? 'Replied to ${target.app} notification.'
+          : 'Android did not accept the notification reply.';
+    } catch (error) {
+      return 'Could not reply to notification: $error';
+    }
+  }
+
   void _subscribe() {
     _sub?.cancel();
     _sub = NotificationListenerService.notificationsStream.listen(_onEvent);
@@ -141,17 +178,34 @@ class NotificationMonitor extends Notifier<MonitorState> {
 
     final moment = LiveMoment(
       app: _appNames[e.packageName] ?? (e.packageName ?? 'App'),
+      packageName: e.packageName ?? '',
+      notificationId: e.id ?? -1,
       title: e.title ?? '',
       excerpt: triage.redactedText.length > 160
           ? '${triage.redactedText.substring(0, 160)}…'
           : triage.redactedText,
       verdict: triage.coarseVerdict,
       at: DateTime.now(),
+      canReply: e.canReply == true,
+      event: e,
     );
 
     final next = [moment, ...state.moments];
     state = state.copyWith(
       moments: next.length > 60 ? next.sublist(0, 60) : next,
     );
+    await ref
+        .read(persistentIntelligenceStoreProvider.notifier)
+        .addMemory(
+          source: 'notification',
+          title: '${moment.app}: ${moment.title}',
+          summary: moment.excerpt,
+          metadata: {
+            'package_name': moment.packageName,
+            'notification_id': moment.notificationId,
+            'can_reply': moment.canReply,
+            'verdict': moment.verdict.name,
+          },
+        );
   }
 }

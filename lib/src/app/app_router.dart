@@ -19,19 +19,21 @@ import '../features/contextos/presentation/lifeshield_screen.dart';
 import '../features/contextos/presentation/memory_screen.dart';
 import '../features/contextos/presentation/openclaw_queue_screen.dart';
 import '../features/contextos/presentation/privacy_screen.dart';
+import '../features/council/presentation/clone_council_screen.dart';
 import '../features/lens/presentation/alter_lens_screen.dart';
 import '../features/mission/presentation/mission_control_screen.dart';
 import '../features/nfc/presentation/nfc_networking_screen.dart';
+import '../features/opportunity/presentation/opportunity_radar_screen.dart';
 import '../features/permissions/presentation/permission_hub_screen.dart';
 import '../features/profile/application/profile_provider.dart';
 import '../features/profile/presentation/profile_setup_screen.dart';
 import '../features/reputation/presentation/reputation_dashboard_screen.dart';
 import '../features/settings/presentation/settings_screen.dart';
+import '../features/simulator/presentation/future_simulator_screen.dart';
+import '../features/social/presentation/social_graph_screen.dart';
 import '../features/voice/presentation/voice_assistant_screen.dart';
 import '../ui/routes.dart';
-import '../ui/screens/deep.dart';
 import '../ui/screens/ftue.dart';
-import '../ui/screens/main_shell.dart';
 import '../ui/screens/onboarding.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -116,7 +118,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AlterRoutes.home,
         pageBuilder: (context, state) =>
-            _fadePage(key: state.pageKey, child: const MainShell()),
+            _fadePage(key: state.pageKey, child: const ContextOsHomeScreen()),
       ),
       GoRoute(
         path: AlterRoutes.backend,
@@ -248,7 +250,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AlterRoutes.deepAnalysis,
         pageBuilder: (context, state) =>
-            _fadePage(key: state.pageKey, child: const DeepAnalysisScreen()),
+            _fadePage(key: state.pageKey, child: const MissionControlScreen()),
       ),
       GoRoute(
         path: AlterRoutes.lens,

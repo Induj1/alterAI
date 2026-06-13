@@ -25,6 +25,7 @@ class AppColors {
       AlterUiTheme.light ? const Color(0xFFEAE3F4) : bg;
   static Color get navBg =>
       AlterUiTheme.light ? const Color(0xFFFFFFFF) : const Color(0xFF14101C);
+
   /// White pill surface (e.g. "Ask Alter how") — flips to ink on light.
   static Color get pill =>
       AlterUiTheme.light ? const Color(0xFF18131F) : Colors.white;
@@ -50,7 +51,8 @@ class AppColors {
   // Foreground neutral — drives ALL text + translucent "glass" surfaces.
   // Flips from white (dark theme) to near-black indigo (light theme), so every
   // rgba(white, a) call themes correctly while preserving its alpha.
-  static Color get _fg => AlterUiTheme.light ? const Color(0xFF18131F) : Colors.white;
+  static Color get _fg =>
+      AlterUiTheme.light ? const Color(0xFF18131F) : Colors.white;
   static Color white(double o) => _fg.withValues(alpha: o);
   static Color get glass => _fg.withValues(alpha: 0.05);
   static Color get glassBorder => _fg.withValues(alpha: 0.10);
@@ -65,15 +67,14 @@ class AppText {
     double height = 1.08,
     double letterSpacing = -0.4,
     FontStyle? fontStyle,
-  }) =>
-      GoogleFonts.spaceGrotesk(
-        fontSize: size,
-        fontWeight: weight,
-        color: color,
-        height: height,
-        letterSpacing: letterSpacing,
-        fontStyle: fontStyle,
-      );
+  }) => GoogleFonts.spaceGrotesk(
+    fontSize: size,
+    fontWeight: weight,
+    color: color,
+    height: height,
+    letterSpacing: letterSpacing,
+    fontStyle: fontStyle,
+  );
 
   /// Manrope — body / UI.
   static TextStyle body(
@@ -82,14 +83,13 @@ class AppText {
     Color color = Colors.white,
     double height = 1.4,
     double letterSpacing = 0,
-  }) =>
-      GoogleFonts.manrope(
-        fontSize: size,
-        fontWeight: weight,
-        color: color,
-        height: height,
-        letterSpacing: letterSpacing,
-      );
+  }) => GoogleFonts.manrope(
+    fontSize: size,
+    fontWeight: weight,
+    color: color,
+    height: height,
+    letterSpacing: letterSpacing,
+  );
 
   /// Uppercase eyebrow / kicker label.
   static TextStyle kicker(Color color, {double size = 11}) =>
@@ -114,10 +114,9 @@ ThemeData buildAlterTheme(bool light) {
       secondary: AppColors.purpleLight,
       surface: AppColors.screenBase,
     ),
-    textTheme: GoogleFonts.manropeTextTheme(base.textTheme).apply(
-      bodyColor: fg,
-      displayColor: fg,
-    ),
+    textTheme: GoogleFonts.manropeTextTheme(
+      base.textTheme,
+    ).apply(bodyColor: fg, displayColor: fg),
     splashFactory: InkRipple.splashFactory,
   );
 }

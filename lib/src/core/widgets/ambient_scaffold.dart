@@ -20,7 +20,8 @@ class AmbientScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final pagePadding = padding ??
+    final pagePadding =
+        padding ??
         EdgeInsets.fromLTRB(
           context.pageGutter,
           18,
@@ -32,10 +33,7 @@ class AmbientScaffold extends StatelessWidget {
       alignment: Alignment.topCenter,
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: context.maxContentWidth),
-        child: Padding(
-          padding: pagePadding,
-          child: child,
-        ),
+        child: Padding(padding: pagePadding, child: child),
       ),
     );
 
@@ -43,11 +41,7 @@ class AmbientScaffold extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: isDark
-              ? const [
-                  AlterPalette.ink,
-                  Color(0xFF151125),
-                  Color(0xFF070911),
-                ]
+              ? const [AlterPalette.ink, Color(0xFF151125), Color(0xFF070911)]
               : const [
                   AlterPalette.white,
                   Color(0xFFF4F1FF),
@@ -60,16 +54,12 @@ class AmbientScaffold extends StatelessWidget {
       child: Stack(
         children: [
           Positioned.fill(
-            child: CustomPaint(
-              painter: _AmbientPatternPainter(isDark: isDark),
-            ),
+            child: CustomPaint(painter: _AmbientPatternPainter(isDark: isDark)),
           ),
           if (scrollable)
             CustomScrollView(
               physics: const BouncingScrollPhysics(),
-              slivers: [
-                SliverToBoxAdapter(child: content),
-              ],
+              slivers: [SliverToBoxAdapter(child: content)],
             )
           else
             content,
@@ -120,4 +110,3 @@ class _AmbientPatternPainter extends CustomPainter {
     return oldDelegate.isDark != isDark;
   }
 }
-

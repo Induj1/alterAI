@@ -20,6 +20,7 @@ object DeviceControlBridge {
             "openApp" -> result.success(openApp(activity, call))
             "openSettings" -> result.success(openSettings(activity, call.stringArg("screen")))
             "openDialer" -> result.success(openDialer(activity, call.stringArg("number")))
+            "openBrowserSearch" -> result.success(openBrowserSearch(activity, call.stringArg("query")))
             "openSmsDraft" -> result.success(
                 openSmsDraft(
                     activity,
@@ -115,6 +116,30 @@ object DeviceControlBridge {
             success("Opened dialer for $clean.")
         } catch (error: Throwable) {
             failure("Could not open dialer: ${error.message}")
+        }
+    }
+
+    private fun openBrowserSearch(activity: Activity, query: String): Map<String, Any?> {
+        if (query.isBlank()) return failure("Search query is empty.")
+        return try {
+            val intent = Intent(Intent.ACTION_WEB_SEARCH)
+                .putExtra("query", query)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            activity.startActivity(intent)
+            success("Opened browser search for $query.")
+        } catch (error: Throwable) {
+            val uri = Uri.parse(
+                "https://www.google.com/search?q=${Uri.encode(query)}",
+            )
+            try {
+                activity.startActivity(
+                    Intent(Intent.ACTION_VIEW, uri)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                )
+                success("Opened browser search for $query.")
+            } catch (fallbackError: Throwable) {
+                failure("Could not open browser search: ${fallbackError.message}")
+            }
         }
     }
 
@@ -238,6 +263,11 @@ object DeviceControlBridge {
         "maps" to "com.google.android.apps.maps",
         "calendar" to "com.google.android.calendar",
         "photos" to "com.google.android.apps.photos",
+        "phone" to "com.google.android.dialer",
+        "dialer" to "com.google.android.dialer",
+        "contacts" to "com.google.android.contacts",
+        "playstore" to "com.android.vending",
+        "store" to "com.android.vending",
         "settings" to "com.android.settings",
     )
 }

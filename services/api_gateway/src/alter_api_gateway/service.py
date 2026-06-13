@@ -31,9 +31,7 @@ from .schemas import (
     IntelligenceSignal,
     LanguageDetectRequest,
     LanguageDetectResponse,
-    LifeFeedOpportunity,
     LifeFeedResponse,
-    LifeFeedTask,
     MissionBriefingRequest,
     MissionBriefingResponse,
     MultilingualChatRequest,
@@ -139,65 +137,26 @@ class ApiGatewayService:
         month = now.strftime("%B")
         return LifeFeedResponse(
             user_id=user_id,
-            greeting="Good morning.",
-            date_summary=f"{weekday}, {now.day} {month} · 4 things need you today",
-            focus_title="Start the literature review for Project B",
-            focus_rationale=(
-                "Doing it this morning cuts next week's overload by ~40%."
-            ),
-            items_needing_attention=4,
-            tasks=[
-                LifeFeedTask(
-                    title="Finish ML assignment A",
-                    meta="Done · 2.5h",
-                    badge="2.5h",
-                    done=True,
-                ),
-                LifeFeedTask(
-                    title="Start literature review · Project B",
-                    meta="Today · cuts next-week load 40%",
-                    badge="Now",
-                    hot=True,
-                ),
-                LifeFeedTask(
-                    title="Reply to Prof. Nair",
-                    meta="Pending · research lab slot",
-                    badge="2pm",
-                ),
-            ],
-            opportunities=[
-                LifeFeedOpportunity(
-                    tag="HACKATHON",
-                    match_score=94,
-                    title="GenAI Hack · Bengaluru",
-                    meta="Deadline in 6 days · 3 sponsors on your list",
-                ),
-                LifeFeedOpportunity(
-                    tag="INTERNSHIP",
-                    match_score=88,
-                    title="ML Engineer Intern · Sarvam AI",
-                    meta="Matches React + Python · Remote",
-                ),
-                LifeFeedOpportunity(
-                    tag="GSoC",
-                    match_score=81,
-                    title="Open-source · LLM tooling",
-                    meta="Good-first-issue in a repo you watch",
-                ),
-            ],
+            greeting="ALTER is ready.",
+            date_summary=f"{weekday}, {now.day} {month} - no live feed items available yet",
+            focus_title="",
+            focus_rationale="",
+            items_needing_attention=0,
+            tasks=[],
+            opportunities=[],
         )
 
     def user_settings(self, user_id: UUID) -> UserSettingsResponse:
         return UserSettingsResponse(
             user_id=user_id,
-            languages=["English", "Hindi"],
-            role="Student",
+            languages=[],
+            role="",
             permissions={
-                "wake": True,
-                "calendar": True,
-                "resume": True,
+                "wake": False,
+                "calendar": False,
+                "resume": False,
                 "location": False,
-                "notif": True,
+                "notif": False,
                 "comm": False,
             },
         )
@@ -221,14 +180,14 @@ class ApiGatewayService:
                 PlatformIntegration(
                     id="notion",
                     name="Notion",
-                    connected=True,
-                    status="Synced",
+                    connected=False,
+                    status="Not connected",
                 ),
                 PlatformIntegration(
                     id="github",
                     name="GitHub",
-                    connected=True,
-                    status="Synced",
+                    connected=False,
+                    status="Not connected",
                 ),
             ],
         )
@@ -663,7 +622,6 @@ class ApiGatewayService:
                     "question": f"What is the highest-leverage next move for: {objective}?",
                     "context": {
                         "device_context": request.device_context,
-                        "demo_mode": True,
                     },
                 },
                 summary_builder=lambda data: (
@@ -681,7 +639,7 @@ class ApiGatewayService:
                 summary_builder=lambda data: _opportunity_summary(data),
             )
             memory = await _run_memory_step(client, routes["memory_system"], user_id, objective)
-            social = await _run_social_step(client, routes["social_graph"])
+            social = await _run_social_step(client, routes["social_graph"], request)
             reputation = await _run_step(
                 client,
                 name="reputation_engine",
@@ -720,10 +678,9 @@ class ApiGatewayService:
                         {
                             "user_id": user_id,
                             "artifact_type": "meeting",
-                            "title": "ALTER judge demo",
+                            "title": "Mission control decision brief",
                             "content": (
-                                "The user needs a concrete next move with future paths, "
-                                "multi-agent debate, opportunities, and follow-through."
+                                f"The user is evaluating this objective: {objective}"
                             ),
                             "participants": ["ALTER", "User"],
                         }
@@ -1846,7 +1803,7 @@ async def _run_step(
             latency_ms=latency_ms,
             data=data,
         )
-    except Exception as error:  # noqa: BLE001 - demo response should degrade gracefully
+    except Exception as error:  # noqa: BLE001 - orchestration should degrade gracefully
         latency_ms = int((time.perf_counter() - started) * 1000)
         return DemoStep(
             name=name,
@@ -1871,14 +1828,14 @@ async def _run_memory_step(
             json={
                 "user_id": user_id,
                 "memory_type": "decision",
-                "title": "Hackathon decision loop",
+                "title": "Decision loop",
                 "summary": objective,
                 "content": (
                     f"ALTER ran an end-to-end future operating system loop for: {objective}"
                 ),
-                "source": "mission_control_demo",
-                "confidence": 0.92,
-                "importance": 0.86,
+                "source": "mission_control",
+                "confidence": _objective_confidence(objective),
+                "importance": _objective_importance(objective),
             },
         )
         create_response.raise_for_status()
@@ -1913,50 +1870,63 @@ async def _run_memory_step(
         )
 
 
-async def _run_social_step(client: httpx.AsyncClient, base_url: str) -> DemoStep:
+def _objective_confidence(objective: str) -> float:
+    token_count = len([token for token in objective.split() if token.strip()])
+    return round(min(0.82, 0.42 + token_count * 0.025), 2)
+
+
+def _objective_importance(objective: str) -> float:
+    clean_length = len(objective.strip())
+    return round(min(0.86, 0.48 + clean_length / 900), 2)
+
+
+async def _run_social_step(
+    client: httpx.AsyncClient,
+    base_url: str,
+    request: DemoRunRequest,
+) -> DemoStep:
     started = time.perf_counter()
+    profile = request.profile
+    name = str(
+        profile.get("display_name")
+        or profile.get("displayName")
+        or profile.get("name")
+        or ""
+    ).strip()
+    role = str(profile.get("role") or profile.get("current_role") or "").strip()
+    skills = _coerce_string_list(profile.get("skills"))
+    interests = _coerce_string_list(profile.get("interests"))
+    if not any([name, role, skills, interests]):
+        return DemoStep(
+            name="social_graph",
+            title="Social Graph Route",
+            status="skipped",
+            summary=(
+                "No profile or contact data was provided, so social graph writes were skipped."
+            ),
+            latency_ms=0,
+            data={},
+        )
     try:
         user_response = await client.post(
             f"{base_url}/v1/social-graph/people",
             json={
-                "role": "User",
-                "name": "Demo User",
-                "skills": ["AI", "product", "execution"],
-                "interests": ["startups", "research", "career leverage"],
-            },
-        )
-        user_response.raise_for_status()
-        founder_response = await client.post(
-            f"{base_url}/v1/social-graph/people",
-            json={
-                "role": "Founder",
-                "name": "Warm Intro Founder",
-                "skills": ["fundraising", "go-to-market", "AI"],
-                "interests": ["AI startups", "developer tools"],
-            },
-        )
-        founder_response.raise_for_status()
-        user = user_response.json()
-        founder = founder_response.json()
-        relation_response = await client.post(
-            f"{base_url}/v1/social-graph/relationships",
-            json={
-                "from_person_id": user["id"],
-                "to_person_id": founder["id"],
-                "relationship_type": "KNOWS",
-                "strength": 0.82,
+                "role": role or "User",
+                "name": name or "User",
+                "skills": skills,
+                "interests": interests,
             },
         )
         latency_ms = int((time.perf_counter() - started) * 1000)
-        relation_response.raise_for_status()
-        relationship = relation_response.json()
+        user_response.raise_for_status()
+        user = user_response.json()
         return DemoStep(
             name="social_graph",
             title="Social Graph Route",
             status="ok",
-            summary="Created a warm founder path with 82% relationship strength.",
+            summary="Updated the social graph profile node from provided profile data.",
             latency_ms=latency_ms,
-            data={"user": user, "founder": founder, "relationship": relationship},
+            data={"user": user},
         )
     except Exception as error:  # noqa: BLE001
         latency_ms = int((time.perf_counter() - started) * 1000)
@@ -1971,53 +1941,56 @@ async def _run_social_step(client: httpx.AsyncClient, base_url: str) -> DemoStep
 
 def _future_payload(request: DemoRunRequest) -> dict[str, Any]:
     profile = request.profile
-    current_role = str(profile.get("current_role") or "Student founder")
-    current_salary = float(profile.get("current_salary") or 70000)
+    current_role = str(profile.get("current_role") or profile.get("role") or "")
+    skills = _coerce_string_list(profile.get("skills"))
+    interests = _coerce_string_list(profile.get("interests"))
+    user_profile: dict[str, Any] = {
+        "name": profile.get("name") or "",
+        "current_role": current_role,
+    }
+    if profile.get("current_salary") is not None:
+        user_profile["current_salary"] = float(profile.get("current_salary") or 0)
+    if profile.get("current_network_size") is not None:
+        user_profile["current_network_size"] = int(profile.get("current_network_size") or 0)
+    if profile.get("risk_tolerance") is not None:
+        user_profile["risk_tolerance"] = float(profile.get("risk_tolerance") or 0)
+    if profile.get("weekly_learning_hours") is not None:
+        user_profile["weekly_learning_hours"] = int(profile.get("weekly_learning_hours") or 0)
+    currency = str(profile.get("currency") or "").upper()[:3] or None
     return {
-        "user_profile": {
-            "name": profile.get("name") or "ALTER Operator",
-            "current_role": current_role,
-            "current_salary": current_salary,
-            "current_network_size": int(profile.get("current_network_size") or 180),
-            "risk_tolerance": float(profile.get("risk_tolerance") or 0.68),
-            "weekly_learning_hours": int(profile.get("weekly_learning_hours") or 10),
-        },
+        "user_profile": user_profile,
         "skills": [
-            {"name": "AI agents", "category": "technical", "level": 0.76, "years": 2},
-            {"name": "Product strategy", "category": "product", "level": 0.72, "years": 3},
-            {"name": "Founder storytelling", "category": "business", "level": 0.68, "years": 1},
+            {"name": skill, "category": _skill_category(skill), "level": 0.5, "years": 0}
+            for skill in skills[:12]
         ],
         "goals": [
             {
                 "title": request.objective,
-                "category": "startup",
+                "category": _goal_category(request.objective),
                 "horizon_months": 24,
                 "priority": 5,
             }
         ],
-        "experience": [
-            {
-                "title": "Built an AI prototype",
-                "years": 1,
-                "impact": "Shipped a working demo across frontend, backend, agents, and data.",
-            }
-        ],
-        "interests": ["AI agents", "future of work", "startups"],
+        "experience": [],
+        "interests": interests,
         "horizon_months": 36,
-        "currency": "USD",
+        "currency": currency,
     }
 
 
 def _opportunity_payload(request: DemoRunRequest) -> dict[str, Any]:
+    profile = request.profile
+    opportunity_profile: dict[str, Any] = {
+        "career_stage": str(profile.get("career_stage") or ""),
+        "skills": _coerce_string_list(profile.get("skills")),
+        "goals": _dedupe_strings([*_coerce_string_list(profile.get("goals")), request.objective]),
+        "interests": _coerce_string_list(profile.get("interests")),
+        "preferred_categories": _coerce_string_list(profile.get("preferred_categories")),
+    }
+    if profile.get("risk_tolerance") is not None:
+        opportunity_profile["risk_tolerance"] = _bounded_float(profile.get("risk_tolerance"), 0)
     return {
-        "profile": {
-            "career_stage": "student founder",
-            "skills": ["AI", "Python", "Flutter", "FastAPI", "product"],
-            "goals": ["startup", "funding", "network"],
-            "interests": ["AI agents", "developer tools", "future of work"],
-            "preferred_categories": ["hackathon", "grant", "accelerator"],
-            "risk_tolerance": 0.7,
-        },
+        "profile": opportunity_profile,
         "crawl": {
             "sources": ["devpost", "startup_grants", "yc"],
             "query": request.objective,
@@ -2029,17 +2002,31 @@ def _opportunity_payload(request: DemoRunRequest) -> dict[str, Any]:
 
 def _decision_future_payload(request: IntelligenceDecisionRequest) -> dict[str, Any]:
     profile = request.user_profile
-    role = str(profile.get("current_role") or profile.get("role") or "Student founder")
-    salary = _safe_float(profile.get("current_salary"), 70000)
-    network_size = int(_safe_float(profile.get("current_network_size"), 180))
-    risk_tolerance = _bounded_float(profile.get("risk_tolerance"), 0.68)
-    learning_hours = int(_safe_float(profile.get("weekly_learning_hours"), 10))
+    role = str(profile.get("current_role") or profile.get("role") or "")
+    user_profile: dict[str, Any] = {
+        "name": profile.get("name") or "",
+        "current_role": role,
+        "location": profile.get("location"),
+        "industry": profile.get("industry") or "",
+    }
+    if profile.get("current_salary") is not None:
+        user_profile["current_salary"] = _safe_float(profile.get("current_salary"), 0)
+    if profile.get("current_network_size") is not None:
+        user_profile["current_network_size"] = int(
+            _safe_float(profile.get("current_network_size"), 0)
+        )
+    if profile.get("risk_tolerance") is not None:
+        user_profile["risk_tolerance"] = _bounded_float(profile.get("risk_tolerance"), 0)
+    if profile.get("weekly_learning_hours") is not None:
+        user_profile["weekly_learning_hours"] = int(
+            _safe_float(profile.get("weekly_learning_hours"), 0)
+        )
     skills = _dedupe_strings(
         [
             *request.skills,
             *_coerce_string_list(profile.get("skills")),
         ]
-    ) or ["AI agents", "product strategy", "execution"]
+    )
     goals = _dedupe_strings([*request.goals, request.question])
     interests = _dedupe_strings(
         [
@@ -2047,19 +2034,10 @@ def _decision_future_payload(request: IntelligenceDecisionRequest) -> dict[str, 
             *_coerce_string_list(profile.get("interests")),
             *_coerce_string_list(request.context.get("interests")),
         ]
-    ) or ["AI agents", "future of work", "startups"]
+    )
 
     return {
-        "user_profile": {
-            "name": profile.get("name") or "ALTER Operator",
-            "current_role": role,
-            "location": profile.get("location"),
-            "industry": profile.get("industry") or "AI",
-            "current_salary": salary,
-            "current_network_size": max(0, network_size),
-            "risk_tolerance": risk_tolerance,
-            "weekly_learning_hours": max(0, learning_hours),
-        },
+        "user_profile": user_profile,
         "skills": [
             {
                 "name": skill,
@@ -2090,23 +2068,28 @@ def _decision_opportunity_payload(request: IntelligenceDecisionRequest) -> dict[
     skills = _dedupe_strings([*request.skills, *_coerce_string_list(profile.get("skills"))])
     goals = _dedupe_strings([*request.goals, request.question])
     interests = _dedupe_strings([*request.interests, *_coerce_string_list(profile.get("interests"))])
+    opportunity_profile: dict[str, Any] = {
+        "user_id": str(request.user_id),
+        "career_stage": str(profile.get("career_stage") or ""),
+        "skills": skills,
+        "goals": goals[:12],
+        "interests": interests,
+        "preferred_locations": _coerce_string_list(profile.get("preferred_locations")),
+        "preferred_categories": [
+            "hackathon",
+            "grant",
+            "accelerator",
+            "research",
+            "program",
+        ],
+    }
+    if profile.get("risk_tolerance") is not None:
+        opportunity_profile["risk_tolerance"] = _bounded_float(
+            profile.get("risk_tolerance"),
+            0,
+        )
     return {
-        "profile": {
-            "user_id": str(request.user_id),
-            "career_stage": str(profile.get("career_stage") or "student founder"),
-            "skills": skills or ["AI", "Flutter", "FastAPI", "product"],
-            "goals": goals[:12],
-            "interests": interests or ["AI agents", "developer tools", "future of work"],
-            "preferred_locations": _coerce_string_list(profile.get("preferred_locations")),
-            "preferred_categories": [
-                "hackathon",
-                "grant",
-                "accelerator",
-                "research",
-                "program",
-            ],
-            "risk_tolerance": _bounded_float(profile.get("risk_tolerance"), 0.7),
-        },
+        "profile": opportunity_profile,
         "crawl": {
             "sources": [
                 "devpost",
@@ -2137,14 +2120,7 @@ def _decision_experience(request: IntelligenceDecisionRequest) -> list[dict[str,
                 }
             )
         return normalized
-    return [
-        {
-            "title": "Built an AI product prototype",
-            "domain": "AI agents",
-            "years": 1,
-            "impact": "Shipped a working product loop across app, backend, agents, and data.",
-        }
-    ]
+    return []
 
 
 def _future_options(data: dict[str, Any]) -> list[FutureOption]:
@@ -2578,13 +2554,17 @@ def _future_twin_evidence_signals(
         signals.append(
             EvidenceSignal(
                 evidence_type="stated_intent",
-                title="Ambition declared",
+                title="Stated objective",
                 source="future_twin",
-                impact_score=42.0,
-                confidence=0.58,
+                impact_score=_evidence_impact_score(
+                    "stated_intent",
+                    decision.question,
+                    0.45,
+                ),
+                confidence=0.45,
                 summary=(
-                    "The user has a clear objective, but ALTER needs proof artifacts "
-                    "to distinguish desire from behavior."
+                    "ALTER only has the stated objective so far. Add proof, imported "
+                    "memory, or outcome data to increase confidence."
                 ),
             )
         )
@@ -2602,7 +2582,7 @@ def _evidence_impact_score(
         base += 18
     if any(token in text for token in ("user", "customer", "interview", "beta")):
         base += 12
-    if any(token in text for token in ("github", "prototype", "demo", "deck")):
+    if any(token in text for token in ("github", "prototype", "artifact", "deck")):
         base += 9
     if any(token in text for token in ("maybe", "planned", "thinking")):
         base -= 10

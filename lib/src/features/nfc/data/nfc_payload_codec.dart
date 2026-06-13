@@ -36,11 +36,15 @@ class NfcPayloadCodec {
         throw const NfcPayloadException('ALTER NFC payload is not an object.');
       }
       if (json['schema'] != alterNfcProfileSchema) {
-        throw const NfcPayloadException('ALTER NFC payload schema is unsupported.');
+        throw const NfcPayloadException(
+          'ALTER NFC payload schema is unsupported.',
+        );
       }
       return NfcProfile.fromJson(json);
     }
-    throw const NfcPayloadException('No ALTER profile found on this NFC payload.');
+    throw const NfcPayloadException(
+      'No ALTER profile found on this NFC payload.',
+    );
   }
 }
 

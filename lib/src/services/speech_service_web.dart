@@ -25,7 +25,8 @@ class SpeechService {
   JSObject? _recognition;
 
   bool get isSupported =>
-      kIsWeb && (_speechRecognitionCtor != null || _webkitSpeechRecognitionCtor != null);
+      kIsWeb &&
+      (_speechRecognitionCtor != null || _webkitSpeechRecognitionCtor != null);
 
   JSObject _newRecognition() {
     final ctor = _speechRecognitionCtor ?? _webkitSpeechRecognitionCtor;
@@ -35,7 +36,9 @@ class SpeechService {
 
   Future<String> listen({String locale = 'en-US'}) async {
     if (!isSupported) {
-      throw Exception('Speech recognition requires Chrome. Please use Chrome or type your command instead.');
+      throw Exception(
+        'Speech recognition requires Chrome. Please use Chrome or type your command instead.',
+      );
     }
     stop();
 
@@ -62,7 +65,8 @@ class SpeechService {
       final alt = first.getProperty(0.toJS) as JSObject?;
       if (alt == null) return;
       final transcript =
-          (alt.getProperty('transcript'.toJS) as JSString?)?.toDart.trim() ?? '';
+          (alt.getProperty('transcript'.toJS) as JSString?)?.toDart.trim() ??
+          '';
       completer.complete(transcript);
     };
 
@@ -111,8 +115,7 @@ class SpeechService {
     syn.callMethod('cancel'.toJS);
     final utteranceCtor = _speechSynthesisUtteranceCtor;
     if (utteranceCtor == null) return;
-    final utterance =
-        utteranceCtor.callAsConstructor<JSObject>(text.toJS);
+    final utterance = utteranceCtor.callAsConstructor<JSObject>(text.toJS);
     utterance.setProperty('lang'.toJS, locale.toJS);
     utterance.setProperty('rate'.toJS, rate.toJS);
     utterance.setProperty('pitch'.toJS, 1.0.toJS);

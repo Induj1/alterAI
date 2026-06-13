@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../auth/application/auth_provider.dart';
 import '../../backend/application/backend_config_controller.dart';
+import '../../../domain/entities/alter_models.dart';
 import '../../profile/application/profile_provider.dart';
 import '../../shared/application/alter_data_providers.dart';
 import '../data/life_feed_api_client.dart';
@@ -10,7 +11,7 @@ import '../domain/life_feed_models.dart';
 final lifeFeedProvider = FutureProvider<LifeFeedSnapshot>((ref) async {
   final user = ref.watch(currentUserProvider);
   if (user == null) {
-    return LifeFeedSnapshot.fallback();
+    return LifeFeedSnapshot.empty(firstName: '');
   }
 
   final profile = ref.watch(userProfileProvider).asData?.value;
@@ -28,6 +29,9 @@ final lifeFeedProvider = FutureProvider<LifeFeedSnapshot>((ref) async {
 
   final brief = await ref.watch(assistantBriefProvider.future);
   final opportunities = await ref.watch(opportunitySignalsProvider.future);
+  if (brief == AssistantBrief.empty && opportunities.isEmpty) {
+    return LifeFeedSnapshot.empty(firstName: firstName);
+  }
 
   final now = DateTime.now();
   final weekday = _weekday(now.weekday);
@@ -36,13 +40,11 @@ final lifeFeedProvider = FutureProvider<LifeFeedSnapshot>((ref) async {
   return LifeFeedSnapshot(
     greeting: brief.greeting.isNotEmpty
         ? brief.greeting
-        : 'Good morning, $firstName.',
+        : LifeFeedSnapshot.empty(firstName: firstName).greeting,
     dateSummary:
         '$weekday, ${now.day} $month · ${brief.signals.length} things need you today',
     focusTitle: brief.focus.isNotEmpty ? brief.focus : brief.nextAction,
-    focusRationale: brief.nextAction.isNotEmpty
-        ? brief.nextAction
-        : 'Doing it this morning cuts next week\'s overload by ~40%.',
+    focusRationale: brief.nextAction.isNotEmpty ? brief.nextAction : '',
     itemsNeedingAttention: brief.signals.length,
     opportunities: opportunities.take(3).map((o) {
       return LifeFeedOpportunity(

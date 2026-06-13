@@ -6,11 +6,7 @@ import 'package:nfc_manager_ndef/nfc_manager_ndef.dart';
 import '../domain/nfc_profile.dart';
 import 'nfc_payload_codec.dart';
 
-enum AlterNfcAvailability {
-  enabled,
-  disabled,
-  unsupported,
-}
+enum AlterNfcAvailability { enabled, disabled, unsupported }
 
 abstract class NfcNetworkingGateway {
   Future<AlterNfcAvailability> checkAvailability();
@@ -26,8 +22,8 @@ class NfcManagerNetworkingGateway implements NfcNetworkingGateway {
   NfcManagerNetworkingGateway({
     NfcPayloadCodec codec = const NfcPayloadCodec(),
     Duration sessionTimeout = const Duration(seconds: 28),
-  })  : _codec = codec,
-        _sessionTimeout = sessionTimeout;
+  }) : _codec = codec,
+       _sessionTimeout = sessionTimeout;
 
   final NfcPayloadCodec _codec;
   final Duration _sessionTimeout;
@@ -56,7 +52,9 @@ class NfcManagerNetworkingGateway implements NfcNetworkingGateway {
         try {
           final ndef = Ndef.from(tag);
           if (ndef == null) {
-            throw const NfcNetworkingException('NDEF is not available on this tag.');
+            throw const NfcNetworkingException(
+              'NDEF is not available on this tag.',
+            );
           }
           final message = ndef.cachedMessage ?? await ndef.read();
           if (message == null) {
@@ -97,7 +95,9 @@ class NfcManagerNetworkingGateway implements NfcNetworkingGateway {
         try {
           final ndef = Ndef.from(tag);
           if (ndef == null) {
-            throw const NfcNetworkingException('NDEF is not available on this tag.');
+            throw const NfcNetworkingException(
+              'NDEF is not available on this tag.',
+            );
           }
           if (!ndef.isWritable) {
             throw const NfcNetworkingException('This NFC tag is read-only.');

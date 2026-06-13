@@ -74,7 +74,6 @@ class AlterLensScreen extends ConsumerWidget {
                   child: _LensCameraPanel(
                     scanType: state.scanType,
                     isAnalyzing: state.isAnalyzing,
-                    onPreview: controller.previewAnalysis,
                     onCaptured: (capture) {
                       controller.analyzeCapture(
                         imageBytes: capture.bytes,
@@ -148,13 +147,11 @@ class _LensCameraPanel extends StatefulWidget {
     required this.scanType,
     required this.isAnalyzing,
     required this.onCaptured,
-    required this.onPreview,
   });
 
   final LensScanType scanType;
   final bool isAnalyzing;
   final ValueChanged<_CapturedLensImage> onCaptured;
-  final VoidCallback onPreview;
 
   @override
   State<_LensCameraPanel> createState() => _LensCameraPanelState();
@@ -255,7 +252,9 @@ class _LensCameraPanelState extends State<_LensCameraPanel>
       builder: (context, snapshot) {
         final controller = _cameraController;
         final hasCamera =
-            controller != null && controller.value.isInitialized && _cameraError.isEmpty;
+            controller != null &&
+            controller.value.isInitialized &&
+            _cameraError.isEmpty;
         return Stack(
           fit: StackFit.expand,
           children: [
@@ -283,11 +282,6 @@ class _LensCameraPanelState extends State<_LensCameraPanel>
                     icon: _scanIcon(widget.scanType),
                   ),
                   const Spacer(),
-                  IconButton.filled(
-                    tooltip: 'Preview result',
-                    onPressed: widget.isAnalyzing ? null : widget.onPreview,
-                    icon: const Icon(LucideIcons.sparkles),
-                  ),
                 ],
               ),
             ),
@@ -301,13 +295,13 @@ class _LensCameraPanelState extends State<_LensCameraPanel>
                     child: Text(
                       hasCamera
                           ? 'Frame the ${widget.scanType.label.toLowerCase()}'
-                          : 'Use preview while camera permissions are pending',
+                          : 'Enable camera permission to analyze a real capture',
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w900,
-                          ),
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -433,14 +427,46 @@ class _LensOverlayPainter extends CustomPainter {
       Offset(size.width - inset, size.height - inset),
     ];
 
-    canvas.drawLine(points[0], points[0] + const Offset(length, 0), cornerPaint);
-    canvas.drawLine(points[0], points[0] + const Offset(0, length), cornerPaint);
-    canvas.drawLine(points[1], points[1] - const Offset(length, 0), cornerPaint);
-    canvas.drawLine(points[1], points[1] + const Offset(0, length), cornerPaint);
-    canvas.drawLine(points[2], points[2] + const Offset(length, 0), cornerPaint);
-    canvas.drawLine(points[2], points[2] - const Offset(0, length), cornerPaint);
-    canvas.drawLine(points[3], points[3] - const Offset(length, 0), cornerPaint);
-    canvas.drawLine(points[3], points[3] - const Offset(0, length), cornerPaint);
+    canvas.drawLine(
+      points[0],
+      points[0] + const Offset(length, 0),
+      cornerPaint,
+    );
+    canvas.drawLine(
+      points[0],
+      points[0] + const Offset(0, length),
+      cornerPaint,
+    );
+    canvas.drawLine(
+      points[1],
+      points[1] - const Offset(length, 0),
+      cornerPaint,
+    );
+    canvas.drawLine(
+      points[1],
+      points[1] + const Offset(0, length),
+      cornerPaint,
+    );
+    canvas.drawLine(
+      points[2],
+      points[2] + const Offset(length, 0),
+      cornerPaint,
+    );
+    canvas.drawLine(
+      points[2],
+      points[2] - const Offset(0, length),
+      cornerPaint,
+    );
+    canvas.drawLine(
+      points[3],
+      points[3] - const Offset(length, 0),
+      cornerPaint,
+    );
+    canvas.drawLine(
+      points[3],
+      points[3] - const Offset(0, length),
+      cornerPaint,
+    );
 
     final pulse = Paint()
       ..style = PaintingStyle.stroke
@@ -471,9 +497,9 @@ class _StatusPanel extends StatelessWidget {
             child: Text(
               message,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AlterPalette.danger,
-                    fontWeight: FontWeight.w800,
-                  ),
+                color: AlterPalette.danger,
+                fontWeight: FontWeight.w800,
+              ),
             ),
           ),
         ],
@@ -495,7 +521,9 @@ class _AnalyzingPanel extends StatelessWidget {
           Expanded(
             child: Text(
               'OpenAI vision is extracting summary, insights, opportunities, and recommendations.',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.4),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(height: 1.4),
             ),
           ),
         ],
@@ -584,9 +612,7 @@ class _InsightCard extends StatelessWidget {
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: [
-              for (final tag in insight.tags) PremiumChip(label: tag),
-            ],
+            children: [for (final tag in insight.tags) PremiumChip(label: tag)],
           ),
         ],
       ),
@@ -631,7 +657,10 @@ class _OpportunityRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          PremiumChip(label: opportunity.score.round().toString(), selected: true),
+          PremiumChip(
+            label: opportunity.score.round().toString(),
+            selected: true,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -727,7 +756,8 @@ class _RecommendationRow extends StatelessWidget {
                 const SizedBox(height: 8),
                 PremiumChip(
                   label: recommendation.priority.label,
-                  selected: recommendation.priority == LensPriority.high ||
+                  selected:
+                      recommendation.priority == LensPriority.high ||
                       recommendation.priority == LensPriority.urgent,
                 ),
               ],
@@ -740,10 +770,7 @@ class _RecommendationRow extends StatelessWidget {
 }
 
 class _CapturedLensImage {
-  const _CapturedLensImage({
-    required this.bytes,
-    required this.filename,
-  });
+  const _CapturedLensImage({required this.bytes, required this.filename});
 
   final Uint8List bytes;
   final String filename;

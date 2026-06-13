@@ -65,8 +65,8 @@ class _DnaBody extends StatelessWidget {
     final trustColor = dna.trustScore >= 0.7
         ? AlterPalette.mint
         : dna.trustScore >= 0.45
-            ? AlterPalette.amber
-            : AlterPalette.danger;
+        ? AlterPalette.amber
+        : AlterPalette.danger;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -115,8 +115,9 @@ class _DnaBody extends StatelessWidget {
               children: [
                 Text(
                   'Outcomes logged (${dna.totalOutcomes})',
-                  style: theme.textTheme.titleSmall
-                      ?.copyWith(fontWeight: FontWeight.w900),
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 Wrap(
@@ -126,12 +127,15 @@ class _DnaBody extends StatelessWidget {
                     for (final e in dna.outcomeCounts.entries)
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 11, vertical: 7),
+                          horizontal: 11,
+                          vertical: 7,
+                        ),
                         decoration: BoxDecoration(
                           color: e.key.color.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(99),
-                          border:
-                              Border.all(color: e.key.color.withValues(alpha: 0.3)),
+                          border: Border.all(
+                            color: e.key.color.withValues(alpha: 0.3),
+                          ),
                         ),
                         child: Text(
                           '${e.key.label} · ${e.value}',
@@ -177,8 +181,9 @@ class _PatternCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   pattern.pattern,
-                  style: theme.textTheme.titleSmall
-                      ?.copyWith(fontWeight: FontWeight.w900),
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
               ),
               Text(
@@ -202,8 +207,9 @@ class _PatternCard extends StatelessWidget {
               value: pattern.weight.clamp(0, 1),
               minHeight: 6,
               backgroundColor: AlterPalette.iris.withValues(alpha: 0.12),
-              valueColor:
-                  const AlwaysStoppedAnimation<Color>(AlterPalette.iris),
+              valueColor: const AlwaysStoppedAnimation<Color>(
+                AlterPalette.iris,
+              ),
             ),
           ),
         ],

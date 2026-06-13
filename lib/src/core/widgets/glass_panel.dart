@@ -41,7 +41,9 @@ class GlassPanel extends StatelessWidget {
             border: Border.all(color: border),
             boxShadow: [
               BoxShadow(
-                color: AlterPalette.iris.withValues(alpha: isDark ? 0.18 : 0.09),
+                color: AlterPalette.iris.withValues(
+                  alpha: isDark ? 0.18 : 0.09,
+                ),
                 blurRadius: 36,
                 offset: const Offset(0, 24),
               ),
@@ -96,4 +98,3 @@ class GradientBorderPanel extends StatelessWidget {
     );
   }
 }
-

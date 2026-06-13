@@ -1,0 +1,354 @@
+import 'dart:convert';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+final persistentIntelligenceStoreProvider =
+    AsyncNotifierProvider<PersistentIntelligenceStore, IntelligenceStoreState>(
+      PersistentIntelligenceStore.new,
+    );
+
+const _storePrefKey = 'alter.intelligence_store.v1';
+
+class IntelligenceStoreState {
+  const IntelligenceStoreState({
+    this.audit = const [],
+    this.memories = const [],
+    this.consent = const [],
+    this.exports = const [],
+  });
+
+  factory IntelligenceStoreState.fromJson(Map<String, dynamic> json) {
+    return IntelligenceStoreState(
+      audit: _list(json['audit']).map(IntelligenceAuditEvent.fromJson).toList(),
+      memories: _list(json['memories']).map(TwinMemoryRecord.fromJson).toList(),
+      consent: _list(json['consent']).map(ConsentRecord.fromJson).toList(),
+      exports: _list(json['exports']).map(PrivacyEvent.fromJson).toList(),
+    );
+  }
+
+  final List<IntelligenceAuditEvent> audit;
+  final List<TwinMemoryRecord> memories;
+  final List<ConsentRecord> consent;
+  final List<PrivacyEvent> exports;
+
+  Map<String, dynamic> toJson() => {
+    'audit': audit.map((entry) => entry.toJson()).toList(),
+    'memories': memories.map((memory) => memory.toJson()).toList(),
+    'consent': consent.map((record) => record.toJson()).toList(),
+    'exports': exports.map((event) => event.toJson()).toList(),
+  };
+
+  IntelligenceStoreState copyWith({
+    List<IntelligenceAuditEvent>? audit,
+    List<TwinMemoryRecord>? memories,
+    List<ConsentRecord>? consent,
+    List<PrivacyEvent>? exports,
+  }) {
+    return IntelligenceStoreState(
+      audit: audit ?? this.audit,
+      memories: memories ?? this.memories,
+      consent: consent ?? this.consent,
+      exports: exports ?? this.exports,
+    );
+  }
+
+  String exportJson() {
+    return const JsonEncoder.withIndent('  ').convert(toJson());
+  }
+}
+
+class IntelligenceAuditEvent {
+  const IntelligenceAuditEvent({
+    required this.kind,
+    required this.summary,
+    required this.status,
+    required this.at,
+    this.metadata = const {},
+  });
+
+  factory IntelligenceAuditEvent.fromJson(Map<String, dynamic> json) {
+    return IntelligenceAuditEvent(
+      kind: _string(json['kind']),
+      summary: _string(json['summary']),
+      status: _string(json['status'], fallback: 'ok'),
+      at: DateTime.tryParse(_string(json['at'])) ?? DateTime.now(),
+      metadata: Map<String, Object?>.from(
+        json['metadata'] as Map? ?? const <String, Object?>{},
+      ),
+    );
+  }
+
+  final String kind;
+  final String summary;
+  final String status;
+  final DateTime at;
+  final Map<String, Object?> metadata;
+
+  Map<String, dynamic> toJson() => {
+    'kind': kind,
+    'summary': summary,
+    'status': status,
+    'at': at.toIso8601String(),
+    'metadata': metadata,
+  };
+}
+
+class TwinMemoryRecord {
+  const TwinMemoryRecord({
+    required this.source,
+    required this.title,
+    required this.summary,
+    required this.at,
+    this.metadata = const {},
+  });
+
+  factory TwinMemoryRecord.fromJson(Map<String, dynamic> json) {
+    return TwinMemoryRecord(
+      source: _string(json['source']),
+      title: _string(json['title']),
+      summary: _string(json['summary']),
+      at: DateTime.tryParse(_string(json['at'])) ?? DateTime.now(),
+      metadata: Map<String, Object?>.from(
+        json['metadata'] as Map? ?? const <String, Object?>{},
+      ),
+    );
+  }
+
+  final String source;
+  final String title;
+  final String summary;
+  final DateTime at;
+  final Map<String, Object?> metadata;
+
+  Map<String, dynamic> toJson() => {
+    'source': source,
+    'title': title,
+    'summary': summary,
+    'at': at.toIso8601String(),
+    'metadata': metadata,
+  };
+}
+
+class ConsentRecord {
+  const ConsentRecord({
+    required this.source,
+    required this.accessLevel,
+    required this.granted,
+    required this.at,
+  });
+
+  factory ConsentRecord.fromJson(Map<String, dynamic> json) {
+    return ConsentRecord(
+      source: _string(json['source']),
+      accessLevel: _string(json['access_level'], fallback: 'metadata'),
+      granted: json['granted'] == true,
+      at: DateTime.tryParse(_string(json['at'])) ?? DateTime.now(),
+    );
+  }
+
+  final String source;
+  final String accessLevel;
+  final bool granted;
+  final DateTime at;
+
+  Map<String, dynamic> toJson() => {
+    'source': source,
+    'access_level': accessLevel,
+    'granted': granted,
+    'at': at.toIso8601String(),
+  };
+}
+
+class PrivacyEvent {
+  const PrivacyEvent({
+    required this.kind,
+    required this.detail,
+    required this.at,
+  });
+
+  factory PrivacyEvent.fromJson(Map<String, dynamic> json) {
+    return PrivacyEvent(
+      kind: _string(json['kind']),
+      detail: _string(json['detail']),
+      at: DateTime.tryParse(_string(json['at'])) ?? DateTime.now(),
+    );
+  }
+
+  final String kind;
+  final String detail;
+  final DateTime at;
+
+  Map<String, dynamic> toJson() => {
+    'kind': kind,
+    'detail': detail,
+    'at': at.toIso8601String(),
+  };
+}
+
+class PersistentIntelligenceStore
+    extends AsyncNotifier<IntelligenceStoreState> {
+  @override
+  Future<IntelligenceStoreState> build() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_storePrefKey);
+    if (raw == null || raw.isEmpty) return const IntelligenceStoreState();
+    try {
+      final json = jsonDecode(raw);
+      if (json is Map<String, dynamic>) {
+        return IntelligenceStoreState.fromJson(json);
+      }
+    } catch (_) {}
+    return const IntelligenceStoreState();
+  }
+
+  Future<void> recordAudit({
+    required String kind,
+    required String summary,
+    String status = 'ok',
+    Map<String, Object?> metadata = const {},
+  }) async {
+    final current = await future;
+    await _save(
+      current.copyWith(
+        audit: [
+          IntelligenceAuditEvent(
+            kind: kind,
+            summary: _redact(summary),
+            status: status,
+            at: DateTime.now(),
+            metadata: metadata,
+          ),
+          ...current.audit,
+        ].take(300).toList(growable: false),
+      ),
+    );
+  }
+
+  Future<void> addMemory({
+    required String source,
+    required String title,
+    required String summary,
+    Map<String, Object?> metadata = const {},
+  }) async {
+    final current = await future;
+    await _save(
+      current.copyWith(
+        memories: [
+          TwinMemoryRecord(
+            source: source,
+            title: _redact(title),
+            summary: _redact(summary),
+            at: DateTime.now(),
+            metadata: metadata,
+          ),
+          ...current.memories,
+        ].take(500).toList(growable: false),
+      ),
+    );
+  }
+
+  Future<List<TwinMemoryRecord>> searchMemory(String query) async {
+    final current = await future;
+    final q = query.toLowerCase().trim();
+    if (q.isEmpty) return current.memories.take(20).toList(growable: false);
+    return current.memories
+        .where(
+          (memory) =>
+              memory.title.toLowerCase().contains(q) ||
+              memory.summary.toLowerCase().contains(q) ||
+              memory.source.toLowerCase().contains(q),
+        )
+        .take(20)
+        .toList(growable: false);
+  }
+
+  Future<void> recordConsent({
+    required String source,
+    required String accessLevel,
+    required bool granted,
+  }) async {
+    final current = await future;
+    await _save(
+      current.copyWith(
+        consent: [
+          ConsentRecord(
+            source: source,
+            accessLevel: accessLevel,
+            granted: granted,
+            at: DateTime.now(),
+          ),
+          ...current.consent,
+        ].take(120).toList(growable: false),
+      ),
+    );
+  }
+
+  Future<String> exportData() async {
+    final current = await future;
+    await _save(
+      current.copyWith(
+        exports: [
+          PrivacyEvent(
+            kind: 'export',
+            detail: 'Local intelligence export generated.',
+            at: DateTime.now(),
+          ),
+          ...current.exports,
+        ],
+      ),
+    );
+    return (await future).exportJson();
+  }
+
+  Future<void> deleteScopes(List<String> scopes) async {
+    final current = await future;
+    final normalized = scopes.map((scope) => scope.toLowerCase()).toSet();
+    await _save(
+      current.copyWith(
+        audit: normalized.contains('audit') ? const [] : current.audit,
+        memories: normalized.contains('memories') ? const [] : current.memories,
+        consent: normalized.contains('consent') ? const [] : current.consent,
+        exports: [
+          PrivacyEvent(
+            kind: 'delete',
+            detail: 'Deleted scopes: ${normalized.join(', ')}',
+            at: DateTime.now(),
+          ),
+          ...current.exports,
+        ],
+      ),
+    );
+  }
+
+  Future<void> _save(IntelligenceStoreState next) async {
+    state = AsyncValue.data(next);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_storePrefKey, jsonEncode(next.toJson()));
+  }
+}
+
+List<Map<String, dynamic>> _list(Object? raw) {
+  if (raw is! List) return const [];
+  return raw
+      .whereType<Map<dynamic, dynamic>>()
+      .map((item) => Map<String, dynamic>.from(item))
+      .toList(growable: false);
+}
+
+String _string(Object? raw, {String fallback = ''}) {
+  return raw is String && raw.isNotEmpty ? raw : fallback;
+}
+
+String _redact(String text) {
+  return text
+      .replaceAll(RegExp(r'\b\d{4,}\b'), '[number]')
+      .replaceAll(RegExp(r'\b[\w.+-]+@[\w.-]+\.\w+\b'), '[email]')
+      .replaceAll(
+        RegExp(
+          r'\b(otp|password|passcode|pin|cvv)\s*[:=]?\s*\S+',
+          caseSensitive: false,
+        ),
+        '[secret]',
+      );
+}

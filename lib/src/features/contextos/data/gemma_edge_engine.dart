@@ -35,9 +35,7 @@ class GemmaEdgeEngine extends HeuristicGemmaEngine {
         coarseVerdict: verdict,
         signals: base.signals,
         shouldEscalate: verdict != RiskVerdict.safe || input.length > 280,
-        summary: reason.isNotEmpty
-            ? 'Gemma on-device: $reason'
-            : base.summary,
+        summary: reason.isNotEmpty ? 'Gemma on-device: $reason' : base.summary,
       );
     } catch (_) {
       return base;

@@ -48,7 +48,9 @@ class NfcNetworkingScreen extends ConsumerWidget {
                     Text(
                       'Tap phones. Exchange context. Leave with a ranked reason to follow up.',
                       style: theme.textTheme.bodyLarge?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.62),
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.62,
+                        ),
                         height: 1.4,
                       ),
                     ),
@@ -74,7 +76,6 @@ class NfcNetworkingScreen extends ConsumerWidget {
                 state: state,
                 onScan: controller.scanAndMatch,
                 onShare: controller.shareProfile,
-                onPreview: controller.previewMatch,
                 onCheck: controller.refreshAvailability,
               ),
               _ExchangeBundle(profile: state.localProfile),
@@ -91,7 +92,8 @@ class NfcNetworkingScreen extends ConsumerWidget {
               mediumColumns: 3,
               expandedColumns: 3,
               children: [
-                for (final signal in result.signals) _SignalCard(signal: signal),
+                for (final signal in result.signals)
+                  _SignalCard(signal: signal),
               ],
             ),
           ],
@@ -106,14 +108,12 @@ class _TapPanel extends StatelessWidget {
     required this.state,
     required this.onScan,
     required this.onShare,
-    required this.onPreview,
     required this.onCheck,
   });
 
   final NfcNetworkingState state;
   final VoidCallback onScan;
   final VoidCallback onShare;
-  final VoidCallback onPreview;
   final VoidCallback onCheck;
 
   @override
@@ -145,20 +145,23 @@ class _TapPanel extends StatelessWidget {
           const SizedBox(height: 20),
           SizedBox(
             height: 172,
-            child: Center(
-              child: _NfcPulse(isActive: state.isBusy),
-            ),
+            child: Center(child: _NfcPulse(isActive: state.isBusy)),
           ),
           const SizedBox(height: 18),
           Text(
-            state.localProfile.displayName,
+            state.localProfile.displayName.isEmpty
+                ? 'Complete your profile'
+                : state.localProfile.displayName,
             style: theme.textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.w900,
             ),
           ),
           const SizedBox(height: 4),
           Text(
-            '${state.localProfile.role} - ${state.localProfile.location}',
+            [
+              state.localProfile.role,
+              state.localProfile.location,
+            ].where((item) => item.trim().isNotEmpty).join(' - '),
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurface.withValues(alpha: 0.58),
             ),
@@ -180,11 +183,6 @@ class _TapPanel extends StatelessWidget {
                 compact: true,
                 onPressed: state.isBusy ? null : onShare,
               ),
-              PremiumChip(
-                label: 'Preview',
-                icon: LucideIcons.user,
-                onTap: state.isBusy ? null : onPreview,
-              ),
             ],
           ),
         ],
@@ -201,26 +199,26 @@ class _NfcPulse extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
-      painter: _NfcPulsePainter(isActive: isActive),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: AlterPalette.premiumGradient,
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: [
-            BoxShadow(
-              color: AlterPalette.iris.withValues(alpha: 0.28),
-              blurRadius: 34,
-              offset: const Offset(0, 18),
+          painter: _NfcPulsePainter(isActive: isActive),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: AlterPalette.premiumGradient,
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(
+                  color: AlterPalette.iris.withValues(alpha: 0.28),
+                  blurRadius: 34,
+                  offset: const Offset(0, 18),
+                ),
+              ],
             ),
-          ],
-        ),
-        child: const SizedBox(
-          width: 96,
-          height: 96,
-          child: Icon(LucideIcons.nfc, color: Colors.white, size: 36),
-        ),
-      ),
-    )
+            child: const SizedBox(
+              width: 96,
+              height: 96,
+              child: Icon(LucideIcons.nfc, color: Colors.white, size: 36),
+            ),
+          ),
+        )
         .animate(
           onPlay: (controller) {
             if (isActive) {
@@ -289,7 +287,8 @@ class _ExchangeBundle extends StatelessWidget {
             spacing: 8,
             runSpacing: 8,
             children: [
-              for (final skill in profile.skills.take(5)) PremiumChip(label: skill),
+              for (final skill in profile.skills.take(5))
+                PremiumChip(label: skill),
             ],
           ),
           const SizedBox(height: 10),
@@ -394,10 +393,7 @@ class _ScoreStack extends StatelessWidget {
 }
 
 class _StatusPanel extends StatelessWidget {
-  const _StatusPanel({
-    required this.message,
-    required this.isError,
-  });
+  const _StatusPanel({required this.message, required this.isError});
 
   final String message;
   final bool isError;
@@ -503,10 +499,7 @@ class _ResultPanel extends StatelessWidget {
 }
 
 class _TermGroup extends StatelessWidget {
-  const _TermGroup({
-    required this.title,
-    required this.values,
-  });
+  const _TermGroup({required this.title, required this.values});
 
   final String title;
   final List<String> values;
@@ -559,7 +552,10 @@ class _SignalCard extends StatelessWidget {
                   ),
                 ),
               ),
-              PremiumChip(label: signal.percentage, selected: signal.score >= 70),
+              PremiumChip(
+                label: signal.percentage,
+                selected: signal.score >= 70,
+              ),
             ],
           ),
           const SizedBox(height: 12),

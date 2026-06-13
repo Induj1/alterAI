@@ -54,9 +54,9 @@ final missionControlProvider = FutureProvider<MissionControlSnapshot>((
   }
 });
 
-final missionDemoControllerProvider =
-    NotifierProvider<MissionDemoController, MissionDemoState>(
-      MissionDemoController.new,
+final missionOrchestrationControllerProvider =
+    NotifierProvider<MissionOrchestrationController, MissionOrchestrationState>(
+      MissionOrchestrationController.new,
     );
 
 final intelligenceKernelControllerProvider =
@@ -185,6 +185,7 @@ class FutureTwinController extends Notifier<FutureTwinState> {
       try {
         final result = await gateway.buildFutureTwin(
           objective: trimmed,
+          profile: ref.read(userProfileProvider).asData?.value,
           evidence: evidence,
         );
         state = state.copyWith(isRunning: false, result: result);
@@ -260,7 +261,10 @@ class IntelligenceKernelController extends Notifier<IntelligenceKernelState> {
     final gateway = await _missionGateway(ref);
     if (gateway != null) {
       try {
-        final report = await gateway.decide(question: trimmed);
+        final report = await gateway.decide(
+          question: trimmed,
+          profile: ref.read(userProfileProvider).asData?.value,
+        );
         state = state.copyWith(isRunning: false, report: report);
         gateway.close();
         return;
@@ -404,9 +408,10 @@ class IntelligenceKernelState {
   }
 }
 
-class MissionDemoController extends Notifier<MissionDemoState> {
+class MissionOrchestrationController
+    extends Notifier<MissionOrchestrationState> {
   @override
-  MissionDemoState build() => const MissionDemoState();
+  MissionOrchestrationState build() => const MissionOrchestrationState();
 
   Future<void> run(String objective) async {
     final trimmed = objective.trim();
@@ -419,7 +424,11 @@ class MissionDemoController extends Notifier<MissionDemoState> {
     final gateway = await _missionGateway(ref);
     if (gateway != null) {
       try {
-        final result = await gateway.runFutureOsDemo(objective: trimmed);
+        final profile = ref.read(userProfileProvider).asData?.value;
+        final result = await gateway.runFutureOsOrchestration(
+          objective: trimmed,
+          profile: profile,
+        );
         state = state.copyWith(isRunning: false, result: result);
         gateway.close();
         return;
@@ -437,7 +446,7 @@ class MissionDemoController extends Notifier<MissionDemoState> {
       return;
     }
     try {
-      final result = await ai.runDemo(trimmed);
+      final result = await ai.runOrchestration(trimmed);
       state = state.copyWith(isRunning: false, result: result);
     } catch (error) {
       state = state.copyWith(
@@ -448,23 +457,23 @@ class MissionDemoController extends Notifier<MissionDemoState> {
   }
 }
 
-class MissionDemoState {
-  const MissionDemoState({
+class MissionOrchestrationState {
+  const MissionOrchestrationState({
     this.isRunning = false,
     this.result,
     this.errorMessage = '',
   });
 
   final bool isRunning;
-  final MissionDemoRun? result;
+  final MissionOrchestrationRun? result;
   final String errorMessage;
 
-  MissionDemoState copyWith({
+  MissionOrchestrationState copyWith({
     bool? isRunning,
-    MissionDemoRun? result,
+    MissionOrchestrationRun? result,
     String? errorMessage,
   }) {
-    return MissionDemoState(
+    return MissionOrchestrationState(
       isRunning: isRunning ?? this.isRunning,
       result: result ?? this.result,
       errorMessage: errorMessage ?? this.errorMessage,
@@ -473,18 +482,20 @@ class MissionDemoState {
 }
 
 const fallbackMissionControlSnapshot = MissionControlSnapshot(
-  operatorName: 'Aria Shah',
-  activeObjective: 'Package the AI networking demo and route the best intros.',
-  readiness: 0.91,
+  operatorName: 'Profile not loaded',
+  activeObjective:
+      'Connect the backend gateway or run an intelligence action to populate Mission Control.',
+  readiness: 0,
+  backendStatus: 'not connected',
   phoneModules: [
     MissionModule(
       id: 'voice',
       title: 'Voice',
       route: '/voice',
       surface: MissionSurface.phone,
-      signal: 0.94,
-      health: 0.96,
-      status: 'Wake channel armed',
+      signal: 0,
+      health: 0,
+      status: 'Waiting for runtime state',
       cadence: 'Always-on',
       capabilities: ['Intent capture', 'Agent command', 'Memory entry'],
     ),
@@ -493,9 +504,9 @@ const fallbackMissionControlSnapshot = MissionControlSnapshot(
       title: 'Camera',
       route: '/lens',
       surface: MissionSurface.phone,
-      signal: 0.87,
-      health: 0.89,
-      status: 'Vision queue clear',
+      signal: 0,
+      health: 0,
+      status: 'Waiting for camera analysis',
       cadence: 'Capture',
       capabilities: ['Resume scan', 'Deck scan', 'Product scan'],
     ),
@@ -504,9 +515,9 @@ const fallbackMissionControlSnapshot = MissionControlSnapshot(
       title: 'NFC',
       route: '/nfc',
       surface: MissionSurface.phone,
-      signal: 0.82,
-      health: 0.88,
-      status: 'Tap profile ready',
+      signal: 0,
+      health: 0,
+      status: 'Waiting for NFC exchange',
       cadence: 'Proximity',
       capabilities: ['Portfolio', 'Resume', 'Match scoring'],
     ),
@@ -517,9 +528,9 @@ const fallbackMissionControlSnapshot = MissionControlSnapshot(
       title: 'Future Timelines',
       route: '/simulator',
       surface: MissionSurface.laptop,
-      signal: 0.91,
-      health: 0.9,
-      status: '3 futures modeled',
+      signal: 0,
+      health: 0,
+      status: 'No scenarios loaded',
       cadence: 'Planning',
       capabilities: ['Salary path', 'Skills path', 'Risk forecast'],
     ),
@@ -528,9 +539,9 @@ const fallbackMissionControlSnapshot = MissionControlSnapshot(
       title: 'Clone Council',
       route: '/council',
       surface: MissionSurface.laptop,
-      signal: 0.88,
-      health: 0.92,
-      status: '7 clones aligned',
+      signal: 0,
+      health: 0,
+      status: 'No debate loaded',
       cadence: 'Debate',
       capabilities: ['Challenge', 'Consensus', 'Risks'],
     ),
@@ -539,9 +550,9 @@ const fallbackMissionControlSnapshot = MissionControlSnapshot(
       title: 'Opportunity Radar',
       route: '/radar',
       surface: MissionSurface.laptop,
-      signal: 0.93,
-      health: 0.86,
-      status: '18 signals ranked',
+      signal: 0,
+      health: 0,
+      status: 'No opportunity signals',
       cadence: 'Crawl',
       capabilities: ['Programs', 'Grants', 'Warm leads'],
     ),
@@ -550,9 +561,9 @@ const fallbackMissionControlSnapshot = MissionControlSnapshot(
       title: 'Social Graph',
       route: '/social',
       surface: MissionSurface.laptop,
-      signal: 0.84,
-      health: 0.91,
-      status: 'Warm paths online',
+      signal: 0,
+      health: 0,
+      status: 'No contacts loaded',
       cadence: 'Graph',
       capabilities: ['Mentors', 'Recruiters', 'Team paths'],
     ),
@@ -561,63 +572,13 @@ const fallbackMissionControlSnapshot = MissionControlSnapshot(
       title: 'Reputation Engine',
       route: '/reputation',
       surface: MissionSurface.laptop,
-      signal: 0.79,
-      health: 0.87,
-      status: 'Trust ledger stable',
+      signal: 0,
+      health: 0,
+      status: 'No reputation events',
       cadence: 'Ledger',
       capabilities: ['Follow-up', 'Delivery', 'Trust deltas'],
     ),
   ],
-  metrics: [
-    MissionMetric(
-      label: 'Readiness',
-      value: '91%',
-      detail: 'Objective, graph, and radar are synchronized.',
-      moduleId: 'timelines',
-    ),
-    MissionMetric(
-      label: 'Warm Paths',
-      value: '18',
-      detail: 'Social graph has direct routes to design partners.',
-      moduleId: 'social',
-    ),
-    MissionMetric(
-      label: 'Radar Heat',
-      value: '94',
-      detail: 'Partnership signal is above launch threshold.',
-      moduleId: 'radar',
-    ),
-    MissionMetric(
-      label: 'Trust Delta',
-      value: '+26',
-      detail: 'Reputation improved across recent follow-ups.',
-      moduleId: 'reputation',
-    ),
-  ],
-  events: [
-    MissionEvent(
-      time: 'Now',
-      title: 'NFC contact enriched into Social Graph',
-      source: 'Phone',
-      impact: 'New warm intro candidate',
-    ),
-    MissionEvent(
-      time: '12m',
-      title: 'Clone Council flagged beta onboarding risk',
-      source: 'Laptop',
-      impact: 'Add trust-first permission screen',
-    ),
-    MissionEvent(
-      time: '24m',
-      title: 'Opportunity Radar found founder cohort opening',
-      source: 'Laptop',
-      impact: 'Send application before Friday',
-    ),
-    MissionEvent(
-      time: '41m',
-      title: 'Camera scan created product memory',
-      source: 'Phone',
-      impact: 'Route to competitive teardown',
-    ),
-  ],
+  metrics: [],
+  events: [],
 );

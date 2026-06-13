@@ -37,14 +37,20 @@ class HeuristicGemmaEngine implements LocalGemmaEngine {
   // --- Local redaction patterns (sensitive data never leaves the device) ---
   static final _patterns = <String, RegExp>{
     'card number': RegExp(r'\b(?:\d[ -]?){13,16}\b'),
-    'OTP / code': RegExp(r'\b\d{4,8}\b(?=.*(?:otp|code|pin|verify))',
-        caseSensitive: false),
+    'OTP / code': RegExp(
+      r'\b\d{4,8}\b(?=.*(?:otp|code|pin|verify))',
+      caseSensitive: false,
+    ),
     'phone': RegExp(r'\b(?:\+?\d{1,3}[ -]?)?\d{10}\b'),
     'email': RegExp(r'\b[\w.+-]+@[\w-]+\.[\w.-]+\b'),
-    'UPI id': RegExp(r'\b[\w.-]+@(?:okaxis|oksbi|okhdfcbank|ybl|paytm|upi)\b',
-        caseSensitive: false),
-    'account no.': RegExp(r'\bac(?:count)?\s*(?:no\.?|number)?\s*[:#]?\s*\d{6,}\b',
-        caseSensitive: false),
+    'UPI id': RegExp(
+      r'\b[\w.-]+@(?:okaxis|oksbi|okhdfcbank|ybl|paytm|upi)\b',
+      caseSensitive: false,
+    ),
+    'account no.': RegExp(
+      r'\bac(?:count)?\s*(?:no\.?|number)?\s*[:#]?\s*\d{6,}\b',
+      caseSensitive: false,
+    ),
   };
 
   static final _scamSignals = <String, String>{
@@ -56,7 +62,8 @@ class HeuristicGemmaEngine implements LocalGemmaEngine {
         'Account-threat pressure (block / KYC)',
     r'\b(click|tap)\s+(here|this|link|below)\b': 'Pushes a link tap',
     r'\b(refund|prize|won|lottery|cashback|reward)\b': 'Too-good reward bait',
-    r'(bit\.ly|tinyurl|t\.me|\.xyz|\.top|\.live|short)': 'Shortened / odd domain',
+    r'(bit\.ly|tinyurl|t\.me|\.xyz|\.top|\.live|short)':
+        'Shortened / odd domain',
     r'\b(install|download|apk|enable\s+(unknown|accessibility))\b':
         'Wants an install / risky permission',
     r'\b(gift\s?card|google\s?play\s?code|crypto|bitcoin|usdt)\b':
@@ -96,7 +103,8 @@ class HeuristicGemmaEngine implements LocalGemmaEngine {
       r'\b(otp|pay|upi|transfer|card|cvv|password|gift\s?card)\b',
       caseSensitive: false,
     ).hasMatch(input);
-    if (count >= 3 || (count >= 2 && asksMoneyOrCode)) return RiskVerdict.dangerous;
+    if (count >= 3 || (count >= 2 && asksMoneyOrCode))
+      return RiskVerdict.dangerous;
     if (count >= 1 && asksMoneyOrCode) return RiskVerdict.needsVerification;
     if (count >= 1) return RiskVerdict.caution;
     return RiskVerdict.safe;

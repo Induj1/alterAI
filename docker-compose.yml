@@ -24,6 +24,7 @@ services:
       ALTER_SARVAM_TTS_MODEL: ${ALTER_SARVAM_TTS_MODEL:-bulbul:v3}
       ALTER_SARVAM_TTS_SPEAKER: ${ALTER_SARVAM_TTS_SPEAKER:-shubh}
       ALTER_SARVAM_BASE_URL: ${ALTER_SARVAM_BASE_URL:-https://api.sarvam.ai}
+      ALTER_RATE_LIMIT_PER_MINUTE: ${ALTER_RATE_LIMIT_PER_MINUTE:-120}
     ports:
       - "8060:8060"
     depends_on:

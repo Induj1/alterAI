@@ -58,21 +58,21 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     title: 'Speak your future into motion.',
                     body:
                         'Wake ALTER with Hey Alter, move across languages, and turn intent into action with a voice-first control layer.',
-                    metric: '14 languages',
+                    metric: 'Voice runtime',
                   ),
                   _OnboardingPanel(
                     icon: LucideIcons.messages_square,
                     title: 'Think with your Clone Council.',
                     body:
                         'Strategist, Operator, Contrarian, and Connector clones debate plans before you commit your time.',
-                    metric: '4 active clones',
+                    metric: 'Agent debate',
                   ),
                   _OnboardingPanel(
                     icon: LucideIcons.radar,
                     title: 'Find the signal before it is obvious.',
                     body:
                         'Opportunity Radar combines memory, social graph, web signals, NFC, and reputation to reveal your next best move.',
-                    metric: '94% top signal',
+                    metric: 'Live signals',
                   ),
                 ],
               ),
@@ -178,4 +178,3 @@ class _OnboardingPanel extends StatelessWidget {
     );
   }
 }
-

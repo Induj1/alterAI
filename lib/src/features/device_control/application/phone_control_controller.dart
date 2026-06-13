@@ -109,6 +109,25 @@ class PhoneControlController extends Notifier<PhoneControlState> {
     return result.message;
   }
 
+  Future<String> browserSearch(String query) async {
+    final policy = PhoneActionPolicy.classify(
+      kind: 'web_search',
+      target: query,
+    );
+    final result = await ref
+        .read(deviceControlBridgeProvider)
+        .openBrowserSearch(query);
+    _audit(
+      kind: 'web_search',
+      target: query,
+      message: result.message,
+      ok: result.ok,
+      requiresAccessibility: false,
+      policy: policy,
+    );
+    return result.message;
+  }
+
   Future<String> openSmsDraft({
     required String number,
     required String text,
@@ -309,6 +328,13 @@ class PhoneControlController extends Notifier<PhoneControlState> {
       policy: policy,
     );
     return result.message;
+  }
+
+  Future<String> tapVisibleNode(
+    VisibleNode node, {
+    PhoneActionSurface surface = PhoneActionSurface.agentDirect,
+  }) {
+    return tap(x: node.centerX, y: node.centerY, surface: surface);
   }
 
   Future<DeviceScreenSnapshot> readScreen() async {

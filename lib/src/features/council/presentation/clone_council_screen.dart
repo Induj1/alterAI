@@ -36,11 +36,16 @@ class _CloneCouncilScreenState extends ConsumerState<CloneCouncilScreen> {
     final agents = ref.watch(cloneCouncilProvider);
     final theme = Theme.of(context);
 
-    final consensusPct = debate.hasResult
-        ? '${86 + (debate.steps.length * 2)}%'
-        : agents.asData?.value != null
-            ? '86%'
-            : '—';
+    final agentItems = agents.asData?.value ?? const <CloneAgent>[];
+    final doneCount = debate.entries
+        .where((e) => e.status == AgentStatus.done)
+        .length;
+    final consensusPct = debate.entries.isEmpty
+        ? '--'
+        : '${((doneCount / debate.entries.length) * 100).round()}%';
+    final activeAgents = debate.entries.isNotEmpty
+        ? '$doneCount/${debate.entries.length}'
+        : '${agentItems.length}';
 
     return AmbientScaffold(
       child: Column(
@@ -74,15 +79,15 @@ class _CloneCouncilScreenState extends ConsumerState<CloneCouncilScreen> {
               ),
               MetricTile(
                 label: 'Active agents',
-                value: debate.entries.isNotEmpty
-                    ? '${debate.entries.where((e) => e.status == AgentStatus.done).length}/4'
-                    : '4',
+                value: activeAgents,
                 icon: LucideIcons.bot,
                 accent: AlterPalette.cyan,
               ),
               MetricTile(
                 label: 'Action quality',
-                value: debate.hasResult ? 'A' : 'A-',
+                value: debate.hasResult && debate.steps.isNotEmpty
+                    ? 'Ready'
+                    : '--',
                 icon: LucideIcons.shield_check,
                 accent: AlterPalette.mint,
               ),
@@ -105,16 +110,19 @@ class _CloneCouncilScreenState extends ConsumerState<CloneCouncilScreen> {
                   maxLines: 3,
                   decoration: const InputDecoration(
                     labelText: 'Strategic question',
-                    hintText:
-                        'Should I pivot my startup to enterprise sales?',
+                    hintText: 'Should I pivot my startup to enterprise sales?',
                     prefixIcon: Icon(LucideIcons.circle_question_mark),
                   ),
                   onSubmitted: (_) => _runDebate(),
                 ),
                 const SizedBox(height: 14),
                 PremiumButton(
-                  label: debate.isDebating ? 'Council deliberating…' : 'Convene Council',
-                  icon: debate.isDebating ? LucideIcons.loader : LucideIcons.sparkles,
+                  label: debate.isDebating
+                      ? 'Council deliberating…'
+                      : 'Convene Council',
+                  icon: debate.isDebating
+                      ? LucideIcons.loader
+                      : LucideIcons.sparkles,
                   onPressed: debate.isDebating ? null : _runDebate,
                 ),
                 if (debate.error.isNotEmpty) ...[
@@ -137,34 +145,34 @@ class _CloneCouncilScreenState extends ConsumerState<CloneCouncilScreen> {
               expandedColumns: 2,
               children: [
                 for (final entry in debate.entries)
-                  _AgentDebateCard(entry: entry)
-                      .animate()
-                      .fadeIn(duration: 360.ms)
-                      .slideY(begin: 0.04),
+                  _AgentDebateCard(
+                    entry: entry,
+                  ).animate().fadeIn(duration: 360.ms).slideY(begin: 0.04),
               ],
             ),
           ] else
             agents.when(
-              data: (items) => ResponsiveGrid(
-                mediumColumns: 2,
-                expandedColumns: 2,
-                children: [
-                  for (final agent in items)
-                    _AgentCard(agent: agent)
-                        .animate()
-                        .fadeIn(duration: 360.ms)
-                        .slideY(begin: 0.04),
-                ],
-              ),
+              data: (items) => items.isEmpty
+                  ? const _EmptyCouncil()
+                  : ResponsiveGrid(
+                      mediumColumns: 2,
+                      expandedColumns: 2,
+                      children: [
+                        for (final agent in items)
+                          _AgentCard(agent: agent)
+                              .animate()
+                              .fadeIn(duration: 360.ms)
+                              .slideY(begin: 0.04),
+                      ],
+                    ),
               loading: () => const GlassPanel(
                 child: SizedBox(
                   height: 180,
                   child: Center(child: CircularProgressIndicator()),
                 ),
               ),
-              error: (e, _) => GlassPanel(
-                child: Text('Unable to load council: $e'),
-              ),
+              error: (e, _) =>
+                  GlassPanel(child: Text('Unable to load council: $e')),
             ),
           const SizedBox(height: 18),
           GlassPanel(
@@ -175,7 +183,7 @@ class _CloneCouncilScreenState extends ConsumerState<CloneCouncilScreen> {
                   title: 'Council output',
                   subtitle: debate.hasResult
                       ? 'Based on debate on: "${debate.topic}"'
-                      : 'The council recommends a narrow premium beta, one paid pilot, and a network-first launch sequence.',
+                      : 'Run a council debate to generate recommendations.',
                   trailing: PremiumChip(
                     label: 'Consensus',
                     selected: true,
@@ -185,33 +193,25 @@ class _CloneCouncilScreenState extends ConsumerState<CloneCouncilScreen> {
                 const SizedBox(height: 18),
                 if (debate.hasResult && debate.steps.isNotEmpty)
                   ...debate.steps.asMap().entries.map(
-                        (e) => _DecisionStep(
-                          number: '0${e.key + 1}',
-                          title: e.value,
-                          color: [
-                            AlterPalette.cyan,
-                            AlterPalette.iris,
-                            AlterPalette.aura,
-                          ][e.key % 3],
-                        ),
-                      )
-                else ...[
-                  const _DecisionStep(
-                    number: '01',
-                    title: 'Use NFC graph to recruit 12 ideal founders.',
-                    color: AlterPalette.cyan,
+                    (e) => _DecisionStep(
+                      number: '0${e.key + 1}',
+                      title: e.value,
+                      color: [
+                        AlterPalette.cyan,
+                        AlterPalette.iris,
+                        AlterPalette.aura,
+                      ][e.key % 3],
+                    ),
+                  )
+                else
+                  Text(
+                    'No council output yet.',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurface.withValues(
+                        alpha: 0.58,
+                      ),
+                    ),
                   ),
-                  const _DecisionStep(
-                    number: '02',
-                    title: 'Convert one OfficeKit workflow into a paid pilot.',
-                    color: AlterPalette.iris,
-                  ),
-                  const _DecisionStep(
-                    number: '03',
-                    title: 'Publish reputation-backed outcomes after week two.',
-                    color: AlterPalette.aura,
-                  ),
-                ],
               ],
             ),
           ),
@@ -225,6 +225,37 @@ class _CloneCouncilScreenState extends ConsumerState<CloneCouncilScreen> {
     final topic = _topicController.text.trim();
     if (topic.isEmpty) return;
     ref.read(councilDebateControllerProvider.notifier).debate(topic);
+  }
+}
+
+class _EmptyCouncil extends StatelessWidget {
+  const _EmptyCouncil();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return GlassPanel(
+      child: Column(
+        children: [
+          const Icon(LucideIcons.bot, size: 40, color: AlterPalette.iris),
+          const SizedBox(height: 12),
+          Text(
+            'No council agents loaded',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Connect the backend or run a debate to populate real agent output.',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.58),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -269,7 +300,9 @@ class _AgentDebateCard extends StatelessWidget {
                     Text(
                       entry.role,
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.56),
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.56,
+                        ),
                       ),
                     ),
                   ],
@@ -363,7 +396,9 @@ class _AgentCard extends StatelessWidget {
                     Text(
                       agent.role,
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.56),
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.56,
+                        ),
                       ),
                     ),
                   ],

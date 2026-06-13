@@ -53,12 +53,13 @@ class ResponsiveGrid extends StatelessWidget {
     final columns = context.isCompact
         ? compactColumns
         : context.isMedium
-            ? mediumColumns
-            : expandedColumns;
+        ? mediumColumns
+        : expandedColumns;
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final width = (constraints.maxWidth - (spacing * (columns - 1))) /
+        final width =
+            (constraints.maxWidth - (spacing * (columns - 1))) /
             columns.clamp(1, 6);
         return Wrap(
           spacing: spacing,
@@ -75,4 +76,3 @@ class ResponsiveGrid extends StatelessWidget {
     );
   }
 }
-

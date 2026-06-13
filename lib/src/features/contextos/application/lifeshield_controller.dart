@@ -14,8 +14,8 @@ import 'memory_engine.dart';
 
 final lifeShieldControllerProvider =
     NotifierProvider<LifeShieldController, LifeShieldState>(
-  LifeShieldController.new,
-);
+      LifeShieldController.new,
+    );
 
 class LifeShieldState {
   const LifeShieldState({
@@ -86,7 +86,9 @@ class LifeShieldState {
       needsCloud: needsCloud ?? this.needsCloud,
       error: error ?? this.error,
       momentId: momentId ?? this.momentId,
-      trustedMatch: clearResult ? trustedMatch : (trustedMatch ?? this.trustedMatch),
+      trustedMatch: clearResult
+          ? trustedMatch
+          : (trustedMatch ?? this.trustedMatch),
     );
   }
 }
@@ -94,16 +96,16 @@ class LifeShieldState {
 /// A tiny const empty extraction so the state field can stay non-null.
 class _EmptyExtraction extends ContextExtraction {
   const _EmptyExtraction()
-      : super(
-          entities: const [],
-          requestedAction: '',
-          deadline: '',
-          risks: const {},
-          sensitiveDataRequest: false,
-          missingInfo: const [],
-          confidence: 0,
-          cloudEnriched: false,
-        );
+    : super(
+        entities: const [],
+        requestedAction: '',
+        deadline: '',
+        risks: const {},
+        sensitiveDataRequest: false,
+        missingInfo: const [],
+        confidence: 0,
+        cloudEnriched: false,
+      );
 }
 
 class LifeShieldController extends Notifier<LifeShieldState> {
@@ -143,14 +145,16 @@ class LifeShieldController extends Notifier<LifeShieldState> {
     final ctx = ref.read(contextEngineProvider).extractLocal(moment);
 
     // 4. Classify + route.
-    var category =
-        ref.read(momentClassifierProvider).classify(moment, triage, ctx);
+    var category = ref
+        .read(momentClassifierProvider)
+        .classify(moment, triage, ctx);
 
     // 4b. MemoryEngine — a source the user trusts mutes non-critical warnings.
     // Hard danger (OTP/money/scam) is NEVER muted, even for a trusted source.
     final trusted = ref.read(memoryProvider).asData?.value ?? const [];
     final trustedMatch = MemoryEngine.matchIn(trusted, moment.rawContent);
-    final hardDanger = triage.coarseVerdict == RiskVerdict.dangerous ||
+    final hardDanger =
+        triage.coarseVerdict == RiskVerdict.dangerous ||
         (ctx.risks['Identity'] ?? 0) >= 0.8 ||
         (ctx.risks['Money'] ?? 0) >= 0.8;
 
@@ -165,21 +169,25 @@ class LifeShieldController extends Notifier<LifeShieldState> {
         coarseVerdict: RiskVerdict.safe,
         signals: triage.signals,
         shouldEscalate: false,
-        summary: 'From a source you trust ($trustedMatch) — '
+        summary:
+            'From a source you trust ($trustedMatch) — '
             'non-critical risk muted on-device.',
       );
       category = MomentCategory.safeInfo;
     }
 
     final handles = category.handledByLifeShield;
-    final wantsCloud = handles && effTriage.shouldEscalate && !state.privateMode;
+    final wantsCloud =
+        handles && effTriage.shouldEscalate && !state.privateMode;
 
     state = state.copyWith(
       moment: moment,
       triage: effTriage,
       extraction: ctx,
       category: category,
-      analysis: handles ? _edgeOnlyAnalysis(effTriage, state.privateMode) : null,
+      analysis: handles
+          ? _edgeOnlyAnalysis(effTriage, state.privateMode)
+          : null,
       needsCloud: wantsCloud,
       error: '',
       trustedMatch: trustedMatch,
@@ -188,11 +196,17 @@ class LifeShieldController extends Notifier<LifeShieldState> {
 
     final momentId = await _persistMoment(moment, triage);
     state = state.copyWith(momentId: momentId);
-    await _audit(momentId, 'capture',
-        '${moment.sourceSurface.label} → ${category.label}');
+    await _audit(
+      momentId,
+      'capture',
+      '${moment.sourceSurface.label} → ${category.label}',
+    );
     if (triage.redactedFields.isNotEmpty) {
-      await _audit(momentId, 'redaction',
-          'Redacted on-device: ${triage.redactedFields.join(', ')}');
+      await _audit(
+        momentId,
+        'redaction',
+        'Redacted on-device: ${triage.redactedFields.join(', ')}',
+      );
     }
 
     if (handles && !wantsCloud) {
@@ -208,7 +222,8 @@ class LifeShieldController extends Notifier<LifeShieldState> {
     final openai = ref.read(openAIServiceProvider);
     if (openai == null) {
       state = state.copyWith(
-        error: 'Cloud reasoning unavailable — sign in or set an OpenAI key. '
+        error:
+            'Cloud reasoning unavailable — sign in or set an OpenAI key. '
             'Showing on-device result only.',
         needsCloud: false,
       );
@@ -216,8 +231,11 @@ class LifeShieldController extends Notifier<LifeShieldState> {
     }
 
     state = state.copyWith(isAnalyzing: true, error: '');
-    await _audit(state.momentId, 'cloud_escalation',
-        'Sent redacted moment for deep reasoning');
+    await _audit(
+      state.momentId,
+      'cloud_escalation',
+      'Sent redacted moment for deep reasoning',
+    );
 
     try {
       final raw = await openai.chat(
@@ -239,8 +257,9 @@ class LifeShieldController extends Notifier<LifeShieldState> {
         redactedFields: triage.redactedFields,
       );
       final enriched = json['context'] is Map
-          ? state.extraction
-              .mergeCloud(Map<String, dynamic>.from(json['context'] as Map))
+          ? state.extraction.mergeCloud(
+              Map<String, dynamic>.from(json['context'] as Map),
+            )
           : state.extraction;
 
       state = state.copyWith(
@@ -249,14 +268,18 @@ class LifeShieldController extends Notifier<LifeShieldState> {
         extraction: enriched,
         needsCloud: false,
       );
-      await _audit(state.momentId, 'analysis',
-          'Cloud verdict: ${analysis.verdict.label} (${(analysis.confidence * 100).round()}%)');
+      await _audit(
+        state.momentId,
+        'analysis',
+        'Cloud verdict: ${analysis.verdict.label} (${(analysis.confidence * 100).round()}%)',
+      );
       await _persistAnalysis(state.momentId, analysis);
     } catch (e) {
       state = state.copyWith(
         isAnalyzing: false,
         needsCloud: false,
-        error: 'Cloud reasoning failed: '
+        error:
+            'Cloud reasoning failed: '
             '${e.toString().replaceFirst('Exception: ', '')}. Using on-device result.',
       );
     }

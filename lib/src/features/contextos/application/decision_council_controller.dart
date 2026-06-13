@@ -8,10 +8,11 @@ import '../domain/council.dart';
 /// DecisionCouncil — convenes five inner voices (Practical / Risk / Future /
 /// Skeptic / Action Me) for important moments only, then synthesizes consensus,
 /// a recommendation, and the strongest dissent. One structured cloud call;
-/// on-device sample fallback otherwise.
+/// otherwise the screen reports that a reasoning backend is needed.
 final decisionCouncilProvider =
     NotifierProvider<DecisionCouncilController, CouncilState>(
-        DecisionCouncilController.new);
+      DecisionCouncilController.new,
+    );
 
 class CouncilState {
   const CouncilState({
@@ -31,13 +32,12 @@ class CouncilState {
     bool? isConvening,
     CouncilResult? result,
     String? error,
-  }) =>
-      CouncilState(
-        topic: topic ?? this.topic,
-        isConvening: isConvening ?? this.isConvening,
-        result: result ?? this.result,
-        error: error ?? this.error,
-      );
+  }) => CouncilState(
+    topic: topic ?? this.topic,
+    isConvening: isConvening ?? this.isConvening,
+    result: result ?? this.result,
+    error: error ?? this.error,
+  );
 }
 
 class DecisionCouncilController extends Notifier<CouncilState> {
@@ -57,7 +57,10 @@ class DecisionCouncilController extends Notifier<CouncilState> {
 
     final openai = ref.read(openAIServiceProvider);
     if (openai == null) {
-      state = state.copyWith(result: CouncilResult.sample(topic), error: '');
+      state = state.copyWith(
+        error:
+            'Connect the backend or sign in with AI access to convene the council.',
+      );
       return;
     }
 
@@ -67,7 +70,7 @@ class DecisionCouncilController extends Notifier<CouncilState> {
       final who = profile == null || profile.displayName.isEmpty
           ? ''
           : 'The person is ${profile.displayName}'
-              '${profile.role.isNotEmpty ? ', ${profile.role}' : ''}. ';
+                '${profile.role.isNotEmpty ? ', ${profile.role}' : ''}. ';
       final raw = await openai.chat(
         jsonMode: true,
         temperature: 0.7,
@@ -85,9 +88,8 @@ class DecisionCouncilController extends Notifier<CouncilState> {
     } catch (e) {
       state = state.copyWith(
         isConvening: false,
-        result: CouncilResult.sample(topic),
         error:
-            'Council unavailable (${e.toString().replaceFirst('Exception: ', '')}). Showing on-device council.',
+            'Council unavailable: ${e.toString().replaceFirst('Exception: ', '')}',
       );
     }
   }

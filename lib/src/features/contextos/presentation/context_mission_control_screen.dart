@@ -54,7 +54,9 @@ class ContextMissionControlScreen extends ConsumerWidget {
                     Text(
                       'OfficeKit — the full ContextOS loop in one view.',
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                        color: theme.colorScheme.onSurface.withValues(
+                          alpha: 0.6,
+                        ),
                       ),
                     ),
                   ],
@@ -63,7 +65,8 @@ class ContextMissionControlScreen extends ConsumerWidget {
               IconButton(
                 tooltip: 'Refresh',
                 icon: const Icon(LucideIcons.refresh_cw),
-                onPressed: () => ref.read(contextDashboardProvider.notifier).refresh(),
+                onPressed: () =>
+                    ref.read(contextDashboardProvider.notifier).refresh(),
               ),
             ],
           ),
@@ -204,10 +207,7 @@ class _Body extends StatelessWidget {
                 children: [
                   for (final v in RiskVerdict.values)
                     Expanded(
-                      child: _RiskCell(
-                        verdict: v,
-                        count: data.riskMap[v] ?? 0,
-                      ),
+                      child: _RiskCell(verdict: v, count: data.riskMap[v] ?? 0),
                     ),
                 ],
               ),
@@ -231,7 +231,8 @@ class _Body extends StatelessWidget {
             children: [
               const SectionHeader(
                 title: 'Proof ledger',
-                subtitle: 'Every verdict, with confidence and where it was reasoned.',
+                subtitle:
+                    'Every verdict, with confidence and where it was reasoned.',
               ),
               const SizedBox(height: 12),
               if (data.ledger.isEmpty)
@@ -460,11 +461,18 @@ class _DayCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(LucideIcons.calendar_clock, size: 18, color: AlterPalette.cyan),
+              Icon(
+                LucideIcons.calendar_clock,
+                size: 18,
+                color: AlterPalette.cyan,
+              ),
               const SizedBox(width: 8),
-              Text('DayTwin',
-                  style: theme.textTheme.titleSmall
-                      ?.copyWith(fontWeight: FontWeight.w900)),
+              Text(
+                'DayTwin',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 10),
@@ -498,9 +506,12 @@ class _FutureCard extends StatelessWidget {
             children: [
               Icon(LucideIcons.git_fork, size: 18, color: AlterPalette.violet),
               const SizedBox(width: 8),
-              Text('FutureTwin',
-                  style: theme.textTheme.titleSmall
-                      ?.copyWith(fontWeight: FontWeight.w900)),
+              Text(
+                'FutureTwin',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 10),
@@ -553,9 +564,12 @@ class _LinkCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title,
-                    style: theme.textTheme.titleSmall
-                        ?.copyWith(fontWeight: FontWeight.w900)),
+                Text(
+                  title,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
                 const SizedBox(height: 2),
                 Text(
                   line,

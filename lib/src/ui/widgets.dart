@@ -110,8 +110,8 @@ class GradientScaffold extends StatelessWidget {
               i == 0
                   ? Color.lerp(bgColors[i], Colors.white, 0.82)!
                   : (i == bgColors.length - 1
-                      ? const Color(0xFFEAE3F4)
-                      : const Color(0xFFF2EEFB))
+                        ? const Color(0xFFEAE3F4)
+                        : const Color(0xFFF2EEFB)),
           ]
         : bgColors;
     return Container(
@@ -215,9 +215,14 @@ class TagChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppColors.white(0.16)),
       ),
-      child: Text(label,
-          style: AppText.body(12.5,
-              weight: FontWeight.w600, color: AppColors.white(0.85))),
+      child: Text(
+        label,
+        style: AppText.body(
+          12.5,
+          weight: FontWeight.w600,
+          color: AppColors.white(0.85),
+        ),
+      ),
     );
   }
 }
@@ -279,22 +284,32 @@ class PrimaryHeader extends StatelessWidget {
       children: [
         GearButton(onTap: onGear),
         if (starTitle)
-          Row(mainAxisSize: MainAxisSize.min, children: [
-            const StarMark(size: 16),
-            const SizedBox(width: 7),
-            Text(title,
-                style: AppText.display(13,
-                    weight: FontWeight.w600, letterSpacing: 2.3)),
-          ])
-        else
-          Text(title,
-              style: AppText.display(13,
-                  weight: FontWeight.w600, letterSpacing: 2.3)),
-        if (showAvatar)
-          GestureDetector(
-            onTap: onAvatar,
-            child: const AvatarDot(),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const StarMark(size: 16),
+              const SizedBox(width: 7),
+              Text(
+                title,
+                style: AppText.display(
+                  13,
+                  weight: FontWeight.w600,
+                  letterSpacing: 2.3,
+                ),
+              ),
+            ],
           )
+        else
+          Text(
+            title,
+            style: AppText.display(
+              13,
+              weight: FontWeight.w600,
+              letterSpacing: 2.3,
+            ),
+          ),
+        if (showAvatar)
+          GestureDetector(onTap: onAvatar, child: const AvatarDot())
         else
           const SizedBox(width: 42),
       ],
@@ -317,7 +332,11 @@ class GearButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: AppColors.white(0.12)),
         ),
-        child: const Icon(Icons.settings_outlined, size: 21, color: Colors.white),
+        child: const Icon(
+          Icons.settings_outlined,
+          size: 21,
+          color: Colors.white,
+        ),
       ),
     );
   }
@@ -362,8 +381,10 @@ class AvatarDot extends StatelessWidget {
         ),
         border: Border.all(color: AppColors.white(0.18)),
       ),
-      child: Text('A',
-          style: AppText.display(size * 0.4, weight: FontWeight.w700)),
+      child: Text(
+        'A',
+        style: AppText.display(size * 0.4, weight: FontWeight.w700),
+      ),
     );
   }
 }
@@ -402,9 +423,14 @@ class LimeButton extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(label,
-                style: AppText.body(16,
-                    weight: FontWeight.w800, color: AppColors.bg)),
+            Text(
+              label,
+              style: AppText.body(
+                16,
+                weight: FontWeight.w800,
+                color: AppColors.bg,
+              ),
+            ),
             if (trailing != null) ...[
               const SizedBox(width: 10),
               Icon(trailing, color: AppColors.bg, size: 20),
@@ -421,8 +447,12 @@ class OutlineButton2 extends StatelessWidget {
   final String label;
   final VoidCallback? onTap;
   final double height;
-  const OutlineButton2(
-      {super.key, required this.label, this.onTap, this.height = 54});
+  const OutlineButton2({
+    super.key,
+    required this.label,
+    this.onTap,
+    this.height = 54,
+  });
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -435,8 +465,7 @@ class OutlineButton2 extends StatelessWidget {
           borderRadius: BorderRadius.circular(height / 2.2),
           border: Border.all(color: AppColors.white(0.2)),
         ),
-        child: Text(label,
-            style: AppText.body(15, weight: FontWeight.w600)),
+        child: Text(label, style: AppText.body(15, weight: FontWeight.w600)),
       ),
     );
   }

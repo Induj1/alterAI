@@ -8,6 +8,13 @@ class AssistantBrief {
     required this.signals,
   });
 
+  static const empty = AssistantBrief(
+    greeting: '',
+    focus: '',
+    nextAction: '',
+    signals: [],
+  );
+
   final String greeting;
   final String focus;
   final String nextAction;
@@ -109,4 +116,3 @@ class LensInsight {
   final String description;
   final List<String> actions;
 }
-

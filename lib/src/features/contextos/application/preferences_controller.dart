@@ -28,17 +28,17 @@ class ContextOsPrefs {
     bool? privateModeDefault,
     bool? cloudConsent,
     Set<String>? enabledSurfaces,
-  }) =>
-      ContextOsPrefs(
-        privateModeDefault: privateModeDefault ?? this.privateModeDefault,
-        cloudConsent: cloudConsent ?? this.cloudConsent,
-        enabledSurfaces: enabledSurfaces ?? this.enabledSurfaces,
-      );
+  }) => ContextOsPrefs(
+    privateModeDefault: privateModeDefault ?? this.privateModeDefault,
+    cloudConsent: cloudConsent ?? this.cloudConsent,
+    enabledSurfaces: enabledSurfaces ?? this.enabledSurfaces,
+  );
 }
 
 final preferencesProvider =
     AsyncNotifierProvider<PreferencesController, ContextOsPrefs>(
-        PreferencesController.new);
+      PreferencesController.new,
+    );
 
 class PreferencesController extends AsyncNotifier<ContextOsPrefs> {
   @override
@@ -83,14 +83,16 @@ class PreferencesController extends AsyncNotifier<ContextOsPrefs> {
   }
 
   Future<void> setPrivateDefault(bool v) async {
-    final p = (state.asData?.value ?? const ContextOsPrefs())
-        .copyWith(privateModeDefault: v);
+    final p = (state.asData?.value ?? const ContextOsPrefs()).copyWith(
+      privateModeDefault: v,
+    );
     await _save(p);
   }
 
   Future<void> setCloudConsent(bool v) async {
-    final p = (state.asData?.value ?? const ContextOsPrefs())
-        .copyWith(cloudConsent: v);
+    final p = (state.asData?.value ?? const ContextOsPrefs()).copyWith(
+      cloudConsent: v,
+    );
     await _save(p);
   }
 

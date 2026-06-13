@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+from collections import defaultdict, deque
 from functools import lru_cache
+import time
 
 from uuid import UUID
 
-from fastapi import FastAPI, File, Form, Query, UploadFile
+from fastapi import FastAPI, File, Form, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from .config import get_settings
 from .schemas import (
@@ -54,6 +57,8 @@ from .schemas import (
 )
 from .service import ApiGatewayService, create_api_gateway_service
 
+_rate_windows: dict[str, deque[float]] = defaultdict(deque)
+
 app = FastAPI(
     title="ALTER API Gateway",
     version="0.1.0",
@@ -65,6 +70,28 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def rate_limit(request: Request, call_next):
+    if request.url.path in {"/healthz", "/v1/gateway/routes"}:
+        return await call_next(request)
+    settings = get_settings()
+    limit = max(settings.rate_limit_per_minute, 10)
+    key = request.client.host if request.client else "unknown"
+    now = time.time()
+    window = _rate_windows[key]
+    while window and now - window[0] > 60:
+        window.popleft()
+    if len(window) >= limit:
+        return JSONResponse(
+            status_code=429,
+            content={
+                "detail": "Rate limit exceeded. Slow down and retry shortly.",
+            },
+        )
+    window.append(now)
+    return await call_next(request)
 
 
 @lru_cache(maxsize=1)
@@ -305,6 +332,11 @@ async def privacy_export(user_id: UUID = Query(...)) -> PrivacyExportResponse:
 @app.post("/v1/privacy/delete", response_model=PrivacyDeleteResponse)
 async def privacy_delete(request: PrivacyDeleteRequest) -> PrivacyDeleteResponse:
     return get_service().privacy_delete(request)
+
+
+@app.post("/v1/orchestration/future-os", response_model=DemoRunResponse)
+async def future_os_orchestration(request: DemoRunRequest) -> DemoRunResponse:
+    return await get_service().future_os_demo(request)
 
 
 @app.post("/v1/demo/future-os", response_model=DemoRunResponse)

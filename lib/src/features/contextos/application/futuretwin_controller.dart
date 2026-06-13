@@ -7,10 +7,12 @@ import '../domain/simulations.dart';
 
 /// FutureTwinEngine — for bigger decisions: Safe / Smart / Bold paths with
 /// effort, risk, upside, regret, and a roadmap, plus a regret-minimizing
-/// recommendation. Cloud-structured when available; on-device sample otherwise.
+/// recommendation. Cloud-structured when available; otherwise the screen
+/// reports that a reasoning backend is needed.
 final futureTwinControllerProvider =
     NotifierProvider<FutureTwinController, FutureTwinState>(
-        FutureTwinController.new);
+      FutureTwinController.new,
+    );
 
 class FutureTwinState {
   const FutureTwinState({
@@ -30,13 +32,12 @@ class FutureTwinState {
     bool? isSimulating,
     FutureTwinResult? result,
     String? error,
-  }) =>
-      FutureTwinState(
-        input: input ?? this.input,
-        isSimulating: isSimulating ?? this.isSimulating,
-        result: result ?? this.result,
-        error: error ?? this.error,
-      );
+  }) => FutureTwinState(
+    input: input ?? this.input,
+    isSimulating: isSimulating ?? this.isSimulating,
+    result: result ?? this.result,
+    error: error ?? this.error,
+  );
 }
 
 class FutureTwinController extends Notifier<FutureTwinState> {
@@ -56,7 +57,10 @@ class FutureTwinController extends Notifier<FutureTwinState> {
 
     final openai = ref.read(openAIServiceProvider);
     if (openai == null) {
-      state = state.copyWith(result: FutureTwinResult.sample(q), error: '');
+      state = state.copyWith(
+        error:
+            'Connect the backend or sign in with AI access to simulate FutureTwin.',
+      );
       return;
     }
 
@@ -66,8 +70,8 @@ class FutureTwinController extends Notifier<FutureTwinState> {
       final who = profile == null || profile.displayName.isEmpty
           ? ''
           : 'Operator: ${profile.displayName}'
-              '${profile.role.isNotEmpty ? ', ${profile.role}' : ''}'
-              '${profile.goals.isNotEmpty ? '. Goals: ${profile.goals.join(', ')}' : ''}. ';
+                '${profile.role.isNotEmpty ? ', ${profile.role}' : ''}'
+                '${profile.goals.isNotEmpty ? '. Goals: ${profile.goals.join(', ')}' : ''}. ';
       final raw = await openai.chat(
         jsonMode: true,
         temperature: 0.55,
@@ -85,8 +89,8 @@ class FutureTwinController extends Notifier<FutureTwinState> {
     } catch (e) {
       state = state.copyWith(
         isSimulating: false,
-        result: FutureTwinResult.sample(q),
-        error: 'Cloud simulation failed (${e.toString().replaceFirst('Exception: ', '')}). Showing on-device model.',
+        error:
+            'FutureTwin simulation failed: ${e.toString().replaceFirst('Exception: ', '')}',
       );
     }
   }

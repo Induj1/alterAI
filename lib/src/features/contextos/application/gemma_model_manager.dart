@@ -33,12 +33,11 @@ class GemmaModelState {
     GemmaStatus? status,
     double? progress,
     String? message,
-  }) =>
-      GemmaModelState(
-        status: status ?? this.status,
-        progress: progress ?? this.progress,
-        message: message ?? this.message,
-      );
+  }) => GemmaModelState(
+    status: status ?? this.status,
+    progress: progress ?? this.progress,
+    message: message ?? this.message,
+  );
 }
 
 /// A small, phone-friendly default. Editable in the install screen — point it
@@ -46,8 +45,9 @@ class GemmaModelState {
 const kDefaultGemmaUrl =
     'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/Gemma3-1B-IT_multi-prefill-seq_q8_ekv1280.task';
 
-final gemmaModelProvider =
-    NotifierProvider<GemmaModelManager, GemmaModelState>(GemmaModelManager.new);
+final gemmaModelProvider = NotifierProvider<GemmaModelManager, GemmaModelState>(
+  GemmaModelManager.new,
+);
 
 class GemmaModelManager extends Notifier<GemmaModelState> {
   InferenceModel? _model;
@@ -88,18 +88,21 @@ class GemmaModelManager extends Notifier<GemmaModelState> {
     state = const GemmaModelState(status: GemmaStatus.downloading, progress: 0);
     try {
       await FlutterGemma.installModel(
-        modelType: ModelType.gemmaIt,
-        fileType: ModelFileType.task,
-      )
-          .fromNetwork(url ?? kDefaultGemmaUrl,
-              token: (hfToken ?? '').isEmpty ? null : hfToken)
+            modelType: ModelType.gemmaIt,
+            fileType: ModelFileType.task,
+          )
+          .fromNetwork(
+            url ?? kDefaultGemmaUrl,
+            token: (hfToken ?? '').isEmpty ? null : hfToken,
+          )
           .withProgress((p) {
-        final frac = (p is num ? p.toDouble() : 0) / 100.0;
-        state = state.copyWith(
-          status: GemmaStatus.downloading,
-          progress: frac.clamp(0, 1),
-        );
-      }).install();
+            final frac = (p is num ? p.toDouble() : 0) / 100.0;
+            state = state.copyWith(
+              status: GemmaStatus.downloading,
+              progress: frac.clamp(0, 1),
+            );
+          })
+          .install();
       await _load();
     } catch (e) {
       state = GemmaModelState(

@@ -267,7 +267,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   children: [
                     const SectionHeader(
                       title: 'Connected systems',
-                      subtitle: 'Production adapters ready to replace mocks.',
+                      subtitle: 'Production adapters wired to live services.',
                     ),
                     const SizedBox(height: 14),
                     const _SystemRow(

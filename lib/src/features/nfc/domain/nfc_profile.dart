@@ -33,7 +33,8 @@ class NfcProfile {
       startupStage: _string(profile['startupStage']),
       preferredHackathons: _stringList(profile['preferredHackathons']),
       location: _string(profile['location']),
-      updatedAt: DateTime.tryParse(_string(profile['updatedAt'])) ??
+      updatedAt:
+          DateTime.tryParse(_string(profile['updatedAt'])) ??
           DateTime.fromMillisecondsSinceEpoch(0),
     );
   }
@@ -73,10 +74,7 @@ class NfcProfile {
   }
 
   Map<String, dynamic> toExchangePayload() {
-    return {
-      'schema': alterNfcProfileSchema,
-      'profile': toJson(),
-    };
+    return {'schema': alterNfcProfileSchema, 'profile': toJson()};
   }
 
   List<NfcProfileLink> get links {
@@ -84,15 +82,12 @@ class NfcProfile {
       NfcProfileLink(label: 'Portfolio', url: portfolioUrl),
       NfcProfileLink(label: 'Resume', url: resumeUrl),
       NfcProfileLink(label: 'LinkedIn', url: linkedinUrl),
-    ];
+    ].where((link) => link.url.trim().isNotEmpty).toList(growable: false);
   }
 }
 
 class NfcProfileLink {
-  const NfcProfileLink({
-    required this.label,
-    required this.url,
-  });
+  const NfcProfileLink({required this.label, required this.url});
 
   final String label;
   final String url;

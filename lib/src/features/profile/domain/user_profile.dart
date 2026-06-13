@@ -23,7 +23,8 @@ class UserProfile {
       bio: json['bio'] as String? ?? '',
       skills: (json['skills'] as List<dynamic>?)?.cast<String>() ?? const [],
       goals: (json['goals'] as List<dynamic>?)?.cast<String>() ?? const [],
-      interests: (json['interests'] as List<dynamic>?)?.cast<String>() ?? const [],
+      interests:
+          (json['interests'] as List<dynamic>?)?.cast<String>() ?? const [],
       openaiKey: json['openai_key'] as String? ?? '',
       onboardingDone: json['onboarding_done'] as bool? ?? false,
     );
@@ -42,17 +43,17 @@ class UserProfile {
   final bool onboardingDone;
 
   Map<String, dynamic> toJson() => {
-        'display_name': displayName,
-        'role': role,
-        'career_stage': careerStage,
-        'industry': industry,
-        'bio': bio,
-        'skills': skills,
-        'goals': goals,
-        'interests': interests,
-        'openai_key': openaiKey,
-        'onboarding_done': onboardingDone,
-      };
+    'display_name': displayName,
+    'role': role,
+    'career_stage': careerStage,
+    'industry': industry,
+    'bio': bio,
+    'skills': skills,
+    'goals': goals,
+    'interests': interests,
+    'openai_key': openaiKey,
+    'onboarding_done': onboardingDone,
+  };
 
   UserProfile copyWith({
     String? displayName,

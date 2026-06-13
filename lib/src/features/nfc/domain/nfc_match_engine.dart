@@ -11,10 +11,14 @@ class NfcMatchEngine {
     required NfcProfile peerProfile,
   }) {
     final sharedSkills = _overlap(localProfile.skills, peerProfile.skills);
-    final sharedInterests =
-        _overlap(localProfile.interests, peerProfile.interests);
-    final lookingForOverlap =
-        _overlap(localProfile.lookingFor, peerProfile.lookingFor);
+    final sharedInterests = _overlap(
+      localProfile.interests,
+      peerProfile.interests,
+    );
+    final lookingForOverlap = _overlap(
+      localProfile.lookingFor,
+      peerProfile.lookingFor,
+    );
     final skills = _jaccard(localProfile.skills, peerProfile.skills);
     final interests = _jaccard(localProfile.interests, peerProfile.interests);
     final goals = _jaccard(localProfile.goals, peerProfile.goals);
@@ -80,7 +84,8 @@ class NfcMatchEngine {
     double roleAffinity,
     List<String> lookingForOverlap,
   ) {
-    final stage = _normalize(local.startupStage) == _normalize(peer.startupStage)
+    final stage =
+        _normalize(local.startupStage) == _normalize(peer.startupStage)
         ? 1.0
         : 0.35;
     final founderIntent = _containsAny(
@@ -114,11 +119,18 @@ class NfcMatchEngine {
     double interests,
     List<String> sharedSkills,
   ) {
-    final eventOverlap =
-        _jaccard(local.preferredHackathons, peer.preferredHackathons);
+    final eventOverlap = _jaccard(
+      local.preferredHackathons,
+      peer.preferredHackathons,
+    );
     final buildIntent = _containsAny(
-      [...local.lookingFor, ...peer.lookingFor, ...local.interests, ...peer.interests],
-      const ['hackathon', 'build', 'prototype', 'open source', 'demo'],
+      [
+        ...local.lookingFor,
+        ...peer.lookingFor,
+        ...local.interests,
+        ...peer.interests,
+      ],
+      const ['hackathon', 'build', 'prototype', 'open source', 'artifact'],
     );
     final score = _score(
       skills * 0.34 +
@@ -144,11 +156,18 @@ class NfcMatchEngine {
     List<String> sharedSkills,
     List<String> sharedInterests,
   ) {
-    final unionSkillDepth = _normalizedUnion(local.skills, peer.skills, cap: 14);
-    final complementarySkills =
-        math.max(0, 1 - _jaccard(local.skills, peer.skills));
-    final sharedInterestScore =
-        sharedInterests.isEmpty ? 0.28 : math.min(1, sharedInterests.length / 4);
+    final unionSkillDepth = _normalizedUnion(
+      local.skills,
+      peer.skills,
+      cap: 14,
+    );
+    final complementarySkills = math.max(
+      0,
+      1 - _jaccard(local.skills, peer.skills),
+    );
+    final sharedInterestScore = sharedInterests.isEmpty
+        ? 0.28
+        : math.min(1, sharedInterests.length / 4);
     final cofounderIntent = _containsAny(
       [...local.lookingFor, ...peer.lookingFor, ...local.goals, ...peer.goals],
       const ['co-founder', 'cofounder', 'founder', 'team', 'startup'],
@@ -186,7 +205,8 @@ class NfcMatchEngine {
       'Open with ${best.first.title.toLowerCase()} context.',
       if (startup.score >= 70) 'Route to Opportunity Radar for warm follow-up.',
       if (hackathon.score >= 70) 'Create a build sprint memory.',
-      if (cofounder.score >= 70) 'Ask Clone Council for a collaboration thesis.',
+      if (cofounder.score >= 70)
+        'Ask Clone Council for a collaboration thesis.',
     ];
   }
 }
@@ -237,7 +257,11 @@ double _roleAffinity(String left, String right) {
       : 0.48;
 }
 
-double _normalizedUnion(List<String> left, List<String> right, {required int cap}) {
+double _normalizedUnion(
+  List<String> left,
+  List<String> right, {
+  required int cap,
+}) {
   final union = {
     ...left.map(_normalize).where((item) => item.isNotEmpty),
     ...right.map(_normalize).where((item) => item.isNotEmpty),
@@ -250,4 +274,5 @@ bool _containsAny(List<String> values, List<String> needles) {
   return needles.any((needle) => text.contains(_normalize(needle)));
 }
 
-String _normalize(String value) => value.toLowerCase().trim().replaceAll('-', ' ');
+String _normalize(String value) =>
+    value.toLowerCase().trim().replaceAll('-', ' ');
