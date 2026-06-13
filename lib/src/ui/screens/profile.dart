@@ -40,42 +40,54 @@ class ProfileScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 18),
             Center(
-              child: Column(children: [
-                Container(
-                  width: 96,
-                  height: 96,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: const LinearGradient(
-                      colors: [AppColors.purpleLight, AppColors.pink],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.purpleLight.withValues(alpha: 0.5),
-                        blurRadius: 40,
+              child: Column(
+                children: [
+                  Container(
+                    width: 96,
+                    height: 96,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: const LinearGradient(
+                        colors: [AppColors.purpleLight, AppColors.pink],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
-                    ],
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.purpleLight.withValues(alpha: 0.5),
+                          blurRadius: 40,
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      initial,
+                      style: AppText.display(38, weight: FontWeight.w600),
+                    ),
                   ),
-                  child: Text(initial, style: AppText.display(38, weight: FontWeight.w600)),
-                ),
-                const SizedBox(height: 14),
-                Text(name, style: AppText.display(24, weight: FontWeight.w500)),
-                const SizedBox(height: 2),
-                Text(subtitle,
-                    style: AppText.body(13.5, color: AppColors.white(0.5))),
-              ]),
+                  const SizedBox(height: 14),
+                  Text(
+                    name,
+                    style: AppText.display(24, weight: FontWeight.w500),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: AppText.body(13.5, color: AppColors.white(0.5)),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 22),
-            Row(children: [
-              _stat('${score?.score ?? 78}', 'Reputation', AppColors.lime),
-              const SizedBox(width: 10),
-              _stat('12', 'Pursued', AppColors.cyan),
-              const SizedBox(width: 10),
-              _stat('31', 'Day streak', AppColors.orange),
-            ]),
+            Row(
+              children: [
+                _stat('${score?.score ?? 78}', 'Reputation', AppColors.lime),
+                const SizedBox(width: 10),
+                _stat('12', 'Pursued', AppColors.cyan),
+                const SizedBox(width: 10),
+                _stat('31', 'Day streak', AppColors.orange),
+              ],
+            ),
             const SizedBox(height: 18),
             // Social graph entry
             GestureDetector(
@@ -83,39 +95,58 @@ class ProfileScreen extends ConsumerWidget {
               child: Container(
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(colors: [
-                    AppColors.pink.withValues(alpha: 0.16),
-                    AppColors.purpleLight.withValues(alpha: 0.06),
-                  ], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                  gradient: LinearGradient(
+                    colors: [
+                      AppColors.pink.withValues(alpha: 0.16),
+                      AppColors.purpleLight.withValues(alpha: 0.06),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: AppColors.pink.withValues(alpha: 0.3)),
+                  border: Border.all(
+                    color: AppColors.pink.withValues(alpha: 0.3),
+                  ),
                 ),
-                child: Row(children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(14),
-                      gradient: const RadialGradient(
-                        center: Alignment(-0.2, -0.2),
-                        colors: [AppColors.pink, AppColors.purpleLight],
+                child: Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(14),
+                        gradient: const RadialGradient(
+                          center: Alignment(-0.2, -0.2),
+                          colors: [AppColors.pink, AppColors.purpleLight],
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Social Graph',
-                            style: AppText.body(16, weight: FontWeight.w600)),
-                        Text('Your network, mapped by Alter',
-                            style: AppText.body(12.5, color: AppColors.white(0.6))),
-                      ],
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Social Graph',
+                            style: AppText.body(16, weight: FontWeight.w600),
+                          ),
+                          Text(
+                            'Your network, mapped by Alter',
+                            style: AppText.body(
+                              12.5,
+                              color: AppColors.white(0.6),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  Icon(Icons.arrow_forward, color: AppColors.white(0.5), size: 20),
-                ]),
+                    Icon(
+                      Icons.arrow_forward,
+                      color: AppColors.white(0.5),
+                      size: 20,
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 11),
@@ -123,52 +154,78 @@ class ProfileScreen extends ConsumerWidget {
             GestureDetector(
               onTap: () => context.push(AlterRoutes.nfc),
               child: Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(colors: [
-                  AppColors.cyan.withValues(alpha: 0.14),
-                  AppColors.cyan.withValues(alpha: 0.04),
-                ], begin: Alignment.topLeft, end: Alignment.bottomRight),
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: AppColors.cyan.withValues(alpha: 0.3)),
-              ),
-              child: Row(children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: AppColors.cyan.withValues(alpha: 0.18),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: const Icon(Icons.contactless_outlined,
-                      color: AppColors.cyan, size: 22),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Tap to connect · NFC',
-                          style: AppText.body(16, weight: FontWeight.w600)),
-                      Text('Share a context-aware profile',
-                          style: AppText.body(12.5, color: AppColors.white(0.6))),
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      AppColors.cyan.withValues(alpha: 0.14),
+                      AppColors.cyan.withValues(alpha: 0.04),
                     ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: AppColors.cyan.withValues(alpha: 0.3),
                   ),
                 ),
-              ]),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: AppColors.cyan.withValues(alpha: 0.18),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: const Icon(
+                        Icons.contactless_outlined,
+                        color: AppColors.cyan,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Tap to connect · NFC',
+                            style: AppText.body(16, weight: FontWeight.w600),
+                          ),
+                          Text(
+                            'Share a context-aware profile',
+                            style: AppText.body(
+                              12.5,
+                              color: AppColors.white(0.6),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
             const SizedBox(height: 26),
-            Text('CONNECTED PLATFORMS',
-                style: AppText.kicker(AppColors.white(0.45), size: 12)),
+            Text(
+              'CONNECTED PLATFORMS',
+              style: AppText.kicker(AppColors.white(0.45), size: 12),
+            ),
             const SizedBox(height: 12),
-            Row(children: [
-              _platform('N', 'Notion', circle: false),
-              const SizedBox(width: 10),
-              _platform('GH', 'GitHub', circle: true),
-            ]),
+            Row(
+              children: [
+                _platform('N', 'Notion', circle: false),
+                const SizedBox(width: 10),
+                _platform('GH', 'GitHub', circle: true),
+              ],
+            ),
             const SizedBox(height: 16),
-            OutlineButton2(label: 'Account & settings', onTap: shell.openSettings),
+            OutlineButton2(
+              label: 'Account & settings',
+              onTap: shell.openSettings,
+            ),
           ],
         ),
       ),
@@ -180,11 +237,16 @@ class ProfileScreen extends ConsumerWidget {
       child: GlassCard(
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
         radius: 16,
-        child: Column(children: [
-          Text(value, style: AppText.display(22, weight: FontWeight.w600, color: c)),
-          const SizedBox(height: 2),
-          Text(label, style: AppText.body(11, color: AppColors.white(0.5))),
-        ]),
+        child: Column(
+          children: [
+            Text(
+              value,
+              style: AppText.display(22, weight: FontWeight.w600, color: c),
+            ),
+            const SizedBox(height: 2),
+            Text(label, style: AppText.body(11, color: AppColors.white(0.5))),
+          ],
+        ),
       ),
     );
   }
@@ -194,29 +256,36 @@ class ProfileScreen extends ConsumerWidget {
       child: GlassCard(
         padding: const EdgeInsets.all(14),
         radius: 14,
-        child: Row(children: [
-          Container(
-            width: 24,
-            height: 24,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              shape: circle ? BoxShape.circle : BoxShape.rectangle,
-              borderRadius: circle ? null : BorderRadius.circular(7),
+        child: Row(
+          children: [
+            Container(
+              width: 24,
+              height: 24,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: circle ? BoxShape.circle : BoxShape.rectangle,
+                borderRadius: circle ? null : BorderRadius.circular(7),
+              ),
+              child: Text(
+                mark,
+                style: AppText.body(
+                  circle ? 12 : 14,
+                  weight: FontWeight.w800,
+                  color: Colors.black,
+                ),
+              ),
             ),
-            child: Text(mark,
-                style: AppText.body(circle ? 12 : 14,
-                    weight: FontWeight.w800, color: Colors.black)),
-          ),
-          const SizedBox(width: 9),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(name, style: AppText.body(13, weight: FontWeight.w600)),
-              Text('Synced', style: AppText.body(10, color: AppColors.lime)),
-            ],
-          ),
-        ]),
+            const SizedBox(width: 9),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(name, style: AppText.body(13, weight: FontWeight.w600)),
+                Text('Synced', style: AppText.body(10, color: AppColors.lime)),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

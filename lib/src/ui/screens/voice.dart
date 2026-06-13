@@ -38,14 +38,17 @@ class _VoiceScreenState extends ConsumerState<VoiceScreen>
   final FlutterTts _tts = FlutterTts();
 
   late final AnimationController _breathe = AnimationController(
-      vsync: this, duration: const Duration(seconds: 5))
-    ..repeat(reverse: true);
+    vsync: this,
+    duration: const Duration(seconds: 5),
+  )..repeat(reverse: true);
   late final AnimationController _ring = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 2400))
-    ..repeat();
+    vsync: this,
+    duration: const Duration(milliseconds: 2400),
+  )..repeat();
   late final AnimationController _wave = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 900))
-    ..repeat(reverse: true);
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  )..repeat(reverse: true);
 
   static const _locale = 'en-US';
 
@@ -62,7 +65,7 @@ class _VoiceScreenState extends ConsumerState<VoiceScreen>
   Future<bool> _ensureSpeechReady() async {
     if (_sttReady) return true;
     _sttReady = await _speech.initialize(
-      onError: (_, __) {
+      onError: (_) {
         if (_assistantMode && mounted) _rearmWakeLoop();
       },
       onStatus: _onSpeechStatus,
@@ -211,7 +214,10 @@ class _VoiceScreenState extends ConsumerState<VoiceScreen>
     });
   }
 
-  Future<void> _handleNativeWakeEvent(String phrase, {required bool onDevice}) async {
+  Future<void> _handleNativeWakeEvent(
+    String phrase, {
+    required bool onDevice,
+  }) async {
     if (!mounted) return;
     final heard = phrase.trim().isEmpty ? 'Hey Alter' : phrase.trim();
     final wake = WakeWord.parse(heard);
@@ -259,14 +265,14 @@ class _VoiceScreenState extends ConsumerState<VoiceScreen>
           setState(() {
             _assistantText = display.isNotEmpty
                 ? display
-                : (next.errorMessage.isNotEmpty
-                    ? next.errorMessage
-                    : 'Done.');
+                : (next.errorMessage.isNotEmpty ? next.errorMessage : 'Done.');
             _mode = VoiceMode.speaking;
           });
         }
-        if (spoken.isNotEmpty) unawaited(_speak(spoken));
-        else if (mounted) setState(() => _mode = VoiceMode.idle);
+        if (spoken.isNotEmpty)
+          unawaited(_speak(spoken));
+        else if (mounted)
+          setState(() => _mode = VoiceMode.idle);
       }
     });
 
@@ -274,23 +280,20 @@ class _VoiceScreenState extends ConsumerState<VoiceScreen>
       if ((prev?.wakeCount ?? 0) >= next.wakeCount) return;
       final event = next.lastEvent;
       if (event == null) return;
-      unawaited(_handleNativeWakeEvent(
-        event.phrase,
-        onDevice: event.onDevice,
-      ));
+      unawaited(_handleNativeWakeEvent(event.phrase, onDevice: event.onDevice));
     });
 
     final mode = runtime.isRunning
         ? VoiceMode.speaking
         : (_mode == VoiceMode.listening || nativeWake.running
-            ? VoiceMode.listening
-            : _mode);
+              ? VoiceMode.listening
+              : _mode);
 
     final label = runtime.isRunning
         ? 'Alter is responding'
         : nativeWake.running
-            ? 'Hey Alter wake service active'
-            : _status;
+        ? 'Hey Alter wake service active'
+        : _status;
 
     final voiceBg = AlterUiTheme.light
         ? const [Color(0xFFECE8F6), Color(0xFFF4F1FB), Color(0xFFEEF0F8)]
@@ -306,146 +309,183 @@ class _VoiceScreenState extends ConsumerState<VoiceScreen>
         ),
       ),
       child: SafeArea(
-        child: Stack(children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(22, 10, 22, 0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                GearButton(onTap: shell.openSettings),
-                Row(mainAxisSize: MainAxisSize.min, children: [
-                  const StarMark(size: 15),
-                  const SizedBox(width: 7),
-                  Text('ALTER',
-                      style: AppText.display(12,
-                          weight: FontWeight.w600, letterSpacing: 2.5)),
-                ]),
-                GestureDetector(
-                  onTap: () => context.push(AlterRoutes.lens),
-                  child: Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: AppColors.lime.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                          color: AppColors.lime.withValues(alpha: 0.4)),
-                    ),
-                    child: const Icon(Icons.camera_alt_outlined,
-                        size: 20, color: AppColors.lime),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Align(
-            alignment: const Alignment(0, -0.25),
-            child: SizedBox(
-              width: 240,
-              height: 240,
-              child: Stack(alignment: Alignment.center, children: [
-                if (mode == VoiceMode.listening) ..._rings(),
-                _orb(mode),
-              ]),
-            ),
-          ),
-          Align(
-            alignment: const Alignment(0, 0.18),
-            child: Text(label,
-                textAlign: TextAlign.center,
-                style: AppText.display(19,
-                    weight: FontWeight.w500, color: AppColors.white(0.85))),
-          ),
-          Align(
-            alignment: const Alignment(0, 0.62),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 22),
-              child: Column(mainAxisSize: MainAxisSize.min, children: [
-                if (_userText.isNotEmpty)
-                  _bubble(_userText, true, null),
-                if (_userText.isNotEmpty && _assistantText.isNotEmpty)
-                  const SizedBox(height: 12),
-                if (_assistantText.isNotEmpty)
-                  _bubble(
-                    _assistantText,
-                    false,
-                    LinearGradient(colors: [
-                      AppColors.lime.withValues(alpha: 0.16),
-                      AppColors.purple.withValues(alpha: 0.14),
-                    ]),
-                  ),
-                if (_userText.isEmpty && _assistantText.isEmpty)
-                  _bubble(
-                    'Hey Alter, should I learn AI or Cybersecurity?',
-                    true,
-                    null,
-                  ),
-              ]),
-            ),
-          ),
-          Align(
-            alignment: const Alignment(0, 0.96),
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 96),
+        child: Stack(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(22, 10, 22, 0),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  GestureDetector(
-                    onTap: () => context.push(AlterRoutes.deepAnalysis),
-                    child: Container(
-                      height: 48,
-                      padding: const EdgeInsets.symmetric(horizontal: 22),
-                      decoration: BoxDecoration(
-                        color: AppColors.white(0.06),
-                        borderRadius: BorderRadius.circular(30),
-                        border: Border.all(color: AppColors.white(0.16)),
-                      ),
-                      child: Row(mainAxisSize: MainAxisSize.min, children: [
-                        Text('Deep analysis',
-                            style:
-                                AppText.body(14, weight: FontWeight.w600)),
-                        const SizedBox(width: 8),
-                        const Icon(Icons.arrow_forward,
-                            size: 16, color: Colors.white),
-                      ]),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  GestureDetector(
-                    onLongPress: () => unawaited(_toggleAssistantMode()),
-                    onTap: nativeWake.supported
-                        ? () => ref
-                            .read(nativeWakeServiceControllerProvider.notifier)
-                            .toggle()
-                        : null,
-                    child: Container(
-                      height: 48,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      decoration: BoxDecoration(
-                        color: nativeWake.running
-                            ? AppColors.lime.withValues(alpha: 0.2)
-                            : AppColors.white(0.06),
-                        borderRadius: BorderRadius.circular(30),
-                        border: Border.all(
-                          color: nativeWake.running
-                              ? AppColors.lime
-                              : AppColors.white(0.16),
+                  GearButton(onTap: shell.openSettings),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const StarMark(size: 15),
+                      const SizedBox(width: 7),
+                      Text(
+                        'ALTER',
+                        style: AppText.display(
+                          12,
+                          weight: FontWeight.w600,
+                          letterSpacing: 2.5,
                         ),
                       ),
-                      child: Icon(
-                        nativeWake.running ? Icons.hearing : Icons.hearing_disabled,
+                    ],
+                  ),
+                  GestureDetector(
+                    onTap: () => context.push(AlterRoutes.lens),
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: AppColors.lime.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: AppColors.lime.withValues(alpha: 0.4),
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.camera_alt_outlined,
                         size: 20,
-                        color: nativeWake.running
-                            ? AppColors.lime
-                            : AppColors.white(0.7),
+                        color: AppColors.lime,
                       ),
                     ),
                   ),
                 ],
               ),
             ),
-          ),
-        ]),
+            Align(
+              alignment: const Alignment(0, -0.25),
+              child: SizedBox(
+                width: 240,
+                height: 240,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    if (mode == VoiceMode.listening) ..._rings(),
+                    _orb(mode),
+                  ],
+                ),
+              ),
+            ),
+            Align(
+              alignment: const Alignment(0, 0.18),
+              child: Text(
+                label,
+                textAlign: TextAlign.center,
+                style: AppText.display(
+                  19,
+                  weight: FontWeight.w500,
+                  color: AppColors.white(0.85),
+                ),
+              ),
+            ),
+            Align(
+              alignment: const Alignment(0, 0.62),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 22),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_userText.isNotEmpty) _bubble(_userText, true, null),
+                    if (_userText.isNotEmpty && _assistantText.isNotEmpty)
+                      const SizedBox(height: 12),
+                    if (_assistantText.isNotEmpty)
+                      _bubble(
+                        _assistantText,
+                        false,
+                        LinearGradient(
+                          colors: [
+                            AppColors.lime.withValues(alpha: 0.16),
+                            AppColors.purple.withValues(alpha: 0.14),
+                          ],
+                        ),
+                      ),
+                    if (_userText.isEmpty && _assistantText.isEmpty)
+                      _bubble(
+                        'Hey Alter, should I learn AI or Cybersecurity?',
+                        true,
+                        null,
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            Align(
+              alignment: const Alignment(0, 0.96),
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 96),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    GestureDetector(
+                      onTap: () => context.push(AlterRoutes.deepAnalysis),
+                      child: Container(
+                        height: 48,
+                        padding: const EdgeInsets.symmetric(horizontal: 22),
+                        decoration: BoxDecoration(
+                          color: AppColors.white(0.06),
+                          borderRadius: BorderRadius.circular(30),
+                          border: Border.all(color: AppColors.white(0.16)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Deep analysis',
+                              style: AppText.body(14, weight: FontWeight.w600),
+                            ),
+                            const SizedBox(width: 8),
+                            const Icon(
+                              Icons.arrow_forward,
+                              size: 16,
+                              color: Colors.white,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    GestureDetector(
+                      onLongPress: () => unawaited(_toggleAssistantMode()),
+                      onTap: nativeWake.supported
+                          ? () => ref
+                                .read(
+                                  nativeWakeServiceControllerProvider.notifier,
+                                )
+                                .toggle()
+                          : null,
+                      child: Container(
+                        height: 48,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: nativeWake.running
+                              ? AppColors.lime.withValues(alpha: 0.2)
+                              : AppColors.white(0.06),
+                          borderRadius: BorderRadius.circular(30),
+                          border: Border.all(
+                            color: nativeWake.running
+                                ? AppColors.lime
+                                : AppColors.white(0.16),
+                          ),
+                        ),
+                        child: Icon(
+                          nativeWake.running
+                              ? Icons.hearing
+                              : Icons.hearing_disabled,
+                          size: 20,
+                          color: nativeWake.running
+                              ? AppColors.lime
+                              : AppColors.white(0.7),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -520,7 +560,8 @@ class _VoiceScreenState extends ConsumerState<VoiceScreen>
                 animation: _wave,
                 builder: (_, __) {
                   final phase = (i % 4) / 4;
-                  final v = (0.3 +
+                  final v =
+                      (0.3 +
                       0.7 *
                           (0.5 +
                               0.5 *
@@ -554,7 +595,8 @@ class _VoiceScreenState extends ConsumerState<VoiceScreen>
       alignment: me ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         constraints: BoxConstraints(
-            maxWidth: MediaQuery.of(context).size.width * (me ? 0.78 : 0.82)),
+          maxWidth: MediaQuery.of(context).size.width * (me ? 0.78 : 0.82),
+        ),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           color: me ? AppColors.white(0.1) : null,
@@ -566,9 +608,10 @@ class _VoiceScreenState extends ConsumerState<VoiceScreen>
             bottomRight: Radius.circular(me ? 6 : 20),
           ),
           border: Border.all(
-              color: me
-                  ? AppColors.white(0.14)
-                  : AppColors.lime.withValues(alpha: 0.25)),
+            color: me
+                ? AppColors.white(0.14)
+                : AppColors.lime.withValues(alpha: 0.25),
+          ),
         ),
         child: Text(text, style: AppText.body(14, height: 1.5)),
       ),
