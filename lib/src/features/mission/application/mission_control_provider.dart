@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../backend/application/backend_config_controller.dart';
 import '../../profile/application/profile_provider.dart';
 import '../data/mission_control_api_client.dart';
 import '../domain/mission_control_models.dart';
@@ -19,25 +20,38 @@ MissionAi? _missionAi(Ref ref) {
 
 /// Optional self-hosted Mission Control gateway. Empty by default — when unset,
 /// the dashboard renders the local snapshot instead of calling a backend.
-const _missionGatewayUrl = String.fromEnvironment('ALTER_API_GATEWAY_URL');
+Future<MissionControlApiClient?> _missionGateway(
+  Ref ref, {
+  Duration timeout = const Duration(seconds: 20),
+}) async {
+  final config = await ref.read(backendConfigProvider.future);
+  if (!config.hasGateway) return null;
+  return MissionControlApiClient(baseUrl: config.gatewayUrl, timeout: timeout);
+}
 
-final missionControlApiClientProvider = Provider<MissionControlApiClient>((
+String _fallbackError(Object? gatewayError) {
+  if (gatewayError == null) return _kNoAiMessage;
+  return 'Backend gateway failed: ${gatewayError.toString().replaceFirst('Exception: ', '')}';
+}
+
+final missionControlProvider = FutureProvider<MissionControlSnapshot>((
   ref,
-) {
-  final client = MissionControlApiClient(baseUrl: _missionGatewayUrl);
-  ref.onDispose(client.close);
-  return client;
-});
-
-final missionControlProvider = FutureProvider<MissionControlSnapshot>((ref) {
+) async {
   // No external gateway configured → use the local snapshot directly. This
   // avoids a doomed network round-trip and console noise in production.
-  if (_missionGatewayUrl.isEmpty) {
+  final client = await _missionGateway(
+    ref,
+    timeout: const Duration(seconds: 5),
+  );
+  if (client == null) {
     return fallbackMissionControlSnapshot;
   }
-  return ref
-      .watch(missionControlApiClientProvider)
-      .loadSnapshot(fallbackMissionControlSnapshot);
+  ref.onDispose(client.close);
+  try {
+    return await client.loadSnapshot(fallbackMissionControlSnapshot);
+  } catch (_) {
+    return fallbackMissionControlSnapshot;
+  }
 });
 
 final missionDemoControllerProvider =
@@ -72,19 +86,42 @@ class ProofCaptureController extends Notifier<ProofCaptureState> {
   }) async {
     final trimmed = objective.trim();
     if (trimmed.length < 3) {
-      state = state.copyWith(errorMessage: 'Enter the future objective this proof updates.');
+      state = state.copyWith(
+        errorMessage: 'Enter the future objective this proof updates.',
+      );
       return;
     }
     if (evidence.isEmpty) {
       state = state.copyWith(errorMessage: 'Add at least one proof item.');
       return;
     }
+    state = state.copyWith(isRunning: true, errorMessage: '');
+    Object? gatewayError;
+    final gateway = await _missionGateway(ref);
+    if (gateway != null) {
+      try {
+        final result = await gateway.captureProof(
+          objective: trimmed,
+          linkedGoal: linkedGoal.trim(),
+          linkedAction: linkedAction.trim(),
+          evidence: evidence,
+        );
+        state = state.copyWith(isRunning: false, result: result);
+        gateway.close();
+        return;
+      } catch (error) {
+        gatewayError = error;
+        gateway.close();
+      }
+    }
     final ai = _missionAi(ref);
     if (ai == null) {
-      state = state.copyWith(errorMessage: _kNoAiMessage);
+      state = state.copyWith(
+        isRunning: false,
+        errorMessage: _fallbackError(gatewayError),
+      );
       return;
     }
-    state = state.copyWith(isRunning: true, errorMessage: '');
     try {
       final result = await ai.captureProof(
         objective: trimmed,
@@ -136,15 +173,36 @@ class FutureTwinController extends Notifier<FutureTwinState> {
   }) async {
     final trimmed = objective.trim();
     if (trimmed.length < 3) {
-      state = state.copyWith(errorMessage: 'Enter an objective for your Future Twin.');
-      return;
-    }
-    final ai = _missionAi(ref);
-    if (ai == null) {
-      state = state.copyWith(errorMessage: _kNoAiMessage);
+      state = state.copyWith(
+        errorMessage: 'Enter an objective for your Future Twin.',
+      );
       return;
     }
     state = state.copyWith(isRunning: true, errorMessage: '');
+    Object? gatewayError;
+    final gateway = await _missionGateway(ref);
+    if (gateway != null) {
+      try {
+        final result = await gateway.buildFutureTwin(
+          objective: trimmed,
+          evidence: evidence,
+        );
+        state = state.copyWith(isRunning: false, result: result);
+        gateway.close();
+        return;
+      } catch (error) {
+        gatewayError = error;
+        gateway.close();
+      }
+    }
+    final ai = _missionAi(ref);
+    if (ai == null) {
+      state = state.copyWith(
+        isRunning: false,
+        errorMessage: _fallbackError(gatewayError),
+      );
+      return;
+    }
     try {
       final result = await ai.buildTwin(objective: trimmed, evidence: evidence);
       state = state.copyWith(isRunning: false, result: result);
@@ -188,12 +246,9 @@ class IntelligenceKernelController extends Notifier<IntelligenceKernelState> {
   Future<void> decide(String question) async {
     final trimmed = question.trim();
     if (trimmed.length < 3) {
-      state = state.copyWith(errorMessage: 'Enter a decision to reason through.');
-      return;
-    }
-    final ai = _missionAi(ref);
-    if (ai == null) {
-      state = state.copyWith(errorMessage: _kNoAiMessage);
+      state = state.copyWith(
+        errorMessage: 'Enter a decision to reason through.',
+      );
       return;
     }
     state = state.copyWith(
@@ -201,6 +256,27 @@ class IntelligenceKernelController extends Notifier<IntelligenceKernelState> {
       errorMessage: '',
       clearOutcomeResult: true,
     );
+    Object? gatewayError;
+    final gateway = await _missionGateway(ref);
+    if (gateway != null) {
+      try {
+        final report = await gateway.decide(question: trimmed);
+        state = state.copyWith(isRunning: false, report: report);
+        gateway.close();
+        return;
+      } catch (error) {
+        gatewayError = error;
+        gateway.close();
+      }
+    }
+    final ai = _missionAi(ref);
+    if (ai == null) {
+      state = state.copyWith(
+        isRunning: false,
+        errorMessage: _fallbackError(gatewayError),
+      );
+      return;
+    }
     try {
       final report = await ai.decide(trimmed);
       state = state.copyWith(isRunning: false, report: report);
@@ -228,16 +304,44 @@ class IntelligenceKernelController extends Notifier<IntelligenceKernelState> {
         whatLearned.trim().length < 2 ||
         successMetricResult.trim().length < 2) {
       state = state.copyWith(
-        outcomeErrorMessage: 'Add what happened, what you learned, and the metric result.',
+        outcomeErrorMessage:
+            'Add what happened, what you learned, and the metric result.',
       );
       return;
     }
+    state = state.copyWith(isSubmittingOutcome: true, outcomeErrorMessage: '');
+    Object? gatewayError;
+    final gateway = await _missionGateway(ref);
+    if (gateway != null) {
+      try {
+        final outcome = await gateway.recordOutcome(
+          report: report,
+          didIt: didIt,
+          whatHappened: whatHappened.trim(),
+          whatLearned: whatLearned.trim(),
+          successMetricResult: successMetricResult.trim(),
+          outcomeScore: outcomeScore,
+        );
+        state = state.copyWith(
+          isSubmittingOutcome: false,
+          outcomeResult: outcome,
+          outcomeErrorMessage: '',
+        );
+        gateway.close();
+        return;
+      } catch (error) {
+        gatewayError = error;
+        gateway.close();
+      }
+    }
     final ai = _missionAi(ref);
     if (ai == null) {
-      state = state.copyWith(outcomeErrorMessage: _kNoAiMessage);
+      state = state.copyWith(
+        isSubmittingOutcome: false,
+        outcomeErrorMessage: _fallbackError(gatewayError),
+      );
       return;
     }
-    state = state.copyWith(isSubmittingOutcome: true, outcomeErrorMessage: '');
     try {
       final outcome = await ai.recordOutcome(
         report: report,
@@ -310,12 +414,28 @@ class MissionDemoController extends Notifier<MissionDemoState> {
       state = state.copyWith(errorMessage: 'Enter a decision to simulate.');
       return;
     }
+    state = state.copyWith(isRunning: true, errorMessage: '');
+    Object? gatewayError;
+    final gateway = await _missionGateway(ref);
+    if (gateway != null) {
+      try {
+        final result = await gateway.runFutureOsDemo(objective: trimmed);
+        state = state.copyWith(isRunning: false, result: result);
+        gateway.close();
+        return;
+      } catch (error) {
+        gatewayError = error;
+        gateway.close();
+      }
+    }
     final ai = _missionAi(ref);
     if (ai == null) {
-      state = state.copyWith(errorMessage: _kNoAiMessage);
+      state = state.copyWith(
+        isRunning: false,
+        errorMessage: _fallbackError(gatewayError),
+      );
       return;
     }
-    state = state.copyWith(isRunning: true, errorMessage: '');
     try {
       final result = await ai.runDemo(trimmed);
       state = state.copyWith(isRunning: false, result: result);

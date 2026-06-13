@@ -1,18 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../auth/application/auth_provider.dart';
+import '../../backend/application/backend_config_controller.dart';
 import '../../profile/application/profile_provider.dart';
 import '../../shared/application/alter_data_providers.dart';
 import '../data/life_feed_api_client.dart';
 import '../domain/life_feed_models.dart';
-
-final lifeFeedApiClientProvider = Provider<LifeFeedApiClient>((ref) {
-  const baseUrl = String.fromEnvironment('ALTER_API_GATEWAY_URL');
-  final client = LifeFeedApiClient(baseUrl: baseUrl);
-  ref.onDispose(client.close);
-  return client;
-});
 
 final lifeFeedProvider = FutureProvider<LifeFeedSnapshot>((ref) async {
   final user = ref.watch(currentUserProvider);
@@ -23,10 +16,14 @@ final lifeFeedProvider = FutureProvider<LifeFeedSnapshot>((ref) async {
   final profile = ref.watch(userProfileProvider).asData?.value;
   final firstName = _firstName(profile?.displayName ?? user.email ?? 'there');
 
-  final api = ref.watch(lifeFeedApiClientProvider);
-  final remote = await api.fetch(userId: user.id);
-  if (remote != null) {
-    return remote;
+  final config = await ref.watch(backendConfigProvider.future);
+  if (config.hasGateway) {
+    final api = LifeFeedApiClient(baseUrl: config.gatewayUrl);
+    ref.onDispose(api.close);
+    try {
+      final remote = await api.fetch(userId: user.id);
+      if (remote != null) return remote;
+    } catch (_) {}
   }
 
   final brief = await ref.watch(assistantBriefProvider.future);
@@ -37,7 +34,9 @@ final lifeFeedProvider = FutureProvider<LifeFeedSnapshot>((ref) async {
   final month = _month(now.month);
 
   return LifeFeedSnapshot(
-    greeting: brief.greeting.isNotEmpty ? brief.greeting : 'Good morning, $firstName.',
+    greeting: brief.greeting.isNotEmpty
+        ? brief.greeting
+        : 'Good morning, $firstName.',
     dateSummary:
         '$weekday, ${now.day} $month · ${brief.signals.length} things need you today',
     focusTitle: brief.focus.isNotEmpty ? brief.focus : brief.nextAction,
@@ -80,8 +79,18 @@ String _weekday(int day) {
 
 String _month(int month) {
   const months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
   return months[(month - 1).clamp(0, 11)];
 }

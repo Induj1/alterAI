@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
+import '../../backend/application/backend_config_controller.dart';
 import '../../profile/application/profile_provider.dart';
+import '../../voice/data/voice_runtime_api_client.dart';
 import 'agent_tools.dart';
 
 enum AgentRole { user, assistant, tool }
@@ -123,9 +125,18 @@ class AgentController extends Notifier<AgentState> {
     final openai = ref.read(openAIServiceProvider);
     if (openai == null) {
       _push(AgentRole.user, input);
+      state = state.copyWith(isThinking: true, error: '');
+      final backendReply = await _runBackendRuntime(input);
+      if (backendReply != null) {
+        _push(AgentRole.assistant, backendReply);
+        state = state.copyWith(isThinking: false);
+        await _speak(backendReply);
+        return;
+      }
+      state = state.copyWith(isThinking: false);
       _push(
         AgentRole.assistant,
-        'I need to be signed in with AI access to help. Open Settings to add a key.',
+        'Connect the backend gateway or sign in with AI access to help.',
       );
       return;
     }
@@ -204,6 +215,25 @@ class AgentController extends Notifier<AgentState> {
   }
 
   void stopSpeaking() => _tts.stop();
+
+  Future<String?> _runBackendRuntime(String input) async {
+    final config = await ref.read(backendConfigProvider.future);
+    if (!config.hasGateway) return null;
+    final client = VoiceRuntimeApiClient(baseUrl: config.gatewayUrl);
+    try {
+      final result = await client.run(transcript: input, locale: 'en-US');
+      client.close();
+      return result.displayResponse.isNotEmpty
+          ? result.displayResponse
+          : result.spokenResponse;
+    } catch (error) {
+      client.close();
+      state = state.copyWith(
+        error: error.toString().replaceFirst('Exception: ', ''),
+      );
+      return null;
+    }
+  }
 
   void _push(AgentRole role, String text) =>
       _appendMessage(AgentMessage(role, text));

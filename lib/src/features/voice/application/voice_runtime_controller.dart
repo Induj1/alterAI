@@ -3,52 +3,57 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../backend/application/backend_config_controller.dart';
 import '../../profile/application/profile_provider.dart';
 import '../../profile/domain/user_profile.dart';
 import '../data/voice_runtime_api_client.dart';
 
-final voiceRuntimeApiClientProvider = Provider<VoiceRuntimeApiClient>((ref) {
-  final client = VoiceRuntimeApiClient(
-    baseUrl: const String.fromEnvironment(
-      'ALTER_API_GATEWAY_URL',
-      defaultValue: 'http://localhost:8060',
-    ),
-  );
-  ref.onDispose(client.close);
-  return client;
-});
-
 final voiceRuntimeControllerProvider =
     NotifierProvider<VoiceRuntimeController, VoiceRuntimeState>(
-  VoiceRuntimeController.new,
-);
+      VoiceRuntimeController.new,
+    );
 
 class VoiceRuntimeController extends Notifier<VoiceRuntimeState> {
   @override
   VoiceRuntimeState build() => const VoiceRuntimeState();
 
-  Future<void> run({
-    required String transcript,
-    required String locale,
-  }) async {
+  Future<void> run({required String transcript, required String locale}) async {
     final trimmed = transcript.trim();
     if (trimmed.length < 3) {
       state = state.copyWith(errorMessage: 'Say or type a command for ALTER.');
       return;
     }
-    state = state.copyWith(isRunning: true, errorMessage: '', clearResult: true);
+    state = state.copyWith(
+      isRunning: true,
+      errorMessage: '',
+      clearResult: true,
+    );
 
     try {
+      final config = await ref.read(backendConfigProvider.future);
+      if (config.hasGateway) {
+        final client = VoiceRuntimeApiClient(baseUrl: config.gatewayUrl);
+        try {
+          final result = await client.run(transcript: trimmed, locale: locale);
+          state = state.copyWith(isRunning: false, result: result);
+          client.close();
+          return;
+        } catch (_) {
+          client.close();
+        }
+      }
+
       final openai = ref.read(openAIServiceProvider);
       if (openai != null) {
         final profile = ref.read(userProfileProvider).asData?.value;
         final result = await _runDirect(trimmed, locale, profile);
         state = state.copyWith(isRunning: false, result: result);
       } else {
-        final result = await ref
-            .read(voiceRuntimeApiClientProvider)
-            .run(transcript: trimmed, locale: locale);
-        state = state.copyWith(isRunning: false, result: result);
+        state = state.copyWith(
+          isRunning: false,
+          errorMessage:
+              'Connect the backend gateway or sign in with AI access.',
+        );
       }
     } catch (error) {
       final msg = error.toString().replaceFirst('Exception: ', '');
@@ -111,7 +116,9 @@ class VoiceRuntimeController extends Notifier<VoiceRuntimeState> {
     final name = profile?.displayName.isNotEmpty == true
         ? profile!.displayName
         : 'the user';
-    final role = profile?.role.isNotEmpty == true ? profile!.role : 'professional';
+    final role = profile?.role.isNotEmpty == true
+        ? profile!.role
+        : 'professional';
     final skills = profile?.skills.isNotEmpty == true
         ? profile!.skills.join(', ')
         : 'diverse skills';

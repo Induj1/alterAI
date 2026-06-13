@@ -2,14 +2,16 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../backend/application/backend_config_controller.dart';
+import '../../backend/data/backend_feature_api_client.dart';
 import '../../profile/application/profile_provider.dart';
 import '../../profile/domain/user_profile.dart';
 import '../domain/alter_lens_models.dart';
 
 final alterLensControllerProvider =
     NotifierProvider<AlterLensController, AlterLensState>(
-  AlterLensController.new,
-);
+      AlterLensController.new,
+    );
 
 class AlterLensController extends Notifier<AlterLensState> {
   @override
@@ -24,20 +26,45 @@ class AlterLensController extends Notifier<AlterLensState> {
     required String filename,
     String userContext = '',
   }) async {
-    final openai = ref.read(openAIServiceProvider);
-    if (openai == null) {
-      state = state.copyWith(
-        isAnalyzing: false,
-        errorMessage:
-            'Sign in to use ALTER Lens. Vision analysis runs through your account.',
-      );
-      return;
-    }
-
     state = state.copyWith(isAnalyzing: true, errorMessage: '');
+    final mime = _mimeFor(filename);
+    Object? backendError;
     try {
       final profile = ref.read(userProfileProvider).asData?.value;
-      final mime = _mimeFor(filename);
+      final config = await ref.read(backendConfigProvider.future);
+      final serviceUrl = config.serviceUrl(BackendService.alterLens);
+      if (serviceUrl.isNotEmpty) {
+        final client = BackendFeatureApiClient(baseUrl: serviceUrl);
+        try {
+          final result = await client.analyzeLensCapture(
+            scanType: state.scanType,
+            imageBytes: imageBytes,
+            filename: filename,
+            mimeType: mime,
+            userContext: userContext,
+          );
+          client.close();
+          state = state.copyWith(isAnalyzing: false, result: result);
+          return;
+        } catch (error) {
+          backendError = error;
+          client.close();
+        }
+      }
+
+      final openai = ref.read(openAIServiceProvider);
+      if (openai == null) {
+        final backendMessage = backendError == null
+            ? ''
+            : ' Backend failed: ${backendError.toString().replaceFirst('Exception: ', '')}';
+        state = state.copyWith(
+          isAnalyzing: false,
+          errorMessage:
+              'Connect the backend gateway or sign in with AI access.$backendMessage',
+        );
+        return;
+      }
+
       final b64 = base64Encode(imageBytes);
 
       final raw = await openai.chat(
@@ -55,7 +82,7 @@ class AlterLensController extends Notifier<AlterLensState> {
                 'text': userContext.trim().isEmpty
                     ? 'Analyze this ${state.scanType.label.toLowerCase()} capture.'
                     : 'Analyze this ${state.scanType.label.toLowerCase()} capture. '
-                        'Context from me: $userContext',
+                          'Context from me: $userContext',
               },
               {
                 'type': 'image_url',
@@ -97,8 +124,8 @@ class AlterLensController extends Notifier<AlterLensState> {
     final who = profile == null || profile.displayName.isEmpty
         ? ''
         : 'The user is ${profile.displayName}'
-            '${profile.role.isNotEmpty ? ', a ${profile.role}' : ''}'
-            '${profile.goals.isNotEmpty ? '. Their goals: ${profile.goals.join(', ')}' : ''}. ';
+              '${profile.role.isNotEmpty ? ', a ${profile.role}' : ''}'
+              '${profile.goals.isNotEmpty ? '. Their goals: ${profile.goals.join(', ')}' : ''}. ';
 
     return 'You are ALTER Lens, a vision analyst that turns a captured '
         '${scanType.label.toLowerCase()} image into structured, actionable '
@@ -174,7 +201,8 @@ LensScanResult sampleLensResult(LensScanType scanType) {
     scanId: 'preview',
     scanType: scanType,
     detectedType: scanType.label,
-    summary: 'OpenAI vision preview identified a high-signal '
+    summary:
+        'OpenAI vision preview identified a high-signal '
         '${scanType.label.toLowerCase()} scan with enough structure to create '
         'memory, opportunities, and next actions.',
     confidence: 0.91,
@@ -224,7 +252,11 @@ LensScanResult sampleLensResult(LensScanType scanType) {
       'topics': ['AI', 'networking', 'career signal'],
       'actions': ['save memory', 'draft follow-up'],
     },
-    memoryCandidates: const ['scan_summary', 'opportunity_signal', 'next_action'],
+    memoryCandidates: const [
+      'scan_summary',
+      'opportunity_signal',
+      'next_action',
+    ],
     createdAt: DateTime.now(),
   );
 }

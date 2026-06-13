@@ -4,13 +4,20 @@ import 'package:http/http.dart' as http;
 
 import '../domain/mission_control_models.dart';
 
+const _missionControlTimeout = Duration(seconds: 20);
+
 class MissionControlApiClient {
-  MissionControlApiClient({required String baseUrl, http.Client? client})
-    : _baseUrl = baseUrl.replaceFirst(RegExp(r'/$'), ''),
-      _client = client ?? http.Client();
+  MissionControlApiClient({
+    required String baseUrl,
+    http.Client? client,
+    Duration timeout = _missionControlTimeout,
+  }) : _baseUrl = baseUrl.replaceFirst(RegExp(r'/$'), ''),
+       _client = client ?? http.Client(),
+       _timeout = timeout;
 
   final String _baseUrl;
   final http.Client _client;
+  final Duration _timeout;
 
   Future<MissionControlSnapshot> loadSnapshot(
     MissionControlSnapshot fallback,
@@ -200,16 +207,17 @@ class MissionControlApiClient {
     ],
     List<FutureTwinEvidenceInput> evidence = const <FutureTwinEvidenceInput>[],
   }) async {
-    final body = await _postJson('/v1/intelligence/future-twin', <String, Object>{
-      'objective': objective,
-      'user_profile': userProfile,
-      'skills': skills,
-      'goals': goals,
-      'interests': interests,
-      'recent_evidence': evidence.map((item) => item.toJson()).toList(),
-      'horizon_days': 90,
-      'write_memory': true,
-    });
+    final body =
+        await _postJson('/v1/intelligence/future-twin', <String, Object>{
+          'objective': objective,
+          'user_profile': userProfile,
+          'skills': skills,
+          'goals': goals,
+          'interests': interests,
+          'recent_evidence': evidence.map((item) => item.toJson()).toList(),
+          'horizon_days': 90,
+          'write_memory': true,
+        });
     return FutureTwinResult.fromJson(body);
   }
 
@@ -234,7 +242,9 @@ class MissionControlApiClient {
   void close() => _client.close();
 
   Future<Map<String, dynamic>> _getJson(String path) async {
-    final response = await _client.get(Uri.parse('$_baseUrl$path'));
+    final response = await _client
+        .get(Uri.parse('$_baseUrl$path'))
+        .timeout(_timeout);
     return _decodeJson(response);
   }
 
@@ -242,11 +252,13 @@ class MissionControlApiClient {
     String path,
     Map<String, Object> payload,
   ) async {
-    final response = await _client.post(
-      Uri.parse('$_baseUrl$path'),
-      headers: const <String, String>{'content-type': 'application/json'},
-      body: jsonEncode(payload),
-    );
+    final response = await _client
+        .post(
+          Uri.parse('$_baseUrl$path'),
+          headers: const <String, String>{'content-type': 'application/json'},
+          body: jsonEncode(payload),
+        )
+        .timeout(_timeout);
     return _decodeJson(response);
   }
 

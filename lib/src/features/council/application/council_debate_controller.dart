@@ -3,14 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/theme/alter_palette.dart';
+import '../../backend/application/backend_config_controller.dart';
+import '../../backend/data/backend_feature_api_client.dart';
 import '../../profile/application/profile_provider.dart';
 import '../../profile/domain/user_profile.dart';
 import '../../shared/application/alter_data_providers.dart';
 
 final councilDebateControllerProvider =
     NotifierProvider<CouncilDebateController, CouncilDebateState>(
-  CouncilDebateController.new,
-);
+      CouncilDebateController.new,
+    );
 
 enum AgentStatus { idle, thinking, done, failed }
 
@@ -29,10 +31,7 @@ class AgentDebateEntry {
   final AgentStatus status;
   final String response;
 
-  AgentDebateEntry copyWith({
-    AgentStatus? status,
-    String? response,
-  }) =>
+  AgentDebateEntry copyWith({AgentStatus? status, String? response}) =>
       AgentDebateEntry(
         name: name,
         role: role,
@@ -68,15 +67,14 @@ class CouncilDebateState {
     String? consensus,
     List<String>? steps,
     String? error,
-  }) =>
-      CouncilDebateState(
-        topic: topic ?? this.topic,
-        isDebating: isDebating ?? this.isDebating,
-        entries: entries ?? this.entries,
-        consensus: consensus ?? this.consensus,
-        steps: steps ?? this.steps,
-        error: error ?? this.error,
-      );
+  }) => CouncilDebateState(
+    topic: topic ?? this.topic,
+    isDebating: isDebating ?? this.isDebating,
+    entries: entries ?? this.entries,
+    consensus: consensus ?? this.consensus,
+    steps: steps ?? this.steps,
+    error: error ?? this.error,
+  );
 }
 
 class CouncilDebateController extends Notifier<CouncilDebateState> {
@@ -117,29 +115,72 @@ class CouncilDebateController extends Notifier<CouncilDebateState> {
   Future<void> debate(String topic) async {
     if (topic.trim().isEmpty) return;
 
-    final openai = ref.read(openAIServiceProvider);
-    if (openai == null) {
-      state = CouncilDebateState(
-        error:
-            'Add your OpenAI API key in Settings → AI Configuration to unlock the council.',
-      );
-      return;
-    }
-
     state = CouncilDebateState(
       topic: topic,
       isDebating: true,
       entries: _agentDefs
-          .map((a) => AgentDebateEntry(
-                name: a.name,
-                role: a.role,
-                accent: a.accent,
-                status: AgentStatus.thinking,
-              ))
+          .map(
+            (a) => AgentDebateEntry(
+              name: a.name,
+              role: a.role,
+              accent: a.accent,
+              status: AgentStatus.thinking,
+            ),
+          )
           .toList(),
     );
 
     final profile = ref.read(userProfileProvider).asData?.value;
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    Object? backendError;
+    final config = await ref.read(backendConfigProvider.future);
+    final serviceUrl = config.serviceUrl(BackendService.cloneCouncil);
+    if (serviceUrl.isNotEmpty) {
+      final client = BackendFeatureApiClient(baseUrl: serviceUrl);
+      try {
+        final result = await client.runCouncilDebate(
+          topic: topic,
+          profile: profile,
+          userId: userId,
+        );
+        client.close();
+        state = state.copyWith(
+          isDebating: false,
+          entries: [
+            for (final entry in result.entries)
+              AgentDebateEntry(
+                name: entry.name,
+                role: entry.role,
+                accent: entry.accent,
+                status: AgentStatus.done,
+                response: entry.response,
+              ),
+          ],
+          consensus: result.consensus,
+          steps: result.steps,
+          error: '',
+        );
+        await _persistAgents(state.entries, topic);
+        return;
+      } catch (error) {
+        backendError = error;
+        client.close();
+      }
+    }
+
+    final openai = ref.read(openAIServiceProvider);
+    if (openai == null) {
+      final backendMessage = backendError == null
+          ? ''
+          : ' Backend failed: ${backendError.toString().replaceFirst('Exception: ', '')}';
+      state = state.copyWith(
+        isDebating: false,
+        error:
+            'Connect the backend gateway or sign in with AI access.$backendMessage',
+      );
+      return;
+    }
+
     final userContext = _buildUserContext(profile, topic);
 
     await Future.wait([
@@ -153,13 +194,12 @@ class CouncilDebateController extends Notifier<CouncilDebateState> {
     if (done.isEmpty) {
       state = state.copyWith(
         isDebating: false,
-        error: 'All agents failed. Check your OpenAI API key.',
+        error: 'All agents failed. Check your AI access or backend gateway.',
       );
       return;
     }
 
-    final summaries =
-        done.map((e) => '${e.name}: ${e.response}').join('\n\n');
+    final summaries = done.map((e) => '${e.name}: ${e.response}').join('\n\n');
 
     try {
       final consensusRaw = await openai.chat(
@@ -171,7 +211,8 @@ class CouncilDebateController extends Notifier<CouncilDebateState> {
           },
           {
             'role': 'user',
-            'content': 'Topic: $topic\n\nCouncil:\n$summaries\n\n3 action steps:',
+            'content':
+                'Topic: $topic\n\nCouncil:\n$summaries\n\n3 action steps:',
           },
         ],
         temperature: 0.4,
@@ -190,7 +231,8 @@ class CouncilDebateController extends Notifier<CouncilDebateState> {
     } catch (e) {
       state = state.copyWith(
         isDebating: false,
-        error: 'Consensus failed: ${e.toString().replaceFirst('Exception: ', '')}',
+        error:
+            'Consensus failed: ${e.toString().replaceFirst('Exception: ', '')}',
       );
     }
   }
@@ -217,8 +259,10 @@ class CouncilDebateController extends Notifier<CouncilDebateState> {
       final updated = [
         for (var i = 0; i < state.entries.length; i++)
           i == idx
-              ? state.entries[i]
-                  .copyWith(status: AgentStatus.done, response: response)
+              ? state.entries[i].copyWith(
+                  status: AgentStatus.done,
+                  response: response,
+                )
               : state.entries[i],
       ];
       state = state.copyWith(entries: updated);

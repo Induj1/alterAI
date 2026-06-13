@@ -2,10 +2,12 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../auth/application/auth_provider.dart';
+import '../../backend/application/backend_config_controller.dart';
 import '../../shared/application/alter_data_providers.dart';
+
+const _reputationTimeout = Duration(seconds: 4);
 
 class ReputationScoreSnapshot {
   const ReputationScoreSnapshot({
@@ -25,8 +27,9 @@ class ReputationScoreSnapshot {
   final int focusAreaFit;
 }
 
-final reputationScoreProvider =
-    FutureProvider<ReputationScoreSnapshot>((ref) async {
+final reputationScoreProvider = FutureProvider<ReputationScoreSnapshot>((
+  ref,
+) async {
   final user = ref.watch(currentUserProvider);
   if (user == null) {
     return const ReputationScoreSnapshot(
@@ -39,19 +42,22 @@ final reputationScoreProvider =
     );
   }
 
-  const baseUrl = String.fromEnvironment('ALTER_API_GATEWAY_URL');
-  if (baseUrl.isNotEmpty) {
+  final config = await ref.watch(backendConfigProvider.future);
+  if (config.hasGateway) {
     try {
-      final response = await http.get(
-        Uri.parse(
-          '${baseUrl.replaceFirst(RegExp(r'/$'), '')}/v1/reputation/users/${user.id}/score',
-        ),
-      );
+      final response = await http
+          .get(
+            Uri.parse(
+              '${config.gatewayUrl}/v1/reputation/users/${user.id}/score',
+            ),
+          )
+          .timeout(_reputationTimeout);
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body) as Map<String, dynamic>;
         final strengths = (json['strengths'] as List<dynamic>? ?? const [])
             .cast<String>();
-        final risks = (json['risks'] as List<dynamic>? ?? const []).cast<String>();
+        final risks = (json['risks'] as List<dynamic>? ?? const [])
+            .cast<String>();
         return ReputationScoreSnapshot(
           score: json['score'] as int? ?? 78,
           recentDelta: json['recent_delta'] as int? ?? 0,
@@ -65,7 +71,8 @@ final reputationScoreProvider =
   }
 
   final events = await ref.watch(reputationEventsProvider.future);
-  final score = 70 + events.fold<int>(0, (sum, e) => sum + e.delta).clamp(-20, 28);
+  final score =
+      70 + events.fold<int>(0, (sum, e) => sum + e.delta).clamp(-20, 28);
   return ReputationScoreSnapshot(
     score: score,
     recentDelta: events.isEmpty

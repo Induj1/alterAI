@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+const _voiceRuntimeTimeout = Duration(seconds: 20);
+
 class VoiceRuntimeApiClient {
   VoiceRuntimeApiClient({required String baseUrl, http.Client? client})
     : _baseUrl = baseUrl.replaceFirst(RegExp(r'/$'), ''),
@@ -14,41 +16,43 @@ class VoiceRuntimeApiClient {
     required String transcript,
     required String locale,
   }) async {
-    final response = await _client.post(
-      Uri.parse('$_baseUrl/v1/voice/action-runtime'),
-      headers: const <String, String>{'content-type': 'application/json'},
-      body: jsonEncode(<String, Object>{
-        'transcript': transcript,
-        'locale': locale,
-        'device_surface': 'phone',
-        'user_profile': const <String, Object>{
-          'name': 'ALTER Operator',
-          'current_role': 'Student founder',
-          'career_stage': 'student founder',
-          'industry': 'AI',
-          'current_network_size': 180,
-          'risk_tolerance': 0.72,
-          'weekly_learning_hours': 12,
-        },
-        'skills': const <String>[
-          'AI agents',
-          'Flutter',
-          'FastAPI',
-          'Product strategy',
-          'Founder storytelling',
-        ],
-        'goals': const <String>[
-          'Build ALTER into a real startup',
-          'Validate strong user demand',
-          'Create a trusted personal AI operating system',
-        ],
-        'interests': const <String>[
-          'AI assistants',
-          'future decisions',
-          'startup networks',
-        ],
-      }),
-    );
+    final response = await _client
+        .post(
+          Uri.parse('$_baseUrl/v1/voice/action-runtime'),
+          headers: const <String, String>{'content-type': 'application/json'},
+          body: jsonEncode(<String, Object>{
+            'transcript': transcript,
+            'locale': locale,
+            'device_surface': 'phone',
+            'user_profile': const <String, Object>{
+              'name': 'ALTER Operator',
+              'current_role': 'Student founder',
+              'career_stage': 'student founder',
+              'industry': 'AI',
+              'current_network_size': 180,
+              'risk_tolerance': 0.72,
+              'weekly_learning_hours': 12,
+            },
+            'skills': const <String>[
+              'AI agents',
+              'Flutter',
+              'FastAPI',
+              'Product strategy',
+              'Founder storytelling',
+            ],
+            'goals': const <String>[
+              'Build ALTER into a real startup',
+              'Validate strong user demand',
+              'Create a trusted personal AI operating system',
+            ],
+            'interests': const <String>[
+              'AI assistants',
+              'future decisions',
+              'startup networks',
+            ],
+          }),
+        )
+        .timeout(_voiceRuntimeTimeout);
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw VoiceRuntimeApiException(
@@ -57,7 +61,9 @@ class VoiceRuntimeApiClient {
     }
     final body = jsonDecode(response.body);
     if (body is! Map<String, dynamic>) {
-      throw const VoiceRuntimeApiException('Voice runtime returned invalid JSON.');
+      throw const VoiceRuntimeApiException(
+        'Voice runtime returned invalid JSON.',
+      );
     }
     return VoiceRuntimeResult.fromJson(body);
   }

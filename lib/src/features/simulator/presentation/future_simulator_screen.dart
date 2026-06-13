@@ -13,6 +13,8 @@ import '../../../core/widgets/gradient_text.dart';
 import '../../../core/widgets/metric_tile.dart';
 import '../../../core/widgets/premium_controls.dart';
 import '../../../domain/entities/alter_models.dart';
+import '../../backend/application/backend_config_controller.dart';
+import '../../backend/data/backend_feature_api_client.dart';
 import '../../profile/application/profile_provider.dart';
 import '../../shared/application/alter_data_providers.dart';
 
@@ -113,7 +115,9 @@ class _FutureSimulatorScreenState extends ConsumerState<FutureSimulatorScreen> {
                   label: _isSimulating
                       ? 'Simulating futures…'
                       : 'Run simulation',
-                  icon: _isSimulating ? LucideIcons.loader : LucideIcons.sparkles,
+                  icon: _isSimulating
+                      ? LucideIcons.loader
+                      : LucideIcons.sparkles,
                   onPressed: _isSimulating ? null : _runSimulation,
                 ),
                 if (_simError.isNotEmpty) ...[
@@ -154,18 +158,12 @@ class _FutureSimulatorScreenState extends ConsumerState<FutureSimulatorScreen> {
   }
 
   Future<void> _runSimulation() async {
-    final openai = ref.read(openAIServiceProvider);
-    if (openai == null) {
-      setState(() => _simError =
-          'Add your OpenAI API key in Settings → AI Configuration.');
-      return;
-    }
-
     setState(() {
       _isSimulating = true;
       _simError = '';
     });
 
+    Object? backendError;
     try {
       final profile = ref.read(userProfileProvider).asData?.value;
       final name = profile?.displayName.isNotEmpty == true
@@ -175,6 +173,40 @@ class _FutureSimulatorScreenState extends ConsumerState<FutureSimulatorScreen> {
       final goals = profile?.goals.join('; ') ?? 'professional growth';
       final riskPct = (_riskTolerance * 100).round();
       final horizonMo = (_timeHorizon * 60).round();
+
+      final config = await ref.read(backendConfigProvider.future);
+      final serviceUrl = config.serviceUrl(BackendService.futureSimulation);
+      if (serviceUrl.isNotEmpty) {
+        final client = BackendFeatureApiClient(baseUrl: serviceUrl);
+        try {
+          final scenarios = await client.simulateFutures(
+            profile: profile,
+            riskTolerance: _riskTolerance,
+            horizonMonths: horizonMo,
+          );
+          client.close();
+          if (scenarios.isNotEmpty) {
+            await _persistScenarios(scenarios);
+            ref.invalidate(futureScenariosProvider);
+            return;
+          }
+        } catch (error) {
+          backendError = error;
+          client.close();
+        }
+      }
+
+      final openai = ref.read(openAIServiceProvider);
+      if (openai == null) {
+        final backendMessage = backendError == null
+            ? ''
+            : ' Backend failed: ${backendError.toString().replaceFirst('Exception: ', '')}';
+        setState(
+          () => _simError =
+              'Connect the backend gateway or sign in with AI access.$backendMessage',
+        );
+        return;
+      }
 
       final raw = await openai.chat(
         messages: [
@@ -203,32 +235,45 @@ class _FutureSimulatorScreenState extends ConsumerState<FutureSimulatorScreen> {
       final json = jsonDecode(cleaned) as Map<String, dynamic>;
       final list = (json['scenarios'] as List<dynamic>)
           .cast<Map<String, dynamic>>();
-
-      final userId = Supabase.instance.client.auth.currentUser?.id;
-      if (userId == null) throw Exception('Not authenticated');
-
-      await Supabase.instance.client
-          .from('future_scenarios')
-          .delete()
-          .eq('user_id', userId);
-
-      for (final s in list) {
-        await Supabase.instance.client.from('future_scenarios').insert({
-          'user_id': userId,
-          'title': s['title'] ?? '',
-          'horizon': s['horizon'] ?? '${horizonMo} months',
-          'probability': (s['probability'] as num?)?.toDouble() ?? 0.5,
-          'upside': s['upside'] ?? '',
-          'risk': s['risk'] ?? '',
-          'levers': (s['levers'] as List<dynamic>?)?.cast<String>() ?? [],
-        });
-      }
-
+      final scenarios = [
+        for (final s in list)
+          FutureScenario(
+            title: s['title']?.toString() ?? '',
+            horizon: s['horizon']?.toString() ?? '$horizonMo months',
+            probability: (s['probability'] as num?)?.toDouble() ?? 0.5,
+            upside: s['upside']?.toString() ?? '',
+            risk: s['risk']?.toString() ?? '',
+            levers: (s['levers'] as List<dynamic>?)?.cast<String>() ?? const [],
+          ),
+      ];
+      await _persistScenarios(scenarios);
       ref.invalidate(futureScenariosProvider);
     } catch (e) {
       setState(() => _simError = e.toString().replaceFirst('Exception: ', ''));
     } finally {
       if (mounted) setState(() => _isSimulating = false);
+    }
+  }
+
+  Future<void> _persistScenarios(List<FutureScenario> scenarios) async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) throw Exception('Not authenticated');
+
+    await Supabase.instance.client
+        .from('future_scenarios')
+        .delete()
+        .eq('user_id', userId);
+
+    for (final s in scenarios) {
+      await Supabase.instance.client.from('future_scenarios').insert({
+        'user_id': userId,
+        'title': s.title,
+        'horizon': s.horizon,
+        'probability': s.probability,
+        'upside': s.upside,
+        'risk': s.risk,
+        'levers': s.levers,
+      });
     }
   }
 }
@@ -244,11 +289,7 @@ class _EmptyScenarios extends StatelessWidget {
     return GlassPanel(
       child: Column(
         children: [
-          const Icon(
-            LucideIcons.route,
-            size: 48,
-            color: AlterPalette.iris,
-          ),
+          const Icon(LucideIcons.route, size: 48, color: AlterPalette.iris),
           const SizedBox(height: 16),
           Text(
             'No scenarios yet',
@@ -358,7 +399,9 @@ class _ScenarioCard extends StatelessWidget {
               value: scenario.probability,
               minHeight: 8,
               backgroundColor: AlterPalette.iris.withValues(alpha: 0.12),
-              valueColor: const AlwaysStoppedAnimation<Color>(AlterPalette.iris),
+              valueColor: const AlwaysStoppedAnimation<Color>(
+                AlterPalette.iris,
+              ),
             ),
           ),
           const SizedBox(height: 8),
