@@ -18,6 +18,7 @@ import '../ui/screens/onboarding.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final notifier = AuthChangeNotifier();
+  ref.listen(userProfileProvider, (previous, next) => notifier.refresh());
   ref.onDispose(notifier.dispose);
 
   return GoRouter(
@@ -26,6 +27,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final user = Supabase.instance.client.auth.currentUser;
       final path = state.uri.path;
+      final profile = ref.read(userProfileProvider).asData?.value;
+      final onboardingDone = profile?.onboardingDone == true;
 
       if (user == null) {
         if (path == AlterRoutes.home ||
@@ -41,7 +44,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           path == AlterRoutes.ftueWhat ||
           path == AlterRoutes.features ||
           path == AlterRoutes.getStarted) {
-        return AlterRoutes.permissions;
+        return onboardingDone ? AlterRoutes.home : AlterRoutes.permissions;
       }
 
       if (path == AlterRoutes.permissions) {
@@ -49,8 +52,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       }
 
       if (path == AlterRoutes.languages || path == AlterRoutes.about) {
-        final profile = ref.read(userProfileProvider).asData?.value;
-        if (profile?.onboardingDone == true) {
+        if (onboardingDone) {
           return AlterRoutes.home;
         }
         return null;
@@ -106,10 +108,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AlterRoutes.simulator,
-        pageBuilder: (context, state) => _fadePage(
-          key: state.pageKey,
-          child: const FutureSimulatorScreen(),
-        ),
+        pageBuilder: (context, state) =>
+            _fadePage(key: state.pageKey, child: const FutureSimulatorScreen()),
       ),
       GoRoute(
         path: AlterRoutes.radar,
@@ -135,17 +135,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AlterRoutes.nfc,
-        pageBuilder: (context, state) => _fadePage(
-          key: state.pageKey,
-          child: const NfcNetworkingScreen(),
-        ),
+        pageBuilder: (context, state) =>
+            _fadePage(key: state.pageKey, child: const NfcNetworkingScreen()),
       ),
       GoRoute(
         path: AlterRoutes.openclaw,
-        pageBuilder: (context, state) => _fadePage(
-          key: state.pageKey,
-          child: const OpenClawQueueScreen(),
-        ),
+        pageBuilder: (context, state) =>
+            _fadePage(key: state.pageKey, child: const OpenClawQueueScreen()),
       ),
       GoRoute(
         path: AlterRoutes.agent,

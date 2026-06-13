@@ -6,8 +6,8 @@ import '../domain/user_profile.dart';
 
 final userProfileProvider =
     AsyncNotifierProvider<UserProfileNotifier, UserProfile?>(
-  UserProfileNotifier.new,
-);
+      UserProfileNotifier.new,
+    );
 
 class UserProfileNotifier extends AsyncNotifier<UserProfile?> {
   @override
@@ -31,12 +31,21 @@ class UserProfileNotifier extends AsyncNotifier<UserProfile?> {
 
     state = const AsyncValue.loading();
 
-    await Supabase.instance.client.from('user_profiles').upsert({
-      'id': userId,
-      ...profile.toJson(),
-      'updated_at': DateTime.now().toIso8601String(),
-    });
+    try {
+      await Supabase.instance.client.from('user_profiles').upsert({
+        'id': userId,
+        ...profile.toJson(),
+        'updated_at': DateTime.now().toIso8601String(),
+      });
 
+      state = AsyncValue.data(profile);
+    } catch (error, stackTrace) {
+      state = AsyncValue.error(error, stackTrace);
+      rethrow;
+    }
+  }
+
+  void setLocal(UserProfile profile) {
     state = AsyncValue.data(profile);
   }
 }
@@ -52,7 +61,9 @@ final openAIServiceProvider = Provider<OpenAIService?>((ref) {
   if (session == null) return null;
 
   final profile = ref.watch(userProfileProvider).asData?.value;
-  final byok = profile?.openaiKey.isNotEmpty == true ? profile!.openaiKey : null;
+  final byok = profile?.openaiKey.isNotEmpty == true
+      ? profile!.openaiKey
+      : null;
 
   final service = OpenAIService(byokKey: byok);
   ref.onDispose(service.dispose);

@@ -15,6 +15,8 @@ class AuthChangeNotifier extends ChangeNotifier {
 
   late final StreamSubscription<AuthState> _sub;
 
+  void refresh() => notifyListeners();
+
   @override
   void dispose() {
     _sub.cancel();
