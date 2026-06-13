@@ -1,7 +1,9 @@
 package com.example.alter
 
 import android.Manifest
+import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -141,6 +143,10 @@ class MainActivity : FlutterActivity() {
                 startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
                 result.success(permissionStatuses())
             }
+            "device_admin" -> {
+                openDeviceAdminActivation()
+                result.success(permissionStatuses())
+            }
             "notifications" -> {
                 if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
                     result.success(permissionStatuses())
@@ -207,6 +213,10 @@ class MainActivity : FlutterActivity() {
                 granted = isNotificationListenerEnabled(),
                 systemManaged = true,
             ),
+            "device_admin" to permissionStatus(
+                granted = isDeviceAdminEnabled(),
+                systemManaged = true,
+            ),
         )
     }
 
@@ -259,6 +269,26 @@ class MainActivity : FlutterActivity() {
         return enabledListeners.split(':').any { listener ->
             listener.contains(packageName, ignoreCase = true)
         }
+    }
+
+    private fun isDeviceAdminEnabled(): Boolean {
+        val manager = getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+        return manager.isAdminActive(deviceAdminComponent()) ||
+            manager.isDeviceOwnerApp(packageName)
+    }
+
+    private fun openDeviceAdminActivation() {
+        val intent = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN)
+            .putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, deviceAdminComponent())
+            .putExtra(
+                DevicePolicyManager.EXTRA_ADD_EXPLANATION,
+                "Enable ALTER as a managed-device admin for explicit test and control workflows.",
+            )
+        startActivity(intent)
+    }
+
+    private fun deviceAdminComponent(): ComponentName {
+        return ComponentName(this, AlterDeviceAdminReceiver::class.java)
     }
 
     private fun openAppSettings() {

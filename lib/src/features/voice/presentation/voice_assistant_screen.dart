@@ -389,12 +389,7 @@ class _VoiceAssistantScreenState extends ConsumerState<VoiceAssistantScreen> {
             spacing: 8,
             runSpacing: 8,
             children: [
-              for (final language in const [
-                'English',
-                'Hindi',
-                'Spanish',
-                'Japanese',
-              ])
+              for (final language in _assistantLanguages.keys)
                 PremiumChip(
                   label: language,
                   selected: appState.selectedLanguage == language,
@@ -443,7 +438,7 @@ class _VoiceAssistantScreenState extends ConsumerState<VoiceAssistantScreen> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'Add your OpenAI key in Settings to unlock full ALTER AI.',
+                        'Connect the backend with SARVAM_API_KEY, or add an OpenAI key in Settings for fallback AI.',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: AlterPalette.amber,
                           fontWeight: FontWeight.w700,
@@ -943,6 +938,19 @@ class _VoiceRuntimeResultPanel extends StatelessWidget {
               selected: result.intentConfidence >= 0.7,
               icon: LucideIcons.gauge,
             ),
+            PremiumChip(
+              label: result.aiProvider == 'sarvam'
+                  ? 'Sarvam AI'
+                  : result.aiProvider,
+              selected: result.aiProvider == 'sarvam',
+              icon: LucideIcons.sparkles,
+            ),
+            PremiumChip(
+              label:
+                  '${result.languageDisplayName} ${result.responseLanguageCode}',
+              selected: true,
+              icon: LucideIcons.languages,
+            ),
           ],
         ),
         const SizedBox(height: 14),
@@ -1169,13 +1177,43 @@ class _WaveBar extends StatelessWidget {
 }
 
 String _localeForLanguage(String language) {
-  return switch (language) {
-    'Hindi' => 'hi-IN',
-    'Spanish' => 'es-ES',
-    'Japanese' => 'ja-JP',
-    _ => 'en-US',
-  };
+  return _assistantLanguages[language] ?? 'en-IN';
 }
+
+const _assistantLanguages = <String, String>{
+  'English': 'en-IN',
+  'Hindi': 'hi-IN',
+  'Bengali': 'bn-IN',
+  'Tamil': 'ta-IN',
+  'Telugu': 'te-IN',
+  'Marathi': 'mr-IN',
+  'Gujarati': 'gu-IN',
+  'Kannada': 'kn-IN',
+  'Malayalam': 'ml-IN',
+  'Punjabi': 'pa-IN',
+  'Odia': 'od-IN',
+  'Assamese': 'as-IN',
+  'Bodo': 'brx-IN',
+  'Dogri': 'doi-IN',
+  'Konkani': 'kok-IN',
+  'Kashmiri': 'ks-IN',
+  'Maithili': 'mai-IN',
+  'Manipuri': 'mni-IN',
+  'Nepali': 'ne-IN',
+  'Sanskrit': 'sa-IN',
+  'Santali': 'sat-IN',
+  'Sindhi': 'sd-IN',
+  'Urdu': 'ur-IN',
+  'Spanish': 'es-ES',
+  'French': 'fr-FR',
+  'German': 'de-DE',
+  'Portuguese': 'pt-BR',
+  'Arabic': 'ar-SA',
+  'Japanese': 'ja-JP',
+  'Korean': 'ko-KR',
+  'Chinese': 'zh-CN',
+  'Russian': 'ru-RU',
+};
 
 class _LoadingPanel extends StatelessWidget {
   const _LoadingPanel();

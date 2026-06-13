@@ -88,6 +88,10 @@ class VoiceRuntimeResult {
     required this.intentConfidence,
     required this.spokenResponse,
     required this.displayResponse,
+    required this.aiProvider,
+    required this.sourceLanguageCode,
+    required this.responseLanguageCode,
+    required this.languageDisplayName,
     required this.actionGraph,
     required this.experimentPlan,
     required this.nextActions,
@@ -103,6 +107,19 @@ class VoiceRuntimeResult {
       intentConfidence: _double(json['intent_confidence']),
       spokenResponse: _string(json['spoken_response']),
       displayResponse: _string(json['display_response']),
+      aiProvider: _string(json['ai_provider'], fallback: 'alter-local'),
+      sourceLanguageCode: _string(
+        json['source_language_code'],
+        fallback: 'auto',
+      ),
+      responseLanguageCode: _string(
+        json['response_language_code'],
+        fallback: 'en-IN',
+      ),
+      languageDisplayName: _string(
+        json['language_display_name'],
+        fallback: 'English',
+      ),
       actionGraph: _parseStringList(json['action_graph']),
       experimentPlan: json['experiment_plan'] is Map<String, dynamic>
           ? VoiceExperimentPlan.fromJson(
@@ -121,6 +138,10 @@ class VoiceRuntimeResult {
   final double intentConfidence;
   final String spokenResponse;
   final String displayResponse;
+  final String aiProvider;
+  final String sourceLanguageCode;
+  final String responseLanguageCode;
+  final String languageDisplayName;
   final List<String> actionGraph;
   final VoiceExperimentPlan? experimentPlan;
   final List<String> nextActions;

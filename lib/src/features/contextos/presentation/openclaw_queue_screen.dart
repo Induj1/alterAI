@@ -135,6 +135,8 @@ class _PhoneControlHub extends ConsumerWidget {
     final theme = Theme.of(context);
     final latest = state.audit.take(4).toList();
     final screen = state.lastStructuredScreen;
+    final admin = state.deviceAdminStatus;
+    final adminEnabled = admin?.managed == true;
 
     return GlassPanel(
       child: Column(
@@ -198,6 +200,17 @@ class _PhoneControlHub extends ConsumerWidget {
                   icon: LucideIcons.pencil,
                 ),
               ],
+              PremiumChip(
+                label: adminEnabled
+                    ? admin!.deviceOwner
+                          ? 'Device Owner'
+                          : admin.profileOwner
+                          ? 'Profile Owner'
+                          : 'Device Admin'
+                    : 'Admin off',
+                selected: adminEnabled,
+                icon: LucideIcons.shield,
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -229,6 +242,57 @@ class _PhoneControlHub extends ConsumerWidget {
                     : () => ref
                           .read(phoneControlControllerProvider.notifier)
                           .clearAudit(),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  icon: Icon(
+                    adminEnabled
+                        ? LucideIcons.lock_keyhole
+                        : LucideIcons.shield,
+                    size: 16,
+                  ),
+                  label: Text(adminEnabled ? 'Lock test' : 'Enable admin'),
+                  onPressed: () async {
+                    HapticFeedback.selectionClick();
+                    final controller = ref.read(
+                      phoneControlControllerProvider.notifier,
+                    );
+                    final message = adminEnabled
+                        ? await controller.lockDevice()
+                        : await controller.openDeviceAdmin();
+                    if (context.mounted && message.isNotEmpty) {
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(SnackBar(content: Text(message)));
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton.icon(
+                  icon: const Icon(LucideIcons.shield_check, size: 16),
+                  label: const Text('Admin status'),
+                  onPressed: () async {
+                    HapticFeedback.selectionClick();
+                    await ref
+                        .read(phoneControlControllerProvider.notifier)
+                        .refresh();
+                    final status = ref
+                        .read(phoneControlControllerProvider)
+                        .deviceAdminStatus;
+                    if (context.mounted && status != null) {
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(SnackBar(content: Text(status.message)));
+                    }
+                  },
+                ),
               ),
             ],
           ),

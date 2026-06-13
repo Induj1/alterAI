@@ -4,12 +4,19 @@ from functools import lru_cache
 
 from uuid import UUID
 
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, File, Form, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import get_settings
 from .schemas import (
     ArchitectureResponse,
+    AgentPlannerRequest,
+    AgentPlannerResponse,
+    ConsentGrant,
+    ConsentGrantRequest,
+    ConsentLedgerResponse,
+    DataIngestionRequest,
+    DataIngestionResponse,
     DemoRunRequest,
     DemoRunResponse,
     FutureTwinRequest,
@@ -18,13 +25,26 @@ from .schemas import (
     IntegrationsResponse,
     IntelligenceDecisionRequest,
     IntelligenceDecisionResponse,
+    LanguageDetectRequest,
+    LanguageDetectResponse,
     LifeFeedResponse,
     MissionBriefingRequest,
     MissionBriefingResponse,
+    MultilingualChatRequest,
+    MultilingualChatResponse,
+    MultilingualLanguageResponse,
+    MultilingualTranslateRequest,
+    MultilingualTranslateResponse,
     OutcomeUpdateRequest,
     OutcomeUpdateResponse,
+    PrivacyDeleteRequest,
+    PrivacyDeleteResponse,
+    PrivacyExportResponse,
     ProofCaptureRequest,
     ProofCaptureResponse,
+    SarvamSttResponse,
+    SarvamTtsRequest,
+    SarvamTtsResponse,
     ServiceRoute,
     SystemHealthResponse,
     UserSettingsPatch,
@@ -79,6 +99,11 @@ async def architecture() -> ArchitectureResponse:
             "proof capture os",
             "daily briefing engine",
             "voice action runtime",
+            "Sarvam multilingual AI bridge",
+            "Sarvam speech-to-text and text-to-speech bridge",
+            "consent ledger and privacy controls",
+            "safe data ingestion intake",
+            "agent planner to tool executor policy layer",
             "client route discovery",
         ],
         data_flow=[
@@ -91,6 +116,9 @@ async def architecture() -> ArchitectureResponse:
             "Future Twin compares stated ambition with evidence, predicts trajectory drift, compiles the next action, and surfaces opportunity arbitrage.",
             "Proof Capture OS turns real-world artifacts into memory, reputation, graph edges, daily briefings, and Future Twin deltas.",
             "Voice Action Runtime turns Hey Alter transcripts into intent, reasoning, action graph, spoken response, and follow-up.",
+            "Sarvam bridge localizes chat, voice responses, and translation across Indian languages when SARVAM_API_KEY is configured.",
+            "Sarvam speech endpoints transcribe uploaded audio and synthesize localized voice when SARVAM_API_KEY is configured.",
+            "Consent, ingestion, planner, and privacy endpoints keep sensitive phone data explicit, auditable, and reversible.",
         ],
         output_contract={
             "SystemHealthResponse": ["status", "services", "checked_at"],
@@ -145,11 +173,25 @@ async def architecture() -> ArchitectureResponse:
             "VoiceActionRuntimeResponse": [
                 "wake_word_detected",
                 "inferred_intent",
+                "ai_provider",
+                "response_language_code",
                 "spoken_response",
                 "action_graph",
                 "experiment_plan",
                 "follow_up_questions",
             ],
+            "MultilingualChatResponse": [
+                "text",
+                "provider",
+                "target_language_code",
+                "sarvam_enabled",
+            ],
+            "SarvamSttResponse": ["transcript", "language_code", "provider", "fallback"],
+            "SarvamTtsResponse": ["audio_base64", "speaker", "provider", "fallback"],
+            "ConsentLedgerResponse": ["grants", "required_for_full_assistant", "audit_note"],
+            "DataIngestionResponse": ["accepted", "memory_candidates", "audit_events"],
+            "AgentPlannerResponse": ["steps", "policy_warnings", "ready_to_execute"],
+            "PrivacyExportResponse": ["included_sections", "summary", "download_ready"],
         },
     )
 
@@ -190,6 +232,79 @@ async def patch_user_settings(
 @app.get("/v1/integrations", response_model=IntegrationsResponse)
 async def integrations(user_id: UUID = Query(...)) -> IntegrationsResponse:
     return get_service().integrations(user_id)
+
+
+@app.get("/v1/multilingual/languages", response_model=MultilingualLanguageResponse)
+async def multilingual_languages() -> MultilingualLanguageResponse:
+    return get_service().multilingual_languages()
+
+
+@app.post("/v1/multilingual/chat", response_model=MultilingualChatResponse)
+async def multilingual_chat(request: MultilingualChatRequest) -> MultilingualChatResponse:
+    return await get_service().multilingual_chat(request)
+
+
+@app.post("/v1/multilingual/translate", response_model=MultilingualTranslateResponse)
+async def multilingual_translate(
+    request: MultilingualTranslateRequest,
+) -> MultilingualTranslateResponse:
+    return await get_service().multilingual_translate(request)
+
+
+@app.post("/v1/multilingual/detect-language", response_model=LanguageDetectResponse)
+async def detect_language(request: LanguageDetectRequest) -> LanguageDetectResponse:
+    return await get_service().detect_language(request)
+
+
+@app.post("/v1/multilingual/text-to-speech", response_model=SarvamTtsResponse)
+async def text_to_speech(request: SarvamTtsRequest) -> SarvamTtsResponse:
+    return await get_service().text_to_speech(request)
+
+
+@app.post("/v1/multilingual/speech-to-text", response_model=SarvamSttResponse)
+async def speech_to_text(
+    file: UploadFile = File(...),
+    language_code: str = Form("unknown"),
+    mode: str = Form("transcribe"),
+) -> SarvamSttResponse:
+    audio_bytes = await file.read()
+    return await get_service().speech_to_text(
+        audio_bytes=audio_bytes,
+        filename=file.filename or "audio.wav",
+        content_type=file.content_type or "application/octet-stream",
+        language_code=language_code,
+        mode=mode,
+    )
+
+
+@app.get("/v1/security/consent-ledger", response_model=ConsentLedgerResponse)
+async def consent_ledger(user_id: UUID = Query(...)) -> ConsentLedgerResponse:
+    return get_service().consent_ledger(user_id)
+
+
+@app.post("/v1/security/consent", response_model=ConsentGrant)
+async def record_consent(request: ConsentGrantRequest) -> ConsentGrant:
+    return get_service().record_consent(request)
+
+
+@app.post("/v1/data-ingestion/import", response_model=DataIngestionResponse)
+async def ingest_data(request: DataIngestionRequest) -> DataIngestionResponse:
+    return get_service().ingest_data(request)
+
+
+@app.post("/v1/agent/plan", response_model=AgentPlannerResponse)
+async def plan_agent(request: AgentPlannerRequest) -> AgentPlannerResponse:
+    return get_service().plan_agent(request)
+
+
+@app.get("/v1/privacy/export", response_model=PrivacyExportResponse)
+async def privacy_export(user_id: UUID = Query(...)) -> PrivacyExportResponse:
+    return get_service().privacy_export(user_id)
+
+
+@app.post("/v1/privacy/delete", response_model=PrivacyDeleteResponse)
+async def privacy_delete(request: PrivacyDeleteRequest) -> PrivacyDeleteResponse:
+    return get_service().privacy_delete(request)
 
 
 @app.post("/v1/demo/future-os", response_model=DemoRunResponse)

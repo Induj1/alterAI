@@ -10,6 +10,10 @@ void main() {
       'intent_confidence': 0.92,
       'spoken_response': 'I recommend a validation sprint.',
       'display_response': 'I recommend a validation sprint.\nDeadline: Friday',
+      'ai_provider': 'sarvam',
+      'source_language_code': 'en-IN',
+      'response_language_code': 'hi-IN',
+      'language_display_name': 'Hindi',
       'action_graph': <String>[
         'Capture transcript',
         'Retrieve personal memory',
@@ -35,6 +39,8 @@ void main() {
 
     expect(result.wakeWordDetected, isTrue);
     expect(result.inferredIntent, 'future_decision');
+    expect(result.aiProvider, 'sarvam');
+    expect(result.responseLanguageCode, 'hi-IN');
     expect(result.experimentPlan?.action, contains('Interview'));
     expect(result.signals.single.isHealthy, isTrue);
   });

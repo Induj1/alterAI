@@ -14,6 +14,20 @@ void main() {
     expect(result.message, 'Opened Android settings.');
   });
 
+  test('parses device admin status', () {
+    final status = DeviceAdminStatus.fromMap({
+      'ok': true,
+      'message': 'ALTER is Device Owner on this Android profile.',
+      'adminActive': true,
+      'deviceOwner': true,
+      'profileOwner': false,
+    });
+
+    expect(status.ok, isTrue);
+    expect(status.managed, isTrue);
+    expect(status.deviceOwner, isTrue);
+  });
+
   test('parses visible screen snapshot', () {
     final snapshot = DeviceScreenSnapshot.fromMap({
       'ok': true,

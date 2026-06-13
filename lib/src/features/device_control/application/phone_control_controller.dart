@@ -25,7 +25,14 @@ class PhoneControlController extends Notifier<PhoneControlState> {
     final enabled = await ref
         .read(deviceControlBridgeProvider)
         .isAccessibilityEnabled();
-    state = state.copyWith(accessibilityEnabled: enabled, error: '');
+    final adminStatus = await ref
+        .read(deviceControlBridgeProvider)
+        .getDeviceAdminStatus();
+    state = state.copyWith(
+      accessibilityEnabled: enabled,
+      deviceAdminStatus: adminStatus,
+      error: '',
+    );
   }
 
   Future<String> openAccessibilitySettings() async {
@@ -116,6 +123,50 @@ class PhoneControlController extends Notifier<PhoneControlState> {
     _audit(
       kind: 'open_sms_draft',
       target: number,
+      message: result.message,
+      ok: result.ok,
+      requiresAccessibility: false,
+      policy: policy,
+    );
+    return result.message;
+  }
+
+  Future<String> openDeviceAdmin() async {
+    final policy = PhoneActionPolicy.classify(
+      kind: 'open_settings',
+      target: 'device_admin',
+    );
+    final result = await ref
+        .read(deviceControlBridgeProvider)
+        .openDeviceAdmin();
+    await refresh();
+    _audit(
+      kind: 'permission',
+      target: 'device_admin',
+      message: result.message,
+      ok: result.ok,
+      requiresAccessibility: false,
+      policy: policy,
+    );
+    return result.message;
+  }
+
+  Future<String> lockDevice({
+    PhoneActionSurface surface = PhoneActionSurface.openClawConfirmed,
+  }) async {
+    final policy = PhoneActionPolicy.classify(
+      kind: 'device_admin',
+      target: 'lock_device',
+    );
+    if (!policy.canExecuteOn(surface)) {
+      _auditDenied(policy);
+      return policy.reason;
+    }
+    final result = await ref.read(deviceControlBridgeProvider).lockDevice();
+    await refresh();
+    _audit(
+      kind: 'device_admin',
+      target: 'lock_device',
       message: result.message,
       ok: result.ok,
       requiresAccessibility: false,
@@ -343,6 +394,7 @@ class PhoneControlController extends Notifier<PhoneControlState> {
 class PhoneControlState {
   const PhoneControlState({
     this.accessibilityEnabled = false,
+    this.deviceAdminStatus,
     this.audit = const [],
     this.lastSnapshot,
     this.lastStructuredScreen,
@@ -350,6 +402,7 @@ class PhoneControlState {
   });
 
   final bool accessibilityEnabled;
+  final DeviceAdminStatus? deviceAdminStatus;
   final List<PhoneControlAuditEntry> audit;
   final DeviceScreenSnapshot? lastSnapshot;
   final StructuredScreen? lastStructuredScreen;
@@ -357,6 +410,7 @@ class PhoneControlState {
 
   PhoneControlState copyWith({
     bool? accessibilityEnabled,
+    DeviceAdminStatus? deviceAdminStatus,
     List<PhoneControlAuditEntry>? audit,
     DeviceScreenSnapshot? lastSnapshot,
     StructuredScreen? lastStructuredScreen,
@@ -364,6 +418,7 @@ class PhoneControlState {
   }) {
     return PhoneControlState(
       accessibilityEnabled: accessibilityEnabled ?? this.accessibilityEnabled,
+      deviceAdminStatus: deviceAdminStatus ?? this.deviceAdminStatus,
       audit: audit ?? this.audit,
       lastSnapshot: lastSnapshot ?? this.lastSnapshot,
       lastStructuredScreen: lastStructuredScreen ?? this.lastStructuredScreen,

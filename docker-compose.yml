@@ -17,6 +17,13 @@ services:
       ALTER_LENS_URL: http://alter_lens:8130
       ALTER_REPUTATION_ENGINE_URL: http://reputation_engine:8140
       ALTER_OFFICEKIT_URL: http://officekit:8150
+      SARVAM_API_KEY: ${SARVAM_API_KEY:-}
+      ALTER_SARVAM_CHAT_MODEL: ${ALTER_SARVAM_CHAT_MODEL:-sarvam-m}
+      ALTER_SARVAM_TRANSLATE_MODEL: ${ALTER_SARVAM_TRANSLATE_MODEL:-sarvam-translate:v1}
+      ALTER_SARVAM_STT_MODEL: ${ALTER_SARVAM_STT_MODEL:-saaras:v3}
+      ALTER_SARVAM_TTS_MODEL: ${ALTER_SARVAM_TTS_MODEL:-bulbul:v3}
+      ALTER_SARVAM_TTS_SPEAKER: ${ALTER_SARVAM_TTS_SPEAKER:-shubh}
+      ALTER_SARVAM_BASE_URL: ${ALTER_SARVAM_BASE_URL:-https://api.sarvam.ai}
     ports:
       - "8060:8060"
     depends_on:

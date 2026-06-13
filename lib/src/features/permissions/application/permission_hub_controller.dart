@@ -180,6 +180,14 @@ class PermissionHubItem {
       systemManaged: true,
     ),
     PermissionHubItem(
+      id: 'device_admin',
+      title: 'Device Admin',
+      subtitle: 'Required for managed-device and AVD Device Owner testing.',
+      icon: LucideIcons.shield,
+      essential: true,
+      systemManaged: true,
+    ),
+    PermissionHubItem(
       id: 'camera',
       title: 'Camera',
       subtitle:

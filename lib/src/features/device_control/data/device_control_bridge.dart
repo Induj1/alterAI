@@ -17,6 +17,35 @@ class DeviceControlResult {
   final String message;
 }
 
+class DeviceAdminStatus {
+  const DeviceAdminStatus({
+    required this.ok,
+    required this.message,
+    required this.adminActive,
+    required this.deviceOwner,
+    required this.profileOwner,
+  });
+
+  factory DeviceAdminStatus.fromMap(Object? raw) {
+    final map = raw is Map<Object?, Object?> ? raw : const <Object?, Object?>{};
+    return DeviceAdminStatus(
+      ok: map['ok'] == true,
+      message: map['message']?.toString() ?? 'No admin status returned.',
+      adminActive: map['adminActive'] == true,
+      deviceOwner: map['deviceOwner'] == true,
+      profileOwner: map['profileOwner'] == true,
+    );
+  }
+
+  final bool ok;
+  final String message;
+  final bool adminActive;
+  final bool deviceOwner;
+  final bool profileOwner;
+
+  bool get managed => adminActive || deviceOwner || profileOwner;
+}
+
 class VisibleNode {
   const VisibleNode({
     required this.text,
@@ -141,6 +170,37 @@ class DeviceControlBridge {
     required String text,
   }) async {
     return _result('openSmsDraft', {'number': number, 'text': text});
+  }
+
+  Future<DeviceAdminStatus> getDeviceAdminStatus() async {
+    try {
+      final raw = await _channel.invokeMethod<Object?>('getDeviceAdminStatus');
+      return DeviceAdminStatus.fromMap(raw);
+    } on MissingPluginException {
+      return const DeviceAdminStatus(
+        ok: false,
+        message: 'Device Admin is only available on Android.',
+        adminActive: false,
+        deviceOwner: false,
+        profileOwner: false,
+      );
+    } catch (error) {
+      return DeviceAdminStatus(
+        ok: false,
+        message: error.toString(),
+        adminActive: false,
+        deviceOwner: false,
+        profileOwner: false,
+      );
+    }
+  }
+
+  Future<DeviceControlResult> openDeviceAdmin() async {
+    return _result('openDeviceAdmin');
+  }
+
+  Future<DeviceControlResult> lockDevice() async {
+    return _result('lockDevice');
   }
 
   Future<DeviceControlResult> globalAction(String action) async {

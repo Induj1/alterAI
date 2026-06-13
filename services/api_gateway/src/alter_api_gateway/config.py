@@ -32,6 +32,16 @@ class Settings(BaseSettings):
         alias="ALTER_REPUTATION_ENGINE_URL",
     )
     officekit_url: str = Field(default="http://localhost:8150", alias="ALTER_OFFICEKIT_URL")
+    sarvam_api_key: str = Field(default="", alias="SARVAM_API_KEY")
+    sarvam_chat_model: str = Field(default="sarvam-m", alias="ALTER_SARVAM_CHAT_MODEL")
+    sarvam_translate_model: str = Field(
+        default="sarvam-translate:v1",
+        alias="ALTER_SARVAM_TRANSLATE_MODEL",
+    )
+    sarvam_stt_model: str = Field(default="saaras:v3", alias="ALTER_SARVAM_STT_MODEL")
+    sarvam_tts_model: str = Field(default="bulbul:v3", alias="ALTER_SARVAM_TTS_MODEL")
+    sarvam_tts_speaker: str = Field(default="shubh", alias="ALTER_SARVAM_TTS_SPEAKER")
+    sarvam_base_url: str = Field(default="https://api.sarvam.ai", alias="ALTER_SARVAM_BASE_URL")
 
     def service_urls(self) -> dict[str, str]:
         return {

@@ -1,6 +1,9 @@
 package com.example.alter
 
 import android.app.Activity
+import android.app.admin.DevicePolicyManager
+import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
@@ -24,6 +27,9 @@ object DeviceControlBridge {
                     call.stringArg("text"),
                 ),
             )
+            "getDeviceAdminStatus" -> result.success(deviceAdminStatus(activity))
+            "openDeviceAdmin" -> result.success(openDeviceAdminActivation(activity))
+            "lockDevice" -> result.success(lockDevice(activity))
             "executeAccessibilityAction" -> result.success(executeAccessibilityAction(call))
             "readScreen" -> result.success(AlterAccessibilityService.readScreen())
             else -> result.notImplemented()
@@ -127,6 +133,64 @@ object DeviceControlBridge {
         } catch (error: Throwable) {
             failure("Could not open SMS draft: ${error.message}")
         }
+    }
+
+    private fun deviceAdminStatus(activity: Activity): Map<String, Any?> {
+        val manager = devicePolicyManager(activity)
+        val packageName = activity.packageName
+        val active = manager.isAdminActive(deviceAdminComponent(activity))
+        val owner = manager.isDeviceOwnerApp(packageName)
+        val profileOwner = manager.isProfileOwnerApp(packageName)
+        return mapOf(
+            "ok" to true,
+            "message" to when {
+                owner -> "ALTER is Device Owner on this Android profile."
+                profileOwner -> "ALTER is Profile Owner on this Android profile."
+                active -> "ALTER is active Device Admin."
+                else -> "ALTER is not active Device Admin yet."
+            },
+            "adminActive" to active,
+            "deviceOwner" to owner,
+            "profileOwner" to profileOwner,
+        )
+    }
+
+    private fun openDeviceAdminActivation(activity: Activity): Map<String, Any?> {
+        return try {
+            val intent = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN)
+                .putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, deviceAdminComponent(activity))
+                .putExtra(
+                    DevicePolicyManager.EXTRA_ADD_EXPLANATION,
+                    "Enable ALTER as a managed-device admin for explicit test and control workflows.",
+                )
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            activity.startActivity(intent)
+            success("Opened Android Device Admin activation.")
+        } catch (error: Throwable) {
+            failure("Could not open Device Admin activation: ${error.message}")
+        }
+    }
+
+    private fun lockDevice(activity: Activity): Map<String, Any?> {
+        val manager = devicePolicyManager(activity)
+        val component = deviceAdminComponent(activity)
+        if (!manager.isAdminActive(component) && !manager.isDeviceOwnerApp(activity.packageName)) {
+            return failure("Device Admin is not enabled. Activate ALTER Device Admin first.")
+        }
+        return try {
+            manager.lockNow()
+            success("Locked the device.")
+        } catch (error: Throwable) {
+            failure("Could not lock device: ${error.message}")
+        }
+    }
+
+    private fun devicePolicyManager(activity: Activity): DevicePolicyManager {
+        return activity.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+    }
+
+    private fun deviceAdminComponent(activity: Activity): ComponentName {
+        return ComponentName(activity, AlterDeviceAdminReceiver::class.java)
     }
 
     private fun packageForAppName(appName: String): String {

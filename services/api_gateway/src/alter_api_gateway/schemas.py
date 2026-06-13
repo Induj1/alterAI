@@ -362,6 +362,10 @@ class VoiceActionRuntimeResponse(BaseModel):
     intent_confidence: float = Field(ge=0.0, le=1.0)
     spoken_response: str
     display_response: str
+    ai_provider: str = "alter-local"
+    source_language_code: str = "auto"
+    response_language_code: str = "en-IN"
+    language_display_name: str = "English"
     action_graph: list[str]
     experiment_plan: ExperimentPlan | None = None
     next_actions: list[str]
@@ -430,3 +434,216 @@ class PlatformIntegration(BaseModel):
 class IntegrationsResponse(BaseModel):
     user_id: UUID
     platforms: list[PlatformIntegration]
+
+
+class MultilingualLanguage(BaseModel):
+    code: str
+    name: str
+    region: str
+    sarvam_translate: bool
+    sarvam_chat: bool
+
+
+class MultilingualLanguageResponse(BaseModel):
+    provider: str = "sarvam"
+    sarvam_enabled: bool
+    indian_languages: list[MultilingualLanguage]
+    major_foreign_languages: list[MultilingualLanguage]
+
+
+class MultilingualChatMessage(BaseModel):
+    role: str = Field(pattern="^(system|user|assistant)$")
+    content: str = Field(min_length=1, max_length=4000)
+
+
+class MultilingualChatRequest(BaseModel):
+    messages: list[MultilingualChatMessage] = Field(min_length=1, max_length=16)
+    target_language_code: str = Field(default="en-IN", min_length=2, max_length=16)
+    temperature: float = Field(default=0.35, ge=0.0, le=2.0)
+    max_tokens: int = Field(default=900, ge=32, le=2048)
+
+
+class MultilingualChatResponse(BaseModel):
+    text: str
+    provider: str
+    model: str
+    target_language_code: str
+    language_display_name: str
+    sarvam_enabled: bool
+    fallback: bool = False
+    usage: dict[str, Any] = Field(default_factory=dict)
+
+
+class MultilingualTranslateRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=2000)
+    target_language_code: str = Field(default="hi-IN", min_length=2, max_length=16)
+    source_language_code: str = Field(default="auto", min_length=2, max_length=16)
+
+
+class MultilingualTranslateResponse(BaseModel):
+    text: str
+    provider: str
+    model: str
+    source_language_code: str
+    target_language_code: str
+    language_display_name: str
+    sarvam_enabled: bool
+    fallback: bool = False
+    request_id: str | None = None
+    error: str = ""
+
+
+class LanguageDetectRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=1000)
+
+
+class LanguageDetectResponse(BaseModel):
+    provider: str
+    sarvam_enabled: bool
+    language_code: str
+    script_code: str = ""
+    request_id: str | None = None
+    fallback: bool = False
+    error: str = ""
+
+
+class SarvamTtsRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=2500)
+    target_language_code: str = Field(default="hi-IN", min_length=2, max_length=16)
+    speaker: str = Field(default="shubh", min_length=2, max_length=40)
+    pace: float = Field(default=1.0, ge=0.5, le=2.0)
+    speech_sample_rate: int = Field(default=24000, ge=8000, le=48000)
+
+
+class SarvamTtsResponse(BaseModel):
+    provider: str
+    model: str
+    sarvam_enabled: bool
+    target_language_code: str
+    language_display_name: str
+    speaker: str
+    speech_sample_rate: int
+    audio_base64: str = ""
+    audio_count: int = 0
+    request_id: str | None = None
+    fallback: bool = False
+    error: str = ""
+
+
+class SarvamSttResponse(BaseModel):
+    provider: str
+    model: str
+    sarvam_enabled: bool
+    transcript: str
+    language_code: str = ""
+    language_probability: float | None = None
+    request_id: str | None = None
+    fallback: bool = False
+    timestamps: dict[str, Any] | None = None
+    diarized_transcript: dict[str, Any] | None = None
+    error: str = ""
+
+
+class ConsentGrantRequest(BaseModel):
+    user_id: UUID = Field(default_factory=uuid4)
+    source: str = Field(min_length=2, max_length=80)
+    access_level: str = Field(default="metadata", max_length=40)
+    granted: bool = True
+    retention_days: int = Field(default=30, ge=1, le=3650)
+    reason: str = Field(default="", max_length=500)
+
+
+class ConsentGrant(BaseModel):
+    consent_id: UUID = Field(default_factory=uuid4)
+    user_id: UUID
+    source: str
+    access_level: str
+    granted: bool
+    retention_days: int
+    reason: str
+    reversible: bool = True
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class ConsentLedgerResponse(BaseModel):
+    user_id: UUID
+    grants: list[ConsentGrant]
+    required_for_full_assistant: list[str]
+    audit_note: str
+
+
+class DataIngestionRequest(BaseModel):
+    user_id: UUID = Field(default_factory=uuid4)
+    source: str = Field(min_length=2, max_length=80)
+    import_mode: str = Field(default="manual_import", max_length=60)
+    consent_id: UUID | None = None
+    items: list[dict[str, Any]] = Field(default_factory=list, max_length=50)
+    metadata_only: bool = True
+
+
+class DataIngestionResponse(BaseModel):
+    ingestion_id: UUID = Field(default_factory=uuid4)
+    user_id: UUID
+    source: str
+    accepted: bool
+    imported_count: int = 0
+    memory_candidates: list[dict[str, Any]]
+    blocked_reasons: list[str]
+    audit_events: list[str]
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class AgentPlannerRequest(BaseModel):
+    user_id: UUID = Field(default_factory=uuid4)
+    goal: str = Field(min_length=2, max_length=1000)
+    device_state: dict[str, Any] = Field(default_factory=dict)
+    allowed_tools: list[str] = Field(default_factory=list, max_length=50)
+    autonomy_level: str = Field(default="confirm_before_act", max_length=60)
+
+
+class AgentPlanStep(BaseModel):
+    step_id: UUID = Field(default_factory=uuid4)
+    tool_name: str
+    title: str
+    rationale: str
+    parameters: dict[str, Any] = Field(default_factory=dict)
+    requires_confirmation: bool = True
+    requires_accessibility: bool = False
+    status: str = "planned"
+    blocked_reason: str = ""
+
+
+class AgentPlannerResponse(BaseModel):
+    plan_id: UUID = Field(default_factory=uuid4)
+    user_id: UUID
+    goal: str
+    autonomy_level: str
+    ready_to_execute: bool
+    steps: list[AgentPlanStep]
+    policy_warnings: list[str]
+    tool_result_feedback_needed: bool = True
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class PrivacyExportResponse(BaseModel):
+    user_id: UUID
+    export_id: UUID = Field(default_factory=uuid4)
+    included_sections: list[str]
+    download_ready: bool
+    summary: dict[str, Any]
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class PrivacyDeleteRequest(BaseModel):
+    user_id: UUID = Field(default_factory=uuid4)
+    scopes: list[str] = Field(default_factory=list, max_length=20)
+    confirm: bool = False
+
+
+class PrivacyDeleteResponse(BaseModel):
+    user_id: UUID
+    accepted: bool
+    deleted_scopes: list[str]
+    blocked_reasons: list[str]
+    audit_event: str
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

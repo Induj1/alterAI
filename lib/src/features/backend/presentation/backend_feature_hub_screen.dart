@@ -221,8 +221,10 @@ class BackendFeatureHubScreen extends ConsumerWidget {
               _NativeBridgeTile(
                 title: 'Permission Hub',
                 subtitle: 'All assistant permissions in one reversible place.',
-                status: 'system',
-                selected: true,
+                status: phone.deviceAdminStatus?.managed == true
+                    ? 'admin ready'
+                    : 'permission hub',
+                selected: phone.deviceAdminStatus?.managed == true,
                 icon: LucideIcons.shield_check,
                 color: AlterPalette.iris,
                 route: AlterRoutes.permissions,
@@ -790,6 +792,7 @@ Map<String, String> _statusMap(Map<String, dynamic>? health) {
   final services = health?['services'];
   if (services is! List) return const <String, String>{};
   return {
+    'api_gateway': 'ok',
     for (final service in services.whereType<Map<String, dynamic>>())
       if (service['name'] is String)
         service['name'] as String: '${service['status']}',
@@ -854,6 +857,18 @@ const backendFeatureSpecs = <BackendFeatureSpec>[
       'GET /v1/user/settings',
       'PATCH /v1/user/settings',
       'GET /v1/integrations',
+      'GET /v1/multilingual/languages',
+      'POST /v1/multilingual/chat',
+      'POST /v1/multilingual/translate',
+      'POST /v1/multilingual/detect-language',
+      'POST /v1/multilingual/text-to-speech',
+      'POST /v1/multilingual/speech-to-text',
+      'GET /v1/security/consent-ledger',
+      'POST /v1/security/consent',
+      'POST /v1/data-ingestion/import',
+      'POST /v1/agent/plan',
+      'GET /v1/privacy/export',
+      'POST /v1/privacy/delete',
       'POST /v1/demo/future-os',
       'POST /v1/intelligence/decide',
       'POST /v1/intelligence/outcomes',
@@ -866,6 +881,99 @@ const backendFeatureSpecs = <BackendFeatureSpec>[
       'Life Feed and settings surfaces.',
       'Decision Intelligence, outcome learning, Future Twin, and proof capture.',
       'Voice command runtime for Hey Alter responses.',
+      'Sarvam-backed multilingual chat, translation, STT, TTS, and language detection.',
+      'Consent, safe ingestion, planner, audit, export, and delete controls.',
+    ],
+  ),
+  BackendFeatureSpec(
+    id: 'sarvam-speech',
+    backendName: 'api_gateway',
+    title: 'Sarvam Speech Stack',
+    shortDescription:
+        'Backend STT, TTS, language detection, chat, and translation for Indian-language voice turns.',
+    description:
+        'Sarvam Speech Stack runs through the API Gateway so API keys stay off the APK. It can detect language, transcribe uploaded audio, synthesize localized speech, translate text, and localize Hey Alter responses when SARVAM_API_KEY is configured.',
+    icon: LucideIcons.audio_lines,
+    color: AlterPalette.cyan,
+    route: AlterRoutes.voice,
+    endpoints: [
+      'GET /v1/multilingual/languages',
+      'POST /v1/multilingual/chat',
+      'POST /v1/multilingual/translate',
+      'POST /v1/multilingual/detect-language',
+      'POST /v1/multilingual/text-to-speech',
+      'POST /v1/multilingual/speech-to-text',
+      'POST /v1/voice/action-runtime',
+    ],
+    capabilities: [
+      'Supports all listed Indian languages plus major foreign UI options.',
+      'Keeps Sarvam keys in the backend environment, not inside the APK.',
+      'Falls back to deterministic local responses when the key is missing.',
+      'Voice screen shows provider and response-language status.',
+    ],
+  ),
+  BackendFeatureSpec(
+    id: 'consent-security',
+    backendName: 'api_gateway',
+    title: 'Consent + Security',
+    shortDescription:
+        'Explicit consent ledger, permission requirements, and action audit boundaries.',
+    description:
+        'Consent + Security tracks what data sources are allowed, what Android permission each capability needs, retention windows, and which actions must remain reversible. It is designed around user-approved Android surfaces, not hidden full-phone scraping.',
+    icon: LucideIcons.shield_check,
+    color: AlterPalette.iris,
+    route: AlterRoutes.permissions,
+    endpoints: [
+      'GET /v1/security/consent-ledger',
+      'POST /v1/security/consent',
+      'GET /v1/privacy/export',
+      'POST /v1/privacy/delete',
+    ],
+    capabilities: [
+      'Permission Hub can map Android approvals to backend consent records.',
+      'Every sensitive ability is explicit and reversible.',
+      'Privacy export/delete controls are visible from the app.',
+    ],
+  ),
+  BackendFeatureSpec(
+    id: 'safe-ingestion',
+    backendName: 'api_gateway',
+    title: 'Safe Data Ingestion',
+    shortDescription:
+        'Manual imports and Android-approved surfaces turned into memory candidates.',
+    description:
+        'Safe Data Ingestion accepts user-selected notes, files, exports, notification snippets, and metadata. It rejects silent background chat scraping and requires consent before raw content becomes memory.',
+    icon: LucideIcons.folder_input,
+    color: AlterPalette.mint,
+    route: AlterRoutes.memory,
+    endpoints: [
+      'POST /v1/data-ingestion/import',
+      'POST /v1/memory/items',
+      'POST /v1/memory/search',
+      'POST /v1/memory/retrieve',
+    ],
+    capabilities: [
+      'Turns imported items into structured memory candidates.',
+      'Blocks silent scrape modes at the gateway.',
+      'Feeds ContextOS Memory after user approval.',
+    ],
+  ),
+  BackendFeatureSpec(
+    id: 'agent-planner',
+    backendName: 'api_gateway',
+    title: 'Agent Planner',
+    shortDescription:
+        'Converts goals into confirmable phone tools: intents, drafts, and OpenClaw actions.',
+    description:
+        'Agent Planner separates reasoning from execution. It produces tool steps, confirmation requirements, Accessibility requirements, and policy warnings before the phone executor touches the device.',
+    icon: LucideIcons.workflow,
+    color: AlterPalette.aura,
+    route: AlterRoutes.agent,
+    endpoints: ['POST /v1/agent/plan', 'POST /v1/voice/action-runtime'],
+    capabilities: [
+      'Plans real tools instead of only returning assistant text.',
+      'Requires confirmation for communication and Accessibility actions.',
+      'Blocks bypass, password, and silent-control requests.',
     ],
   ),
   BackendFeatureSpec(

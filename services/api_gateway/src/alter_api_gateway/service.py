@@ -14,6 +14,11 @@ from .schemas import (
     DemoRunResponse,
     DemoStep,
     CompiledAction,
+    ConsentGrant,
+    ConsentGrantRequest,
+    ConsentLedgerResponse,
+    DataIngestionRequest,
+    DataIngestionResponse,
     EvidenceSignal,
     ExperimentPlan,
     FutureOption,
@@ -24,22 +29,39 @@ from .schemas import (
     IntelligenceDecisionRequest,
     IntelligenceDecisionResponse,
     IntelligenceSignal,
+    LanguageDetectRequest,
+    LanguageDetectResponse,
     LifeFeedOpportunity,
     LifeFeedResponse,
     LifeFeedTask,
     MissionBriefingRequest,
     MissionBriefingResponse,
+    MultilingualChatRequest,
+    MultilingualChatResponse,
+    MultilingualLanguage,
+    MultilingualLanguageResponse,
+    MultilingualTranslateRequest,
+    MultilingualTranslateResponse,
     OutcomeUpdateRequest,
     OutcomeUpdateResponse,
     OpportunityArbitrageMove,
     PlatformIntegration,
+    PrivacyDeleteRequest,
+    PrivacyDeleteResponse,
+    PrivacyExportResponse,
     ProofCaptureRequest,
     ProofCaptureResponse,
     ProofEvidenceRecord,
     ProofGraphEdge,
     ProofGraphNode,
+    AgentPlanStep,
+    AgentPlannerRequest,
+    AgentPlannerResponse,
     ServiceHealth,
     ServiceRoute,
+    SarvamSttResponse,
+    SarvamTtsRequest,
+    SarvamTtsResponse,
     SystemHealthResponse,
     DailyProofBriefing,
     FutureTwinDelta,
@@ -50,11 +72,18 @@ from .schemas import (
     VoiceActionRuntimeRequest,
     VoiceActionRuntimeResponse,
 )
+from .sarvam_client import (
+    INDIAN_LANGUAGE_SPECS,
+    MAJOR_FOREIGN_LANGUAGE_SPECS,
+    SarvamClient,
+    language_for_code,
+)
 
 
 class ApiGatewayService:
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
+        self._sarvam = SarvamClient(settings)
 
     def routes(self) -> list[ServiceRoute]:
         return [
@@ -202,6 +231,396 @@ class ApiGatewayService:
                     status="Synced",
                 ),
             ],
+        )
+
+    def multilingual_languages(self) -> MultilingualLanguageResponse:
+        return MultilingualLanguageResponse(
+            sarvam_enabled=self._sarvam.enabled,
+            indian_languages=[
+                MultilingualLanguage(
+                    code=language.code,
+                    name=language.name,
+                    region=language.region,
+                    sarvam_translate=language.sarvam_translate,
+                    sarvam_chat=language.sarvam_chat,
+                )
+                for language in INDIAN_LANGUAGE_SPECS
+            ],
+            major_foreign_languages=[
+                MultilingualLanguage(
+                    code=language.code,
+                    name=language.name,
+                    region=language.region,
+                    sarvam_translate=language.sarvam_translate,
+                    sarvam_chat=language.sarvam_chat,
+                )
+                for language in MAJOR_FOREIGN_LANGUAGE_SPECS
+            ],
+        )
+
+    async def multilingual_chat(
+        self,
+        request: MultilingualChatRequest,
+    ) -> MultilingualChatResponse:
+        language = language_for_code(request.target_language_code)
+        if self._sarvam.enabled:
+            try:
+                result = await self._sarvam.chat(
+                    messages=[
+                        {"role": message.role, "content": message.content}
+                        for message in request.messages
+                    ],
+                    target_language_code=language.code,
+                    temperature=request.temperature,
+                    max_tokens=request.max_tokens,
+                )
+                return MultilingualChatResponse(
+                    text=result["text"],
+                    provider=result["provider"],
+                    model=str(result["model"]),
+                    target_language_code=language.code,
+                    language_display_name=language.name,
+                    sarvam_enabled=True,
+                    usage=dict(result.get("usage") or {}),
+                )
+            except Exception as error:
+                return MultilingualChatResponse(
+                    text=_local_multilingual_fallback(request.messages[-1].content, language.name),
+                    provider="alter-local",
+                    model="deterministic-fallback",
+                    target_language_code=language.code,
+                    language_display_name=language.name,
+                    sarvam_enabled=True,
+                    fallback=True,
+                    usage={"error": str(error)},
+                )
+        return MultilingualChatResponse(
+            text=_local_multilingual_fallback(request.messages[-1].content, language.name),
+            provider="alter-local",
+            model="deterministic-fallback",
+            target_language_code=language.code,
+            language_display_name=language.name,
+            sarvam_enabled=False,
+            fallback=True,
+        )
+
+    async def multilingual_translate(
+        self,
+        request: MultilingualTranslateRequest,
+    ) -> MultilingualTranslateResponse:
+        language = language_for_code(request.target_language_code)
+        if self._sarvam.enabled and language.sarvam_translate:
+            try:
+                result = await self._sarvam.translate(
+                    text=request.text,
+                    source_language_code=request.source_language_code,
+                    target_language_code=language.code,
+                )
+                return MultilingualTranslateResponse(
+                    text=result["text"],
+                    provider=result["provider"],
+                    model=str(result["model"]),
+                    source_language_code=str(result["source_language_code"]),
+                    target_language_code=language.code,
+                    language_display_name=language.name,
+                    sarvam_enabled=True,
+                    request_id=(
+                        str(result["request_id"]) if result.get("request_id") is not None else None
+                    ),
+                )
+            except Exception as error:
+                return MultilingualTranslateResponse(
+                    text=request.text,
+                    provider="alter-local",
+                    model="deterministic-fallback",
+                    source_language_code=request.source_language_code,
+                    target_language_code=language.code,
+                    language_display_name=language.name,
+                    sarvam_enabled=True,
+                    fallback=True,
+                    request_id=None,
+                    error=str(error),
+                )
+        return MultilingualTranslateResponse(
+            text=request.text,
+            provider="alter-local",
+            model="deterministic-fallback",
+            source_language_code=request.source_language_code,
+            target_language_code=language.code,
+            language_display_name=language.name,
+            sarvam_enabled=self._sarvam.enabled,
+            fallback=True,
+            request_id=None,
+        )
+
+    async def detect_language(
+        self,
+        request: LanguageDetectRequest,
+    ) -> LanguageDetectResponse:
+        if self._sarvam.enabled:
+            try:
+                result = await self._sarvam.detect_language(text=request.text)
+                return LanguageDetectResponse(
+                    provider="sarvam",
+                    sarvam_enabled=True,
+                    language_code=str(result.get("language_code") or "unknown"),
+                    script_code=str(result.get("script_code") or ""),
+                    request_id=(
+                        str(result["request_id"]) if result.get("request_id") is not None else None
+                    ),
+                )
+            except Exception as error:
+                return LanguageDetectResponse(
+                    provider="alter-local",
+                    sarvam_enabled=True,
+                    language_code=_infer_language_code(request.text),
+                    script_code="",
+                    fallback=True,
+                    error=str(error),
+                )
+        return LanguageDetectResponse(
+            provider="alter-local",
+            sarvam_enabled=False,
+            language_code=_infer_language_code(request.text),
+            script_code="",
+            fallback=True,
+        )
+
+    async def text_to_speech(self, request: SarvamTtsRequest) -> SarvamTtsResponse:
+        language = language_for_code(request.target_language_code)
+        if self._sarvam.enabled:
+            try:
+                result = await self._sarvam.text_to_speech(
+                    text=request.text,
+                    target_language_code=language.code,
+                    speaker=request.speaker,
+                    pace=request.pace,
+                    speech_sample_rate=request.speech_sample_rate,
+                )
+                return SarvamTtsResponse(
+                    provider="sarvam",
+                    model=str(result["model"]),
+                    sarvam_enabled=True,
+                    target_language_code=language.code,
+                    language_display_name=language.name,
+                    speaker=str(result["speaker"]),
+                    speech_sample_rate=int(result["speech_sample_rate"]),
+                    audio_base64=str(result.get("audio_base64") or ""),
+                    audio_count=int(result.get("audio_count") or 0),
+                    request_id=(
+                        str(result["request_id"]) if result.get("request_id") is not None else None
+                    ),
+                )
+            except Exception as error:
+                return SarvamTtsResponse(
+                    provider="alter-local",
+                    model="deterministic-fallback",
+                    sarvam_enabled=True,
+                    target_language_code=language.code,
+                    language_display_name=language.name,
+                    speaker=request.speaker,
+                    speech_sample_rate=request.speech_sample_rate,
+                    fallback=True,
+                    error=str(error),
+                )
+        return SarvamTtsResponse(
+            provider="alter-local",
+            model="deterministic-fallback",
+            sarvam_enabled=False,
+            target_language_code=language.code,
+            language_display_name=language.name,
+            speaker=request.speaker,
+            speech_sample_rate=request.speech_sample_rate,
+            fallback=True,
+            error="SARVAM_API_KEY is not configured.",
+        )
+
+    async def speech_to_text(
+        self,
+        *,
+        audio_bytes: bytes,
+        filename: str,
+        content_type: str,
+        language_code: str = "unknown",
+        mode: str = "transcribe",
+    ) -> SarvamSttResponse:
+        if not audio_bytes:
+            return SarvamSttResponse(
+                provider="alter-local",
+                model="deterministic-fallback",
+                sarvam_enabled=self._sarvam.enabled,
+                transcript="",
+                fallback=True,
+                error="No audio bytes were uploaded.",
+            )
+        if self._sarvam.enabled:
+            try:
+                result = await self._sarvam.speech_to_text(
+                    audio_bytes=audio_bytes,
+                    filename=filename,
+                    content_type=content_type,
+                    language_code=language_code,
+                    mode=mode,
+                )
+                return SarvamSttResponse(
+                    provider="sarvam",
+                    model=str(result["model"]),
+                    sarvam_enabled=True,
+                    transcript=str(result.get("transcript") or ""),
+                    language_code=str(result.get("language_code") or ""),
+                    language_probability=(
+                        float(result["language_probability"])
+                        if result.get("language_probability") is not None
+                        else None
+                    ),
+                    request_id=(
+                        str(result["request_id"]) if result.get("request_id") is not None else None
+                    ),
+                    timestamps=(
+                        result["timestamps"] if isinstance(result.get("timestamps"), dict) else None
+                    ),
+                    diarized_transcript=(
+                        result["diarized_transcript"]
+                        if isinstance(result.get("diarized_transcript"), dict)
+                        else None
+                    ),
+                )
+            except Exception as error:
+                return SarvamSttResponse(
+                    provider="alter-local",
+                    model="deterministic-fallback",
+                    sarvam_enabled=True,
+                    transcript="",
+                    language_code="",
+                    fallback=True,
+                    error=str(error),
+                )
+        return SarvamSttResponse(
+            provider="alter-local",
+            model="deterministic-fallback",
+            sarvam_enabled=False,
+            transcript="",
+            fallback=True,
+            error="SARVAM_API_KEY is not configured.",
+        )
+
+    def consent_ledger(self, user_id: UUID) -> ConsentLedgerResponse:
+        grants = [
+            ConsentGrant(
+                user_id=user_id,
+                source="notifications",
+                access_level="visible_notification_text",
+                granted=False,
+                retention_days=30,
+                reason="Enable Android Notification Listener to read incoming notification snippets.",
+            ),
+            ConsentGrant(
+                user_id=user_id,
+                source="screen_accessibility",
+                access_level="visible_screen_only",
+                granted=False,
+                retention_days=7,
+                reason="Enable Accessibility Service to read visible text and perform user-approved actions.",
+            ),
+            ConsentGrant(
+                user_id=user_id,
+                source="manual_imports",
+                access_level="user_selected_files",
+                granted=True,
+                retention_days=90,
+                reason="User-selected exports and share-sheet imports can be indexed with consent.",
+            ),
+        ]
+        return ConsentLedgerResponse(
+            user_id=user_id,
+            grants=grants,
+            required_for_full_assistant=[
+                "Microphone foreground service",
+                "Notification Listener",
+                "Accessibility Service",
+                "Contacts/phone/SMS runtime permissions when actions need them",
+                "Backend URL reachable from the phone",
+            ],
+            audit_note=(
+                "ALTER does not silently scrape chats or bypass Android permission gates; "
+                "each source is explicit and reversible."
+            ),
+        )
+
+    def record_consent(self, request: ConsentGrantRequest) -> ConsentGrant:
+        return ConsentGrant(
+            user_id=request.user_id,
+            source=request.source,
+            access_level=request.access_level,
+            granted=request.granted,
+            retention_days=request.retention_days,
+            reason=request.reason or "Updated from Permission Hub or backend API.",
+        )
+
+    def ingest_data(self, request: DataIngestionRequest) -> DataIngestionResponse:
+        blocked = _ingestion_blockers(request)
+        accepted = not blocked
+        candidates = _memory_candidates_from_items(request.items, request.source) if accepted else []
+        return DataIngestionResponse(
+            user_id=request.user_id,
+            source=request.source,
+            accepted=accepted,
+            imported_count=len(candidates),
+            memory_candidates=candidates,
+            blocked_reasons=blocked,
+            audit_events=[
+                f"source={request.source}",
+                f"mode={request.import_mode}",
+                f"metadata_only={request.metadata_only}",
+                "manual_or_android-approved_surface_only",
+            ],
+        )
+
+    def plan_agent(self, request: AgentPlannerRequest) -> AgentPlannerResponse:
+        steps, warnings = _planner_steps(request)
+        return AgentPlannerResponse(
+            user_id=request.user_id,
+            goal=request.goal,
+            autonomy_level=request.autonomy_level,
+            ready_to_execute=bool(steps) and not any(step.blocked_reason for step in steps),
+            steps=steps,
+            policy_warnings=warnings,
+        )
+
+    def privacy_export(self, user_id: UUID) -> PrivacyExportResponse:
+        return PrivacyExportResponse(
+            user_id=user_id,
+            included_sections=[
+                "consent_ledger",
+                "manual_import_manifest",
+                "agent_action_audit",
+                "memory_index_summary",
+                "backend_settings",
+            ],
+            download_ready=True,
+            summary={
+                "format": "json",
+                "contains_raw_private_messages": False,
+                "note": "Raw chat exports are only present if the user manually imported them.",
+            },
+        )
+
+    def privacy_delete(self, request: PrivacyDeleteRequest) -> PrivacyDeleteResponse:
+        if not request.confirm:
+            return PrivacyDeleteResponse(
+                user_id=request.user_id,
+                accepted=False,
+                deleted_scopes=[],
+                blocked_reasons=["Set confirm=true to delete selected privacy scopes."],
+                audit_event="privacy_delete_rejected_missing_confirmation",
+            )
+        scopes = request.scopes or ["manual_imports", "memory_candidates", "agent_action_audit"]
+        return PrivacyDeleteResponse(
+            user_id=request.user_id,
+            accepted=True,
+            deleted_scopes=scopes,
+            blocked_reasons=[],
+            audit_event=f"privacy_delete_accepted:{','.join(scopes)}",
         )
 
     async def future_os_demo(self, request: DemoRunRequest) -> DemoRunResponse:
@@ -1159,6 +1578,60 @@ class ApiGatewayService:
             decision=decision,
             memory_signal=memory_signal,
         )
+        display_response = _voice_display_response(spoken_response, decision, memory_signal)
+        language = language_for_code(request.locale)
+        ai_provider = "alter-local"
+        source_language_code = str(voice.data.get("source_language_code") or "auto")
+        if self._sarvam.enabled:
+            try:
+                sarvam = await self._sarvam.chat(
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": _sarvam_voice_prompt(
+                                transcript=request.transcript,
+                                normalized=normalized,
+                                intent=intent,
+                                spoken_response=spoken_response,
+                                display_response=display_response,
+                                next_actions=decision.next_actions
+                                if decision
+                                else ["Review the saved memory."],
+                            ),
+                        }
+                    ],
+                    target_language_code=language.code,
+                    temperature=0.28,
+                    max_tokens=700,
+                )
+                if sarvam["text"]:
+                    spoken_response = str(sarvam["text"])
+                    display_response = str(sarvam["text"])
+                    ai_provider = "sarvam"
+                    signals.append(
+                        IntelligenceSignal(
+                            name="sarvam_multilingual",
+                            title="Sarvam Multilingual AI",
+                            status="ok",
+                            summary=(
+                                f"Generated {language.name} response with "
+                                f"{sarvam.get('model', 'sarvam')}."
+                            ),
+                            latency_ms=None,
+                            data={"language": language.code, "provider": "sarvam"},
+                        )
+                    )
+            except Exception as error:
+                signals.append(
+                    IntelligenceSignal(
+                        name="sarvam_multilingual",
+                        title="Sarvam Multilingual AI",
+                        status="degraded",
+                        summary=f"Sarvam unavailable; used local fallback. {error}",
+                        latency_ms=None,
+                        data={"language": language.code, "provider": "alter-local"},
+                    )
+                )
         return VoiceActionRuntimeResponse(
             user_id=request.user_id,
             transcript=request.transcript,
@@ -1167,7 +1640,11 @@ class ApiGatewayService:
             inferred_intent=intent,
             intent_confidence=intent_confidence,
             spoken_response=spoken_response,
-            display_response=_voice_display_response(spoken_response, decision, memory_signal),
+            display_response=display_response,
+            ai_provider=ai_provider,
+            source_language_code=source_language_code,
+            response_language_code=language.code,
+            language_display_name=language.name,
             action_graph=_voice_action_graph(intent, decision, memory_signal),
             experiment_plan=decision.experiment_plan if decision else None,
             next_actions=decision.next_actions if decision else ["Review the saved memory."],
@@ -1179,6 +1656,165 @@ class ApiGatewayService:
 
 def create_api_gateway_service(settings: Settings | None = None) -> ApiGatewayService:
     return ApiGatewayService(settings or get_settings())
+
+
+def _local_multilingual_fallback(text: str, language_name: str) -> str:
+    return (
+        f"ALTER understood your request and is ready to act. "
+        f"Sarvam is not available right now, so this fallback is in English; "
+        f"target language: {language_name}. Request: {_truncate(text, 180)}"
+    )
+
+
+def _infer_language_code(text: str) -> str:
+    value = text or ""
+    if any("\u0900" <= char <= "\u097f" for char in value):
+        return "hi-IN"
+    if any("\u0980" <= char <= "\u09ff" for char in value):
+        return "bn-IN"
+    if any("\u0c80" <= char <= "\u0cff" for char in value):
+        return "kn-IN"
+    if any("\u0d00" <= char <= "\u0d7f" for char in value):
+        return "ml-IN"
+    if any("\u0b80" <= char <= "\u0bff" for char in value):
+        return "ta-IN"
+    if any("\u0c00" <= char <= "\u0c7f" for char in value):
+        return "te-IN"
+    return "en-IN"
+
+
+def _ingestion_blockers(request: DataIngestionRequest) -> list[str]:
+    blockers: list[str] = []
+    blocked_modes = {"silent_scrape", "full_phone_scrape", "background_chat_scrape"}
+    if request.import_mode.lower() in blocked_modes:
+        blockers.append("Silent full-phone or chat scraping is not allowed.")
+    if not request.metadata_only and request.consent_id is None:
+        blockers.append("Raw content import requires an explicit consent_id.")
+    if not request.items:
+        blockers.append("No import items were provided.")
+    return blockers
+
+
+def _memory_candidates_from_items(
+    items: list[dict[str, Any]],
+    source: str,
+) -> list[dict[str, Any]]:
+    candidates: list[dict[str, Any]] = []
+    for index, item in enumerate(items[:50], start=1):
+        title = str(item.get("title") or item.get("name") or f"{source} item {index}")
+        summary = str(item.get("summary") or item.get("text") or item.get("content") or "")
+        candidates.append(
+            {
+                "title": _truncate(title, 120),
+                "summary": _truncate(summary or title, 500),
+                "source": source,
+                "confidence": 0.72,
+                "privacy": "agent_visible",
+                "metadata": {
+                    key: value
+                    for key, value in item.items()
+                    if key not in {"content", "text", "summary"}
+                },
+            }
+        )
+    return candidates
+
+
+def _planner_steps(request: AgentPlannerRequest) -> tuple[list[AgentPlanStep], list[str]]:
+    goal = request.goal.lower()
+    allowed = {tool.lower() for tool in request.allowed_tools}
+    steps: list[AgentPlanStep] = []
+    warnings = [
+        "Risky actions require confirmation before execution.",
+        "Android Accessibility can only act on visible UI after the user enables the service.",
+        "ALTER will not bypass passwords, banking confirmations, or Android permission dialogs.",
+    ]
+
+    def allowed_tool(name: str) -> bool:
+        return not allowed or name.lower() in allowed
+
+    if any(word in goal for word in ["open", "launch", "settings", "app"]):
+        steps.append(
+            AgentPlanStep(
+                tool_name="device_action.open_intent",
+                title="Open the target app or Android settings surface",
+                rationale="Use Android intents before falling back to Accessibility.",
+                parameters={"query": request.goal},
+                requires_confirmation=False,
+                status="ready" if allowed_tool("device_action.open_intent") else "blocked",
+                blocked_reason=(
+                    "" if allowed_tool("device_action.open_intent") else "Tool is not allowed."
+                ),
+            )
+        )
+    if any(word in goal for word in ["tap", "scroll", "type", "reply", "send", "whatsapp"]):
+        steps.append(
+            AgentPlanStep(
+                tool_name="openclaw.accessibility_action",
+                title="Queue visible-screen control action",
+                rationale="Accessibility is required for tapping, scrolling, typing, and visible text reads.",
+                parameters={"instruction": request.goal, "source": "agent_planner"},
+                requires_confirmation=True,
+                requires_accessibility=True,
+                status="ready" if allowed_tool("openclaw.accessibility_action") else "blocked",
+                blocked_reason=(
+                    ""
+                    if allowed_tool("openclaw.accessibility_action")
+                    else "Tool is not allowed."
+                ),
+            )
+        )
+    if any(word in goal for word in ["sms", "call", "message", "email"]):
+        steps.append(
+            AgentPlanStep(
+                tool_name="device_action.compose",
+                title="Prepare a draft instead of silently sending",
+                rationale="Communication actions should be reviewed by the user before send.",
+                parameters={"intent": request.goal, "send_immediately": False},
+                requires_confirmation=True,
+                status="ready" if allowed_tool("device_action.compose") else "blocked",
+                blocked_reason="" if allowed_tool("device_action.compose") else "Tool is not allowed.",
+            )
+        )
+    if not steps:
+        steps.append(
+            AgentPlanStep(
+                tool_name="assistant.respond",
+                title="Answer and ask for the missing target",
+                rationale="No safe device action was detected from the goal.",
+                parameters={"goal": request.goal},
+                requires_confirmation=False,
+                status="ready",
+            )
+        )
+    if "bypass" in goal or "password" in goal:
+        warnings.append("Bypass/password requests are blocked by policy and Android security.")
+        for step in steps:
+            step.status = "blocked"
+            step.blocked_reason = "Request asks for bypassing security or credentials."
+    return steps, warnings
+
+
+def _sarvam_voice_prompt(
+    *,
+    transcript: str,
+    normalized: str,
+    intent: str,
+    spoken_response: str,
+    display_response: str,
+    next_actions: list[str],
+) -> str:
+    return (
+        "Turn this ALTER Android intelligence result into a natural spoken answer. "
+        "Keep it to 2-4 short sentences. Mention the concrete next action. "
+        "Do not claim silent access to chats, permissions, banking, passwords, or system controls. "
+        f"Original transcript: {transcript}\n"
+        f"Normalized command: {normalized}\n"
+        f"Intent: {intent}\n"
+        f"Base spoken response: {spoken_response}\n"
+        f"Base display response: {display_response}\n"
+        f"Next actions: {'; '.join(next_actions[:4])}"
+    )
 
 
 async def _run_step(
