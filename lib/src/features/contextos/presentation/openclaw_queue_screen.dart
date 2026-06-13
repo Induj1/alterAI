@@ -200,6 +200,38 @@ class _PhoneControlHub extends ConsumerWidget {
               ],
             ],
           ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  icon: const Icon(LucideIcons.scan_text, size: 16),
+                  label: const Text('Read current screen'),
+                  onPressed: () async {
+                    HapticFeedback.selectionClick();
+                    final snapshot = await ref
+                        .read(phoneControlControllerProvider.notifier)
+                        .readScreen();
+                    if (context.mounted && snapshot.message.isNotEmpty) {
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(SnackBar(content: Text(snapshot.message)));
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(width: 10),
+              OutlinedButton.icon(
+                icon: const Icon(LucideIcons.eraser, size: 16),
+                label: const Text('Clear'),
+                onPressed: state.audit.isEmpty
+                    ? null
+                    : () => ref
+                          .read(phoneControlControllerProvider.notifier)
+                          .clearAudit(),
+              ),
+            ],
+          ),
           if (screen != null) ...[
             const SizedBox(height: 12),
             Container(

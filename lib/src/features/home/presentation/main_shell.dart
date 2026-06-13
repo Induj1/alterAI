@@ -17,6 +17,7 @@ class MainShell extends StatelessWidget {
   static const items = [
     _NavItem('/agent', 'Talk', LucideIcons.mic),
     _NavItem('/home', 'Home', LucideIcons.house),
+    _NavItem('/backend', 'Backend', LucideIcons.server),
     _NavItem('/twin', 'Twin', LucideIcons.brain),
     _NavItem('/feed', 'Feed', LucideIcons.radio),
     _NavItem('/shield', 'Shield', LucideIcons.shield_check),
@@ -29,6 +30,7 @@ class MainShell extends StatelessWidget {
     _NavItem('/edge', 'Edge', LucideIcons.cpu),
     _NavItem('/privacy', 'Privacy', LucideIcons.lock),
     _NavItem('/mission', 'Control', LucideIcons.command),
+    _NavItem('/officekit', 'OfficeKit', LucideIcons.briefcase),
     _NavItem('/voice', 'Voice', LucideIcons.mic),
     _NavItem('/council', 'Council', LucideIcons.messages_square),
     _NavItem('/simulator', 'Future', LucideIcons.route),

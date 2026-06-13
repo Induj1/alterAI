@@ -89,6 +89,132 @@ class ProfileScreen extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 18),
+            GestureDetector(
+              onTap: () => context.push(AlterRoutes.backend),
+              child: Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      AppColors.lime.withValues(alpha: 0.15),
+                      AppColors.green.withValues(alpha: 0.05),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: AppColors.lime.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: AppColors.lime.withValues(alpha: 0.16),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: const Icon(
+                        Icons.dns_outlined,
+                        color: AppColors.lime,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Backend Control Center',
+                            style: AppText.body(16, weight: FontWeight.w600),
+                          ),
+                          Text(
+                            'All services, endpoints, health, and screens',
+                            style: AppText.body(
+                              12.5,
+                              color: AppColors.white(0.6),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.arrow_forward,
+                      color: AppColors.white(0.5),
+                      size: 20,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 11),
+            GestureDetector(
+              onTap: () => context.push(AlterRoutes.reputation),
+              child: Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      AppColors.orange.withValues(alpha: 0.15),
+                      AppColors.pink.withValues(alpha: 0.05),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: AppColors.orange.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: AppColors.orange.withValues(alpha: 0.16),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: const Icon(
+                        Icons.emoji_events_outlined,
+                        color: AppColors.orange,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Reputation Dashboard',
+                            style: AppText.body(16, weight: FontWeight.w600),
+                          ),
+                          Text(
+                            'Trust events, score, risks, recommendations',
+                            style: AppText.body(
+                              12.5,
+                              color: AppColors.white(0.6),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.arrow_forward,
+                      color: AppColors.white(0.5),
+                      size: 20,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 11),
             // Social graph entry
             GestureDetector(
               onTap: () => context.push(AlterRoutes.social),
@@ -216,9 +342,9 @@ class ProfileScreen extends ConsumerWidget {
             const SizedBox(height: 12),
             Row(
               children: [
-                _platform('N', 'Notion', circle: false),
+                _platform(context, 'N', 'Notion', circle: false),
                 const SizedBox(width: 10),
-                _platform('GH', 'GitHub', circle: true),
+                _platform(context, 'GH', 'GitHub', circle: true),
               ],
             ),
             const SizedBox(height: 16),
@@ -251,9 +377,15 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
-  Widget _platform(String mark, String name, {required bool circle}) {
+  Widget _platform(
+    BuildContext context,
+    String mark,
+    String name, {
+    required bool circle,
+  }) {
     return Expanded(
       child: GlassCard(
+        onTap: () => context.push(AlterRoutes.backend),
         padding: const EdgeInsets.all(14),
         radius: 14,
         child: Row(

@@ -4,12 +4,30 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../features/agent/presentation/agent_screen.dart';
+import '../features/agent/presentation/live_feed_screen.dart';
 import '../features/auth/application/auth_provider.dart';
+import '../features/backend/presentation/backend_feature_hub_screen.dart';
+import '../features/contextos/presentation/context_mission_control_screen.dart';
+import '../features/contextos/presentation/contextos_home_screen.dart';
+import '../features/contextos/presentation/daytwin_screen.dart';
+import '../features/contextos/presentation/decision_council_screen.dart';
+import '../features/contextos/presentation/decision_dna_screen.dart';
+import '../features/contextos/presentation/digital_twin_screen.dart';
+import '../features/contextos/presentation/edge_model_screen.dart';
+import '../features/contextos/presentation/futuretwin_screen.dart';
+import '../features/contextos/presentation/lifeshield_screen.dart';
+import '../features/contextos/presentation/memory_screen.dart';
 import '../features/contextos/presentation/openclaw_queue_screen.dart';
+import '../features/contextos/presentation/privacy_screen.dart';
 import '../features/lens/presentation/alter_lens_screen.dart';
+import '../features/mission/presentation/mission_control_screen.dart';
 import '../features/nfc/presentation/nfc_networking_screen.dart';
 import '../features/permissions/presentation/permission_hub_screen.dart';
 import '../features/profile/application/profile_provider.dart';
+import '../features/profile/presentation/profile_setup_screen.dart';
+import '../features/reputation/presentation/reputation_dashboard_screen.dart';
+import '../features/settings/presentation/settings_screen.dart';
+import '../features/voice/presentation/voice_assistant_screen.dart';
 import '../ui/routes.dart';
 import '../ui/screens/deep.dart';
 import '../ui/screens/ftue.dart';
@@ -100,6 +118,111 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AlterRoutes.home,
         pageBuilder: (context, state) =>
             _fadePage(key: state.pageKey, child: const MainShell()),
+      ),
+      GoRoute(
+        path: AlterRoutes.backend,
+        pageBuilder: (context, state) => _fadePage(
+          key: state.pageKey,
+          child: const BackendFeatureHubScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '${AlterRoutes.backend}/:serviceId',
+        pageBuilder: (context, state) => _fadePage(
+          key: state.pageKey,
+          child: BackendServiceDetailScreen(
+            serviceId: state.pathParameters['serviceId'] ?? 'api-gateway',
+          ),
+        ),
+      ),
+      GoRoute(
+        path: AlterRoutes.settings,
+        pageBuilder: (context, state) =>
+            _fadePage(key: state.pageKey, child: const SettingsScreen()),
+      ),
+      GoRoute(
+        path: AlterRoutes.profile,
+        pageBuilder: (context, state) =>
+            _fadePage(key: state.pageKey, child: const ProfileSetupScreen()),
+      ),
+      GoRoute(
+        path: AlterRoutes.voice,
+        pageBuilder: (context, state) =>
+            _fadePage(key: state.pageKey, child: const VoiceAssistantScreen()),
+      ),
+      GoRoute(
+        path: AlterRoutes.feed,
+        pageBuilder: (context, state) =>
+            _fadePage(key: state.pageKey, child: const LiveFeedScreen()),
+      ),
+      GoRoute(
+        path: AlterRoutes.contextos,
+        pageBuilder: (context, state) =>
+            _fadePage(key: state.pageKey, child: const ContextOsHomeScreen()),
+      ),
+      GoRoute(
+        path: AlterRoutes.twin,
+        pageBuilder: (context, state) =>
+            _fadePage(key: state.pageKey, child: const DigitalTwinScreen()),
+      ),
+      GoRoute(
+        path: AlterRoutes.shield,
+        pageBuilder: (context, state) =>
+            _fadePage(key: state.pageKey, child: const LifeShieldScreen()),
+      ),
+      GoRoute(
+        path: AlterRoutes.dayTwin,
+        pageBuilder: (context, state) =>
+            _fadePage(key: state.pageKey, child: const DayTwinScreen()),
+      ),
+      GoRoute(
+        path: AlterRoutes.futureTwin,
+        pageBuilder: (context, state) =>
+            _fadePage(key: state.pageKey, child: const FutureTwinScreen()),
+      ),
+      GoRoute(
+        path: AlterRoutes.decisionCouncil,
+        pageBuilder: (context, state) =>
+            _fadePage(key: state.pageKey, child: const DecisionCouncilScreen()),
+      ),
+      GoRoute(
+        path: AlterRoutes.decisionDna,
+        pageBuilder: (context, state) =>
+            _fadePage(key: state.pageKey, child: const DecisionDnaScreen()),
+      ),
+      GoRoute(
+        path: AlterRoutes.memory,
+        pageBuilder: (context, state) =>
+            _fadePage(key: state.pageKey, child: const MemoryScreen()),
+      ),
+      GoRoute(
+        path: AlterRoutes.edge,
+        pageBuilder: (context, state) =>
+            _fadePage(key: state.pageKey, child: const EdgeModelScreen()),
+      ),
+      GoRoute(
+        path: AlterRoutes.mission,
+        pageBuilder: (context, state) =>
+            _fadePage(key: state.pageKey, child: const MissionControlScreen()),
+      ),
+      GoRoute(
+        path: AlterRoutes.officeKit,
+        pageBuilder: (context, state) => _fadePage(
+          key: state.pageKey,
+          child: const ContextMissionControlScreen(),
+        ),
+      ),
+      GoRoute(
+        path: AlterRoutes.privacy,
+        pageBuilder: (context, state) =>
+            _fadePage(key: state.pageKey, child: const PrivacyScreen()),
+      ),
+      GoRoute(
+        path: AlterRoutes.reputation,
+        pageBuilder: (context, state) => _fadePage(
+          key: state.pageKey,
+          child: const ReputationDashboardScreen(),
+        ),
       ),
       GoRoute(
         path: AlterRoutes.council,

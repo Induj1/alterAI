@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:alter/src/features/auth/application/auth_provider.dart';
+import 'package:alter/src/features/agent/application/notification_monitor.dart';
 import 'package:alter/src/features/backend/application/backend_config_controller.dart';
 import 'package:alter/src/features/backend/data/backend_api_client.dart';
 import 'package:alter/src/features/device_control/application/phone_control_controller.dart';
@@ -46,6 +47,7 @@ class _SettingsDrawerState extends ConsumerState<SettingsDrawer> {
     final width = MediaQuery.of(context).size.width * 0.9;
     final wake = ref.watch(nativeWakeServiceControllerProvider);
     final phone = ref.watch(phoneControlControllerProvider);
+    final monitor = ref.watch(notificationMonitorProvider);
     final backend = ref.watch(backendConfigProvider);
     backend.whenData((config) {
       if (!_gatewayDirty && _gatewayController.text != config.gatewayUrl) {
@@ -164,15 +166,30 @@ class _SettingsDrawerState extends ConsumerState<SettingsDrawer> {
                     context.push(AlterRoutes.agent);
                   },
                 ),
-                _menuRow('Connected platforms', 'Notion, GitHub'),
+                _menuRow(
+                  'Connected platforms',
+                  'Notion, GitHub, backend services',
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    context.push(AlterRoutes.backend);
+                  },
+                ),
                 _menuRow(
                   'Language & localization',
-                  'English, Hindi · 8 supported',
+                  'English, Hindi - 8 supported',
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    context.push(AlterRoutes.languages);
+                  },
                 ),
                 _menuRow(
                   'Data management',
                   'Export or delete everything',
                   last: true,
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    context.push(AlterRoutes.privacy);
+                  },
                 ),
                 const SizedBox(height: 30),
                 Text(
@@ -251,9 +268,22 @@ class _SettingsDrawerState extends ConsumerState<SettingsDrawer> {
                 _toggleRow(
                   'notif',
                   'Notification stream',
-                  'Extract commitments & deadlines',
-                  value: toggles['notif']!,
-                  onChanged: (v) => setState(() => toggles['notif'] = v),
+                  monitor.enabled
+                      ? 'Monitoring notifications on-device'
+                      : monitor.granted
+                      ? 'Access granted, tap to monitor'
+                      : 'Tap to open Notification Access',
+                  value: monitor.enabled,
+                  onChanged: (_) async {
+                    final notifier = ref.read(
+                      notificationMonitorProvider.notifier,
+                    );
+                    if (monitor.enabled) {
+                      notifier.disable();
+                    } else {
+                      await notifier.enable();
+                    }
+                  },
                 ),
                 _toggleRow(
                   'comm',
