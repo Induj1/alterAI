@@ -40,7 +40,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   ref.onDispose(notifier.dispose);
 
   return GoRouter(
-    initialLocation: AlterRoutes.ftueWhat,
     refreshListenable: notifier,
     redirect: (context, state) {
       final user = Supabase.instance.client.auth.currentUser;

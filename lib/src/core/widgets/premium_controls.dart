@@ -72,39 +72,43 @@ class PremiumChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final color = selected ? AlterPalette.iris : theme.colorScheme.onSurface;
-    return InkWell(
+    return Material(
+      color: Colors.transparent,
       borderRadius: BorderRadius.circular(999),
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOutCubic,
-        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
-        decoration: BoxDecoration(
-          color: selected
-              ? AlterPalette.iris.withValues(alpha: 0.16)
-              : theme.colorScheme.surface.withValues(alpha: 0.46),
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
+          decoration: BoxDecoration(
             color: selected
-                ? AlterPalette.iris.withValues(alpha: 0.34)
-                : theme.colorScheme.onSurface.withValues(alpha: 0.1),
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (icon != null) ...[
-              Icon(icon, size: 15, color: color),
-              const SizedBox(width: 7),
-            ],
-            Text(
-              label,
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: color,
-                fontWeight: FontWeight.w800,
-              ),
+                ? AlterPalette.iris.withValues(alpha: 0.16)
+                : theme.colorScheme.surface.withValues(alpha: 0.46),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: selected
+                  ? AlterPalette.iris.withValues(alpha: 0.34)
+                  : theme.colorScheme.onSurface.withValues(alpha: 0.1),
             ),
-          ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (icon != null) ...[
+                Icon(icon, size: 15, color: color),
+                const SizedBox(width: 7),
+              ],
+              Text(
+                label,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -153,10 +157,7 @@ class SectionHeader extends StatelessWidget {
             ],
           ),
         ),
-        if (trailing != null) ...[
-          const SizedBox(width: 14),
-          trailing!,
-        ],
+        if (trailing != null) ...[const SizedBox(width: 14), trailing!],
       ],
     );
   }

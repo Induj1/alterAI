@@ -147,7 +147,7 @@ class _SettingsDrawerState extends ConsumerState<SettingsDrawer> {
                   'Wake, mic, camera, contacts',
                   onTap: () {
                     Navigator.of(context).pop();
-                    context.push(AlterRoutes.permissions);
+                    context.go(AlterRoutes.permissions);
                   },
                 ),
                 _menuRow(
@@ -155,7 +155,7 @@ class _SettingsDrawerState extends ConsumerState<SettingsDrawer> {
                   'Confirm Send/Pay actions',
                   onTap: () {
                     Navigator.of(context).pop();
-                    context.push(AlterRoutes.openclaw);
+                    context.go(AlterRoutes.openclaw);
                   },
                 ),
                 _menuRow(
@@ -163,7 +163,7 @@ class _SettingsDrawerState extends ConsumerState<SettingsDrawer> {
                   'Natural language + phone tools',
                   onTap: () {
                     Navigator.of(context).pop();
-                    context.push(AlterRoutes.agent);
+                    context.go(AlterRoutes.agent);
                   },
                 ),
                 _menuRow(
@@ -171,7 +171,7 @@ class _SettingsDrawerState extends ConsumerState<SettingsDrawer> {
                   'Notion, GitHub, backend services',
                   onTap: () {
                     Navigator.of(context).pop();
-                    context.push(AlterRoutes.backend);
+                    context.go(AlterRoutes.backend);
                   },
                 ),
                 _menuRow(
@@ -179,7 +179,7 @@ class _SettingsDrawerState extends ConsumerState<SettingsDrawer> {
                   'English, Hindi - 8 supported',
                   onTap: () {
                     Navigator.of(context).pop();
-                    context.push(AlterRoutes.languages);
+                    context.go(AlterRoutes.languages);
                   },
                 ),
                 _menuRow(
@@ -188,7 +188,7 @@ class _SettingsDrawerState extends ConsumerState<SettingsDrawer> {
                   last: true,
                   onTap: () {
                     Navigator.of(context).pop();
-                    context.push(AlterRoutes.privacy);
+                    context.go(AlterRoutes.privacy);
                   },
                 ),
                 const SizedBox(height: 30),

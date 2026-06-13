@@ -333,7 +333,7 @@ class _VoiceScreenState extends ConsumerState<VoiceScreen>
                     ],
                   ),
                   GestureDetector(
-                    onTap: () => context.push(AlterRoutes.lens),
+                    onTap: () => context.go(AlterRoutes.lens),
                     child: Container(
                       width: 44,
                       height: 44,
@@ -419,7 +419,7 @@ class _VoiceScreenState extends ConsumerState<VoiceScreen>
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     GestureDetector(
-                      onTap: () => context.push(AlterRoutes.deepAnalysis),
+                      onTap: () => context.go(AlterRoutes.deepAnalysis),
                       child: Container(
                         height: 48,
                         padding: const EdgeInsets.symmetric(horizontal: 22),

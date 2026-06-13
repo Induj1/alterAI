@@ -156,7 +156,7 @@ class BackendFeatureHubScreen extends ConsumerWidget {
               compact: true,
               icon: LucideIcons.settings,
               label: 'Settings',
-              onPressed: () => context.push(AlterRoutes.settings),
+              onPressed: () => context.go(AlterRoutes.settings),
             ),
           ),
           const SizedBox(height: 12),
@@ -349,7 +349,13 @@ class BackendServiceDetailScreen extends ConsumerWidget {
           IconButton.filledTonal(
             tooltip: 'Back',
             icon: const Icon(LucideIcons.arrow_left, size: 18),
-            onPressed: () => context.pop(),
+            onPressed: () {
+              if (context.canPop()) {
+                context.pop();
+              } else {
+                context.go(AlterRoutes.backend);
+              }
+            },
           ),
           const SizedBox(height: 12),
           Row(
@@ -449,7 +455,7 @@ class BackendServiceDetailScreen extends ConsumerWidget {
                             : 'Open feature',
                         onPressed: spec.route == null
                             ? null
-                            : () => context.push(spec.route!),
+                            : () => context.go(spec.route!),
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -526,7 +532,7 @@ class _ServiceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return GlassPanel(
-      onTap: () => context.push('${AlterRoutes.backend}/${spec.id}'),
+      onTap: () => context.go('${AlterRoutes.backend}/${spec.id}'),
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: 205),
         child: Column(
@@ -620,7 +626,7 @@ class _SurfaceTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return GlassPanel(
-      onTap: () => context.push(route),
+      onTap: () => context.go(route),
       child: Row(
         children: [
           Icon(icon, color: color, size: 22),
@@ -676,7 +682,7 @@ class _NativeBridgeTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return GlassPanel(
-      onTap: () => context.push(route),
+      onTap: () => context.go(route),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -758,12 +764,22 @@ class _InlineNote extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return GlassPanel(
       child: Row(
         children: [
           Icon(LucideIcons.triangle_alert, color: color, size: 18),
           const SizedBox(width: 10),
-          Expanded(child: Text(text)),
+          Expanded(
+            child: Text(
+              text,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: color,
+                height: 1.35,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
         ],
       ),
     );

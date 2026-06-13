@@ -33,7 +33,8 @@ class DashboardScreen extends ConsumerWidget {
         bottom: false,
         child: feedAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (_, __) => _content(context, shell, LifeFeedSnapshot.fallback()),
+          error: (_, __) =>
+              _content(context, shell, LifeFeedSnapshot.fallback()),
           data: (feed) => _content(context, shell, feed),
         ),
       ),
@@ -60,25 +61,34 @@ class DashboardScreen extends ConsumerWidget {
           style: AppText.display(30, height: 1.1, letterSpacing: -0.2),
         ),
         const SizedBox(height: 6),
-        Text(feed.dateSummary,
-            style: AppText.body(13.5, color: AppColors.white(0.45))),
+        Text(
+          feed.dateSummary,
+          style: AppText.body(13.5, color: AppColors.white(0.45)),
+        ),
         const SizedBox(height: 22),
         _focusHero(context, shell, feed),
         const SizedBox(height: 30),
-        _sectionHead('Opportunities for you', 'Radar →',
-            () => context.push(AlterRoutes.radar)),
+        _sectionHead(
+          'Opportunities for you',
+          'Radar →',
+          () => context.go(AlterRoutes.radar),
+        ),
         const SizedBox(height: 14),
-        ...feed.opportunities.map((o) => Padding(
-              padding: const EdgeInsets.only(bottom: 11),
-              child: _oppCard(context, o),
-            )),
+        ...feed.opportunities.map(
+          (o) => Padding(
+            padding: const EdgeInsets.only(bottom: 11),
+            child: _oppCard(context, o),
+          ),
+        ),
         const SizedBox(height: 18),
         Text("Today's tasks", style: AppText.body(16, weight: FontWeight.w700)),
         const SizedBox(height: 14),
-        ...feed.tasks.map((t) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: _taskRow(t),
-            )),
+        ...feed.tasks.map(
+          (t) => Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: _taskRow(t),
+          ),
+        ),
       ],
     );
   }
@@ -90,66 +100,86 @@ class DashboardScreen extends ConsumerWidget {
   ) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(26),
-      child: Stack(children: [
-        Container(
-          decoration: BoxDecoration(
-            color: AppColors.bgRaised,
-            borderRadius: BorderRadius.circular(26),
-            border: Border.all(color: AppColors.white(0.10)),
+      child: Stack(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: AppColors.bgRaised,
+              borderRadius: BorderRadius.circular(26),
+              border: Border.all(color: AppColors.white(0.10)),
+            ),
           ),
-        ),
-        Positioned(
-          top: -40,
-          right: -30,
-          child: Orb(size: 200, blur: 6, colors: const [
-            AppColors.lime,
-            AppColors.purple,
-          ]),
-        ),
-        Padding(
-          padding: const EdgeInsets.all(22),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('FOCUS NOW', style: AppText.kicker(AppColors.lime)),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: 230,
-                child: Text(feed.focusTitle,
-                    style: AppText.display(23,
-                        weight: FontWeight.w500, height: 1.18)),
-              ),
-              const SizedBox(height: 10),
-              SizedBox(
-                width: 240,
-                child: Text(
-                  feed.focusRationale,
-                  style: AppText.body(13.5, color: AppColors.white(0.6)),
-                ),
-              ),
-              const SizedBox(height: 18),
-              GestureDetector(
-                onTap: () => shell.goTab(2),
-                child: Container(
-                  height: 46,
-                  padding: const EdgeInsets.symmetric(horizontal: 22),
-                  decoration: BoxDecoration(
-                    color: AppColors.pill,
-                    borderRadius: BorderRadius.circular(30),
+          Positioned(
+            top: -40,
+            right: -30,
+            child: Orb(
+              size: 200,
+              blur: 6,
+              colors: const [AppColors.lime, AppColors.purple],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(22),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('FOCUS NOW', style: AppText.kicker(AppColors.lime)),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: 230,
+                  child: Text(
+                    feed.focusTitle,
+                    style: AppText.display(
+                      23,
+                      weight: FontWeight.w500,
+                      height: 1.18,
+                    ),
                   ),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Text('Ask Alter how',
-                        style: AppText.body(14,
-                            weight: FontWeight.w700, color: AppColors.pillInk)),
-                    const SizedBox(width: 8),
-                    Icon(Icons.arrow_forward, size: 16, color: AppColors.pillInk),
-                  ]),
                 ),
-              ),
-            ],
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: 240,
+                  child: Text(
+                    feed.focusRationale,
+                    style: AppText.body(13.5, color: AppColors.white(0.6)),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                GestureDetector(
+                  onTap: () => shell.goTab(2),
+                  child: Container(
+                    height: 46,
+                    padding: const EdgeInsets.symmetric(horizontal: 22),
+                    decoration: BoxDecoration(
+                      color: AppColors.pill,
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Ask Alter how',
+                          style: AppText.body(
+                            14,
+                            weight: FontWeight.w700,
+                            color: AppColors.pillInk,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Icon(
+                          Icons.arrow_forward,
+                          size: 16,
+                          color: AppColors.pillInk,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-      ]),
+        ],
+      ),
     );
   }
 
@@ -160,9 +190,14 @@ class DashboardScreen extends ConsumerWidget {
         Text(title, style: AppText.body(16, weight: FontWeight.w700)),
         GestureDetector(
           onTap: onTap,
-          child: Text(action,
-              style: AppText.body(13,
-                  weight: FontWeight.w600, color: AppColors.lime)),
+          child: Text(
+            action,
+            style: AppText.body(
+              13,
+              weight: FontWeight.w600,
+              color: AppColors.lime,
+            ),
+          ),
         ),
       ],
     );
@@ -171,35 +206,45 @@ class DashboardScreen extends ConsumerWidget {
   Widget _oppCard(BuildContext context, LifeFeedOpportunity o) {
     final c = _tagColor(o.tag);
     return GlassCard(
-      onTap: () => context.push(AlterRoutes.radar),
+      onTap: () => context.go(AlterRoutes.radar),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
-      child: Row(children: [
-        Container(
-          width: 46,
-          height: 46,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: AppColors.white(0.04),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: c),
+      child: Row(
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: AppColors.white(0.04),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: c),
+            ),
+            child: Text(
+              '${o.matchScore}',
+              style: AppText.display(15, weight: FontWeight.w700, color: c),
+            ),
           ),
-          child: Text('${o.matchScore}',
-              style: AppText.display(15, weight: FontWeight.w700, color: c)),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(o.tag, style: AppText.kicker(c, size: 10)),
-              const SizedBox(height: 3),
-              Text(o.title, style: AppText.body(14.5, weight: FontWeight.w600)),
-              const SizedBox(height: 2),
-              Text(o.meta, style: AppText.body(12, color: AppColors.white(0.5))),
-            ],
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(o.tag, style: AppText.kicker(c, size: 10)),
+                const SizedBox(height: 3),
+                Text(
+                  o.title,
+                  style: AppText.body(14.5, weight: FontWeight.w600),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  o.meta,
+                  style: AppText.body(12, color: AppColors.white(0.5)),
+                ),
+              ],
+            ),
           ),
-        ),
-      ]),
+        ],
+      ),
     );
   }
 
@@ -208,52 +253,77 @@ class DashboardScreen extends ConsumerWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
       decoration: BoxDecoration(
         gradient: t.hot
-            ? LinearGradient(colors: [
-                AppColors.lime.withValues(alpha: 0.12),
-                AppColors.white(0.03),
-              ], begin: Alignment.topLeft, end: Alignment.bottomRight)
+            ? LinearGradient(
+                colors: [
+                  AppColors.lime.withValues(alpha: 0.12),
+                  AppColors.white(0.03),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              )
             : null,
         color: t.hot ? null : AppColors.white(0.05),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-            color: t.hot ? AppColors.lime.withValues(alpha: 0.3) : AppColors.white(0.10)),
+          color: t.hot
+              ? AppColors.lime.withValues(alpha: 0.3)
+              : AppColors.white(0.10),
+        ),
       ),
-      child: Row(children: [
-        Container(
-          width: 24,
-          height: 24,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: t.done ? AppColors.lime : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-                color: t.done ? AppColors.lime : AppColors.white(0.3), width: 1.5),
+      child: Row(
+        children: [
+          Container(
+            width: 24,
+            height: 24,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: t.done ? AppColors.lime : Colors.transparent,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: t.done ? AppColors.lime : AppColors.white(0.3),
+                width: 1.5,
+              ),
+            ),
+            child: t.done
+                ? const Icon(Icons.check, size: 14, color: AppColors.bg)
+                : null,
           ),
-          child: t.done
-              ? const Icon(Icons.check, size: 14, color: AppColors.bg)
-              : null,
-        ),
-        const SizedBox(width: 13),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(t.title,
-                  style: AppText.body(14.5,
-                      weight: FontWeight.w600,
-                      color: t.done ? AppColors.white(0.5) : AppColors.white(0.95))
-                      .copyWith(
-                          decoration: t.done ? TextDecoration.lineThrough : null)),
-              const SizedBox(height: 2),
-              Text(t.meta, style: AppText.body(12, color: AppColors.white(0.5))),
-            ],
+          const SizedBox(width: 13),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  t.title,
+                  style:
+                      AppText.body(
+                        14.5,
+                        weight: FontWeight.w600,
+                        color: t.done
+                            ? AppColors.white(0.5)
+                            : AppColors.white(0.95),
+                      ).copyWith(
+                        decoration: t.done ? TextDecoration.lineThrough : null,
+                      ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  t.meta,
+                  style: AppText.body(12, color: AppColors.white(0.5)),
+                ),
+              ],
+            ),
           ),
-        ),
-        Text(t.badge,
-            style: AppText.body(11,
-                weight: FontWeight.w700,
-                color: t.badge == 'Now' ? AppColors.lime : AppColors.white(0.45))),
-      ]),
+          Text(
+            t.badge,
+            style: AppText.body(
+              11,
+              weight: FontWeight.w700,
+              color: t.badge == 'Now' ? AppColors.lime : AppColors.white(0.45),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

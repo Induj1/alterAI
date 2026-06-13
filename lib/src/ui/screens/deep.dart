@@ -36,9 +36,14 @@ class _DeepScaffold extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     BackPill(onTap: () => Navigator.maybePop(context)),
-                    Text(title,
-                        style: AppText.display(13,
-                            weight: FontWeight.w600, letterSpacing: 2.0)),
+                    Text(
+                      title,
+                      style: AppText.display(
+                        13,
+                        weight: FontWeight.w600,
+                        letterSpacing: 2.0,
+                      ),
+                    ),
                     const SizedBox(width: 42),
                   ],
                 ),
@@ -62,26 +67,46 @@ class Persona {
 }
 
 const personas = <Persona>[
-  Persona('Current You', 'Present circumstances',
-      'Given where you are right now — is this actually achievable?',
-      'Anchors every recommendation in your current skills, time and constraints. Finds the minimum viable path from today to the outcome.',
-      AppColors.lime, Color(0xFF7F9E2E)),
-  Persona('Future You', '5–10 year horizon',
-      'Will your 35-year-old self thank you for this?',
-      'Projects long-term compounding effects. Which skills grow exponentially? Which doors close? Weighs upside against long-term regret.',
-      AppColors.purpleLight, AppColors.purpleDeep),
-  Persona('Founder You', 'Entrepreneurial lens',
-      'Can this decision generate asymmetric upside?',
-      'Finds the startup hidden in any path — side-project viability, commercialisation, and which option gives you the most optionality.',
-      AppColors.orange, AppColors.orangeDeep),
-  Persona('Realist You', 'Systematic scepticism',
-      'What do the real odds actually look like?',
-      'Counters optimism with data — market demand, job availability, income trajectories and execution feasibility. The cold read.',
-      AppColors.cyan, AppColors.cyanDeep),
-  Persona('Explorer You', 'Non-obvious paths',
-      'What are you not even seeing yet?',
-      'Surfaces adjacent domains and emerging fields with first-mover advantage — the third option you never considered.',
-      AppColors.pink, AppColors.pinkDeep),
+  Persona(
+    'Current You',
+    'Present circumstances',
+    'Given where you are right now — is this actually achievable?',
+    'Anchors every recommendation in your current skills, time and constraints. Finds the minimum viable path from today to the outcome.',
+    AppColors.lime,
+    Color(0xFF7F9E2E),
+  ),
+  Persona(
+    'Future You',
+    '5–10 year horizon',
+    'Will your 35-year-old self thank you for this?',
+    'Projects long-term compounding effects. Which skills grow exponentially? Which doors close? Weighs upside against long-term regret.',
+    AppColors.purpleLight,
+    AppColors.purpleDeep,
+  ),
+  Persona(
+    'Founder You',
+    'Entrepreneurial lens',
+    'Can this decision generate asymmetric upside?',
+    'Finds the startup hidden in any path — side-project viability, commercialisation, and which option gives you the most optionality.',
+    AppColors.orange,
+    AppColors.orangeDeep,
+  ),
+  Persona(
+    'Realist You',
+    'Systematic scepticism',
+    'What do the real odds actually look like?',
+    'Counters optimism with data — market demand, job availability, income trajectories and execution feasibility. The cold read.',
+    AppColors.cyan,
+    AppColors.cyanDeep,
+  ),
+  Persona(
+    'Explorer You',
+    'Non-obvious paths',
+    'What are you not even seeing yet?',
+    'Surfaces adjacent domains and emerging fields with first-mover advantage — the third option you never considered.',
+    AppColors.pink,
+    AppColors.pinkDeep,
+  ),
 ];
 
 class CloneCouncilScreen extends StatefulWidget {
@@ -102,8 +127,11 @@ class _CloneCouncilScreenState extends State<CloneCouncilScreen> {
 
   void _to(int i) {
     final t = i.clamp(0, personas.length - 1);
-    _controller.animateToPage(t,
-        duration: const Duration(milliseconds: 400), curve: Curves.easeOut);
+    _controller.animateToPage(
+      t,
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeOut,
+    );
   }
 
   @override
@@ -117,28 +145,44 @@ class _CloneCouncilScreenState extends State<CloneCouncilScreen> {
           GlassCard(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             radius: 16,
-            child: Row(children: [
-              const StarMark(size: 16),
-              const SizedBox(width: 10),
-              Expanded(
-                child: RichText(
-                  text: TextSpan(
-                    style: AppText.body(14, color: AppColors.white(0.85)),
-                    children: const [
-                      TextSpan(text: '"Should I learn '),
-                      TextSpan(text: 'AI', style: TextStyle(fontWeight: FontWeight.w600, color: Colors.white)),
-                      TextSpan(text: ' or '),
-                      TextSpan(text: 'Cybersecurity', style: TextStyle(fontWeight: FontWeight.w600, color: Colors.white)),
-                      TextSpan(text: '?"'),
-                    ],
+            child: Row(
+              children: [
+                const StarMark(size: 16),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: RichText(
+                    text: TextSpan(
+                      style: AppText.body(14, color: AppColors.white(0.85)),
+                      children: const [
+                        TextSpan(text: '"Should I learn '),
+                        TextSpan(
+                          text: 'AI',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                        TextSpan(text: ' or '),
+                        TextSpan(
+                          text: 'Cybersecurity',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                        TextSpan(text: '?"'),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ]),
+              ],
+            ),
           ),
           const SizedBox(height: 14),
-          Text('Five minds are deliberating · swipe to hear each',
-              style: AppText.body(12.5, color: AppColors.white(0.5))),
+          Text(
+            'Five minds are deliberating · swipe to hear each',
+            style: AppText.body(12.5, color: AppColors.white(0.5)),
+          ),
           const SizedBox(height: 12),
           SizedBox(
             height: 350,
@@ -181,25 +225,34 @@ class _CloneCouncilScreenState extends State<CloneCouncilScreen> {
           Container(
             padding: const EdgeInsets.all(22),
             decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [
-                AppColors.lime.withValues(alpha: 0.16),
-                AppColors.purple.withValues(alpha: 0.10),
-              ], begin: Alignment.topLeft, end: Alignment.bottomRight),
+              gradient: LinearGradient(
+                colors: [
+                  AppColors.lime.withValues(alpha: 0.16),
+                  AppColors.purple.withValues(alpha: 0.10),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
               borderRadius: BorderRadius.circular(24),
               border: Border.all(color: AppColors.lime.withValues(alpha: 0.3)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('SYNTHESISED RECOMMENDATION',
-                    style: AppText.kicker(AppColors.lime)),
+                Text(
+                  'SYNTHESISED RECOMMENDATION',
+                  style: AppText.kicker(AppColors.lime),
+                ),
                 const SizedBox(height: 10),
                 RichText(
                   text: TextSpan(
                     style: AppText.display(24, weight: FontWeight.w500),
                     children: const [
                       TextSpan(text: 'Pursue '),
-                      TextSpan(text: 'AI Security', style: TextStyle(color: AppColors.lime)),
+                      TextSpan(
+                        text: 'AI Security',
+                        style: TextStyle(color: AppColors.lime),
+                      ),
                       TextSpan(text: ' — the third path.'),
                     ],
                   ),
@@ -209,11 +262,15 @@ class _CloneCouncilScreenState extends State<CloneCouncilScreen> {
                   'Explorer You found the convergence of both domains: minimal '
                   'competition, very high enterprise demand, and it builds on '
                   'your Python edge.',
-                  style: AppText.body(13.5, color: AppColors.white(0.78), height: 1.55),
+                  style: AppText.body(
+                    13.5,
+                    color: AppColors.white(0.78),
+                    height: 1.55,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 GestureDetector(
-                  onTap: () => context.push(AlterRoutes.simulator),
+                  onTap: () => context.go(AlterRoutes.simulator),
                   child: Container(
                     height: 46,
                     padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -222,9 +279,14 @@ class _CloneCouncilScreenState extends State<CloneCouncilScreen> {
                       color: AppColors.lime,
                       borderRadius: BorderRadius.circular(30),
                     ),
-                    child: Text('Simulate this path →',
-                        style: AppText.body(14,
-                            weight: FontWeight.w700, color: AppColors.bg)),
+                    child: Text(
+                      'Simulate this path →',
+                      style: AppText.body(
+                        14,
+                        weight: FontWeight.w700,
+                        color: AppColors.bg,
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -275,25 +337,39 @@ class _CloneCouncilScreenState extends State<CloneCouncilScreen> {
                 height: 54,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(shape: BoxShape.circle, color: p.c1),
-                child: Text('$n',
-                    style: AppText.display(22, weight: FontWeight.w700, color: AppColors.bg)),
+                child: Text(
+                  '$n',
+                  style: AppText.display(
+                    22,
+                    weight: FontWeight.w700,
+                    color: AppColors.bg,
+                  ),
+                ),
               ),
-              Text(p.tag.toUpperCase(),
-                  style: AppText.kicker(AppColors.white(0.7), size: 10)),
+              Text(
+                p.tag.toUpperCase(),
+                style: AppText.kicker(AppColors.white(0.7), size: 10),
+              ),
             ],
           ),
           const SizedBox(height: 18),
           Text(p.name, style: AppText.display(30, weight: FontWeight.w500)),
           const SizedBox(height: 14),
-          Text('"${p.q}"',
-              style: AppText.display(18,
-                  weight: FontWeight.w400,
-                  height: 1.35,
-                  fontStyle: FontStyle.italic,
-                  letterSpacing: 0)),
+          Text(
+            '"${p.q}"',
+            style: AppText.display(
+              18,
+              weight: FontWeight.w400,
+              height: 1.35,
+              fontStyle: FontStyle.italic,
+              letterSpacing: 0,
+            ),
+          ),
           const SizedBox(height: 14),
-          Text(p.body,
-              style: AppText.body(14, color: AppColors.white(0.78), height: 1.55)),
+          Text(
+            p.body,
+            style: AppText.body(14, color: AppColors.white(0.78), height: 1.55),
+          ),
         ],
       ),
     );
@@ -308,17 +384,42 @@ class SimFuture {
   final int fit;
   final Color c;
   final List<String> skills;
-  const SimFuture(this.name, this.fit, this.c, this.role, this.salary,
-      this.senior, this.demand, this.startup, this.skills);
+  const SimFuture(
+    this.name,
+    this.fit,
+    this.c,
+    this.role,
+    this.salary,
+    this.senior,
+    this.demand,
+    this.startup,
+    this.skills,
+  );
 }
 
 const simFutures = <SimFuture>[
-  SimFuture('AI Engineer', 92, AppColors.lime, 'ML Engineer / Data Scientist',
-      '₹12–25 LPA', '3–5 yrs', 'Very high · +35% YoY', 'High',
-      ['ML', 'Deep learning', 'MLOps', 'Cloud']),
-  SimFuture('Cybersecurity', 74, AppColors.cyan, 'SOC Analyst / Pen Tester',
-      '₹8–20 LPA', '4–6 yrs', 'High · govt & enterprise', 'Moderate',
-      ['Pentesting', 'SIEM', 'Network', 'CISSP']),
+  SimFuture(
+    'AI Engineer',
+    92,
+    AppColors.lime,
+    'ML Engineer / Data Scientist',
+    '₹12–25 LPA',
+    '3–5 yrs',
+    'Very high · +35% YoY',
+    'High',
+    ['ML', 'Deep learning', 'MLOps', 'Cloud'],
+  ),
+  SimFuture(
+    'Cybersecurity',
+    74,
+    AppColors.cyan,
+    'SOC Analyst / Pen Tester',
+    '₹8–20 LPA',
+    '4–6 yrs',
+    'High · govt & enterprise',
+    'Moderate',
+    ['Pentesting', 'SIEM', 'Network', 'CISSP'],
+  ),
 ];
 
 class FutureSimulatorScreen extends StatefulWidget {
@@ -344,17 +445,26 @@ class _FutureSimulatorScreenState extends State<FutureSimulatorScreen> {
               style: AppText.display(27, height: 1.1),
               children: const [
                 TextSpan(text: 'Two parallel futures,\ncomputed for '),
-                TextSpan(text: 'you', style: TextStyle(color: AppColors.cyan)),
+                TextSpan(
+                  text: 'you',
+                  style: TextStyle(color: AppColors.cyan),
+                ),
                 TextSpan(text: '.'),
               ],
             ),
           ),
           const SizedBox(height: 8),
-          Text('Tap a path to expand its 5-year projection.',
-              style: AppText.body(12.5, color: AppColors.white(0.5))),
+          Text(
+            'Tap a path to expand its 5-year projection.',
+            style: AppText.body(12.5, color: AppColors.white(0.5)),
+          ),
           const SizedBox(height: 18),
           for (var i = 0; i < simFutures.length; i++) ...[
-            _futureCard(simFutures[i], i == choice, () => setState(() => choice = i)),
+            _futureCard(
+              simFutures[i],
+              i == choice,
+              () => setState(() => choice = i),
+            ),
             const SizedBox(height: 14),
           ],
           const SizedBox(height: 6),
@@ -365,14 +475,26 @@ class _FutureSimulatorScreenState extends State<FutureSimulatorScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("ALTER'S 30-DAY PLAN", style: AppText.kicker(AppColors.lime)),
+                Text(
+                  "ALTER'S 30-DAY PLAN",
+                  style: AppText.kicker(AppColors.lime),
+                ),
                 const SizedBox(height: 12),
-                _planRow(AppColors.lime, 'Week 1–2:',
-                    ' Fine-tune an open LLM, publish the repo.'),
-                _planRow(AppColors.cyan, 'Week 3:',
-                    ' Ship to the GenAI hackathon (94% match).'),
-                _planRow(AppColors.orange, 'Week 4:',
-                    ' Apply to Sarvam AI with the new portfolio.'),
+                _planRow(
+                  AppColors.lime,
+                  'Week 1–2:',
+                  ' Fine-tune an open LLM, publish the repo.',
+                ),
+                _planRow(
+                  AppColors.cyan,
+                  'Week 3:',
+                  ' Ship to the GenAI hackathon (94% match).',
+                ),
+                _planRow(
+                  AppColors.orange,
+                  'Week 4:',
+                  ' Apply to Sarvam AI with the new portfolio.',
+                ),
               ],
             ),
           ),
@@ -396,9 +518,16 @@ class _FutureSimulatorScreenState extends State<FutureSimulatorScreen> {
           Expanded(
             child: RichText(
               text: TextSpan(
-                style: AppText.body(13.5, color: AppColors.white(0.82), height: 1.45),
+                style: AppText.body(
+                  13.5,
+                  color: AppColors.white(0.82),
+                  height: 1.45,
+                ),
                 children: [
-                  TextSpan(text: bold, style: const TextStyle(fontWeight: FontWeight.w700)),
+                  TextSpan(
+                    text: bold,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
                   TextSpan(text: rest),
                 ],
               ),
@@ -417,16 +546,23 @@ class _FutureSimulatorScreenState extends State<FutureSimulatorScreen> {
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           gradient: sel
-              ? LinearGradient(colors: [
-                  AppColors.white(0.08),
-                  AppColors.white(0.02),
-                ], begin: Alignment.topLeft, end: Alignment.bottomRight)
+              ? LinearGradient(
+                  colors: [AppColors.white(0.08), AppColors.white(0.02)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
               : null,
           color: sel ? null : AppColors.white(0.04),
           borderRadius: BorderRadius.circular(22),
           border: Border.all(color: sel ? f.c : AppColors.white(0.10)),
           boxShadow: sel
-              ? [BoxShadow(color: f.c.withValues(alpha: 0.25), blurRadius: 30, offset: const Offset(0, 12))]
+              ? [
+                  BoxShadow(
+                    color: f.c.withValues(alpha: 0.25),
+                    blurRadius: 30,
+                    offset: const Offset(0, 12),
+                  ),
+                ]
               : null,
         ),
         child: Column(
@@ -436,19 +572,34 @@ class _FutureSimulatorScreenState extends State<FutureSimulatorScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(f.name, style: AppText.display(21, weight: FontWeight.w600)),
+                Text(
+                  f.name,
+                  style: AppText.display(21, weight: FontWeight.w600),
+                ),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text('${f.fit}',
-                        style: AppText.display(26, weight: FontWeight.w600, color: f.c)),
-                    Text('FIT SCORE', style: AppText.kicker(AppColors.white(0.5), size: 10)),
+                    Text(
+                      '${f.fit}',
+                      style: AppText.display(
+                        26,
+                        weight: FontWeight.w600,
+                        color: f.c,
+                      ),
+                    ),
+                    Text(
+                      'FIT SCORE',
+                      style: AppText.kicker(AppColors.white(0.5), size: 10),
+                    ),
                   ],
                 ),
               ],
             ),
             const SizedBox(height: 4),
-            Text(f.role, style: AppText.body(12.5, color: AppColors.white(0.6))),
+            Text(
+              f.role,
+              style: AppText.body(12.5, color: AppColors.white(0.6)),
+            ),
             const SizedBox(height: 14),
             ClipRRect(
               borderRadius: BorderRadius.circular(6),
@@ -460,29 +611,40 @@ class _FutureSimulatorScreenState extends State<FutureSimulatorScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            Row(children: [
-              _metric('SALARY (5YR)', f.salary),
-              _metric('SENIOR IN', f.senior),
-            ]),
+            Row(
+              children: [
+                _metric('SALARY (5YR)', f.salary),
+                _metric('SENIOR IN', f.senior),
+              ],
+            ),
             const SizedBox(height: 12),
-            Row(children: [
-              _metric('DEMAND', f.demand),
-              _metric('STARTUP UPSIDE', f.startup),
-            ]),
+            Row(
+              children: [
+                _metric('DEMAND', f.demand),
+                _metric('STARTUP UPSIDE', f.startup),
+              ],
+            ),
             const SizedBox(height: 16),
             Wrap(
               spacing: 7,
               runSpacing: 7,
               children: f.skills
-                  .map((s) => Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: AppColors.white(0.08),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Text(s,
-                            style: AppText.body(11.5, weight: FontWeight.w600)),
-                      ))
+                  .map(
+                    (s) => Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 11,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.white(0.08),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Text(
+                        s,
+                        style: AppText.body(11.5, weight: FontWeight.w600),
+                      ),
+                    ),
+                  )
                   .toList(),
             ),
           ],
@@ -512,20 +674,63 @@ class RadarOpp {
   final int m, days;
   final Color c;
   final String tag, title, org, why;
-  const RadarOpp(this.m, this.c, this.tag, this.title, this.org, this.why, this.days);
+  const RadarOpp(
+    this.m,
+    this.c,
+    this.tag,
+    this.title,
+    this.org,
+    this.why,
+    this.days,
+  );
 }
 
 const radarOpps = <RadarOpp>[
-  RadarOpp(94, AppColors.lime, 'Hackathon', 'GenAI Hack 2026', 'Bengaluru · ₹5L pool',
-      'Strong team-size win rate + 3 target sponsors', 6),
-  RadarOpp(88, AppColors.cyan, 'Internship', 'ML Engineer Intern', 'Sarvam AI · Remote',
-      'React + Python match your profile', 11),
-  RadarOpp(83, AppColors.orange, 'Research', 'Summer ML @ IIT-B', 'CSIR-aligned lab',
-      'Fits your academic focus', 21),
-  RadarOpp(79, AppColors.green, 'Open-source', 'GSoC · vLLM tooling', 'Good first issue',
-      'In a framework you are learning', 30),
-  RadarOpp(72, AppColors.pink, 'Grant', 'iCreate Seed Grant', 'Project stage eligible',
-      'Your side-project qualifies', 40),
+  RadarOpp(
+    94,
+    AppColors.lime,
+    'Hackathon',
+    'GenAI Hack 2026',
+    'Bengaluru · ₹5L pool',
+    'Strong team-size win rate + 3 target sponsors',
+    6,
+  ),
+  RadarOpp(
+    88,
+    AppColors.cyan,
+    'Internship',
+    'ML Engineer Intern',
+    'Sarvam AI · Remote',
+    'React + Python match your profile',
+    11,
+  ),
+  RadarOpp(
+    83,
+    AppColors.orange,
+    'Research',
+    'Summer ML @ IIT-B',
+    'CSIR-aligned lab',
+    'Fits your academic focus',
+    21,
+  ),
+  RadarOpp(
+    79,
+    AppColors.green,
+    'Open-source',
+    'GSoC · vLLM tooling',
+    'Good first issue',
+    'In a framework you are learning',
+    30,
+  ),
+  RadarOpp(
+    72,
+    AppColors.pink,
+    'Grant',
+    'iCreate Seed Grant',
+    'Project stage eligible',
+    'Your side-project qualifies',
+    40,
+  ),
 ];
 
 class OpportunityRadarScreen extends StatefulWidget {
@@ -536,10 +741,19 @@ class OpportunityRadarScreen extends StatefulWidget {
 
 class _OpportunityRadarScreenState extends State<OpportunityRadarScreen>
     with SingleTickerProviderStateMixin {
-  static const filters = ['All', 'Hackathons', 'Internships', 'Grants', 'Research', 'Open-source'];
+  static const filters = [
+    'All',
+    'Hackathons',
+    'Internships',
+    'Grants',
+    'Research',
+    'Open-source',
+  ];
   int filter = 0;
-  late final AnimationController _sweep =
-      AnimationController(vsync: this, duration: const Duration(seconds: 4))..repeat();
+  late final AnimationController _sweep = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 4),
+  )..repeat();
 
   @override
   void dispose() {
@@ -573,8 +787,13 @@ class _OpportunityRadarScreenState extends State<OpportunityRadarScreen>
               text: TextSpan(
                 style: AppText.body(13, color: AppColors.white(0.6)),
                 children: const [
-                  TextSpan(text: '5 matches',
-                      style: TextStyle(color: AppColors.green, fontWeight: FontWeight.w700)),
+                  TextSpan(
+                    text: '5 matches',
+                    style: TextStyle(
+                      color: AppColors.green,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                   TextSpan(text: ' found while you slept'),
                 ],
               ),
@@ -595,25 +814,34 @@ class _OpportunityRadarScreenState extends State<OpportunityRadarScreen>
                     padding: const EdgeInsets.symmetric(horizontal: 15),
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      color: on ? AppColors.green.withValues(alpha: 0.16) : AppColors.white(0.04),
+                      color: on
+                          ? AppColors.green.withValues(alpha: 0.16)
+                          : AppColors.white(0.04),
                       borderRadius: BorderRadius.circular(22),
                       border: Border.all(
-                          color: on ? AppColors.green : AppColors.white(0.14)),
+                        color: on ? AppColors.green : AppColors.white(0.14),
+                      ),
                     ),
-                    child: Text(filters[i],
-                        style: AppText.body(12.5,
-                            weight: FontWeight.w600,
-                            color: on ? AppColors.green : AppColors.white(0.7))),
+                    child: Text(
+                      filters[i],
+                      style: AppText.body(
+                        12.5,
+                        weight: FontWeight.w600,
+                        color: on ? AppColors.green : AppColors.white(0.7),
+                      ),
+                    ),
                   ),
                 );
               },
             ),
           ),
           const SizedBox(height: 14),
-          ...radarOpps.map((o) => Padding(
-                padding: const EdgeInsets.only(bottom: 11),
-                child: _oppCard(o),
-              )),
+          ...radarOpps.map(
+            (o) => Padding(
+              padding: const EdgeInsets.only(bottom: 11),
+              child: _oppCard(o),
+            ),
+          ),
         ],
       ),
     );
@@ -629,12 +857,23 @@ class _OpportunityRadarScreenState extends State<OpportunityRadarScreen>
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(o.tag.toUpperCase(), style: AppText.kicker(o.c, size: 10)),
-              Row(children: [
-                Text('${o.m}',
-                    style: AppText.display(15, weight: FontWeight.w700, color: o.c)),
-                const SizedBox(width: 6),
-                Text('MATCH', style: AppText.kicker(AppColors.white(0.45), size: 10)),
-              ]),
+              Row(
+                children: [
+                  Text(
+                    '${o.m}',
+                    style: AppText.display(
+                      15,
+                      weight: FontWeight.w700,
+                      color: o.c,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'MATCH',
+                    style: AppText.kicker(AppColors.white(0.45), size: 10),
+                  ),
+                ],
+              ),
             ],
           ),
           const SizedBox(height: 6),
@@ -652,7 +891,10 @@ class _OpportunityRadarScreenState extends State<OpportunityRadarScreen>
               text: TextSpan(
                 style: AppText.body(12.5, color: AppColors.white(0.7)),
                 children: [
-                  TextSpan(text: 'Why you: ', style: TextStyle(color: o.c)),
+                  TextSpan(
+                    text: 'Why you: ',
+                    style: TextStyle(color: o.c),
+                  ),
                   TextSpan(text: o.why),
                 ],
               ),
@@ -662,8 +904,10 @@ class _OpportunityRadarScreenState extends State<OpportunityRadarScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('⏳ ${o.days} days left',
-                  style: AppText.body(12, color: AppColors.white(0.5))),
+              Text(
+                '⏳ ${o.days} days left',
+                style: AppText.body(12, color: AppColors.white(0.5)),
+              ),
               Container(
                 height: 38,
                 padding: const EdgeInsets.symmetric(horizontal: 18),
@@ -672,8 +916,14 @@ class _OpportunityRadarScreenState extends State<OpportunityRadarScreen>
                   color: o.c,
                   borderRadius: BorderRadius.circular(24),
                 ),
-                child: Text('Pursue',
-                    style: AppText.body(13, weight: FontWeight.w700, color: AppColors.bg)),
+                child: Text(
+                  'Pursue',
+                  style: AppText.body(
+                    13,
+                    weight: FontWeight.w700,
+                    color: AppColors.bg,
+                  ),
+                ),
               ),
             ],
           ),
@@ -693,18 +943,23 @@ class _RadarPainter extends CustomPainter {
     final r = size.width / 2;
     for (final f in [1.0, 0.66, 0.33]) {
       canvas.drawCircle(
-          c,
-          r * f,
-          Paint()
-            ..style = PaintingStyle.stroke
-            ..color = AppColors.green.withValues(alpha: 0.22 * f + 0.05));
+        c,
+        r * f,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..color = AppColors.green.withValues(alpha: 0.22 * f + 0.05),
+      );
     }
     // sweep
     final sweep = Paint()
       ..shader = SweepGradient(
         startAngle: 0,
         endAngle: math.pi / 2.2,
-        colors: [Colors.transparent, AppColors.green.withValues(alpha: 0.35), Colors.transparent],
+        colors: [
+          Colors.transparent,
+          AppColors.green.withValues(alpha: 0.35),
+          Colors.transparent,
+        ],
         transform: GradientRotation(t * 2 * math.pi),
       ).createShader(Rect.fromCircle(center: c, radius: r));
     canvas.drawCircle(c, r, sweep);
@@ -713,6 +968,7 @@ class _RadarPainter extends CustomPainter {
     void blip(double dx, double dy, Color col, double rad) {
       canvas.drawCircle(c + Offset(dx, dy), rad, Paint()..color = col);
     }
+
     blip(r * 0.24, -r * 0.48, AppColors.lime, 4);
     blip(-r * 0.32, r * 0.28, AppColors.cyan, 3.5);
     blip(r * 0.56, -r * 0.20, AppColors.orange, 3);
@@ -759,7 +1015,10 @@ class SocialGraphScreen extends StatelessWidget {
               style: AppText.display(26, height: 1.1),
               children: const [
                 TextSpan(text: 'Your network,\nmapped by '),
-                TextSpan(text: 'Alter', style: TextStyle(color: AppColors.pink)),
+                TextSpan(
+                  text: 'Alter',
+                  style: TextStyle(color: AppColors.pink),
+                ),
                 TextSpan(text: '.'),
               ],
             ),
@@ -776,12 +1035,14 @@ class SocialGraphScreen extends StatelessWidget {
               builder: (context, c) {
                 final w = c.maxWidth, h = c.maxHeight;
                 final center = Offset(_nodes[0].x * w, _nodes[0].y * h);
-                return Stack(children: [
-                  CustomPaint(
-                    size: Size(w, h),
-                    painter: _EdgesPainter(center, _nodes, w, h),
-                  ),
-                  ..._nodes.map((n) => Positioned(
+                return Stack(
+                  children: [
+                    CustomPaint(
+                      size: Size(w, h),
+                      painter: _EdgesPainter(center, _nodes, w, h),
+                    ),
+                    ..._nodes.map(
+                      (n) => Positioned(
                         left: n.x * w - n.r,
                         top: n.y * h - n.r - 8,
                         child: Column(
@@ -797,38 +1058,58 @@ class SocialGraphScreen extends StatelessWidget {
                                   colors: [n.c, n.c.withValues(alpha: 0.6)],
                                 ),
                                 border: Border.all(
-                                    color: n.big
-                                        ? AppColors.white(0.5)
-                                        : AppColors.white(0.2),
-                                    width: n.big ? 3 : 1),
+                                  color: n.big
+                                      ? AppColors.white(0.5)
+                                      : AppColors.white(0.2),
+                                  width: n.big ? 3 : 1,
+                                ),
                                 boxShadow: [
                                   BoxShadow(
-                                      color: n.c.withValues(alpha: 0.6),
-                                      blurRadius: n.big ? 30 : 16),
+                                    color: n.c.withValues(alpha: 0.6),
+                                    blurRadius: n.big ? 30 : 16,
+                                  ),
                                 ],
                               ),
                             ),
                             const SizedBox(height: 5),
-                            Text(n.label,
-                                style: AppText.body(11,
-                                    weight: FontWeight.w600,
-                                    color: AppColors.white(0.85))),
+                            Text(
+                              n.label,
+                              style: AppText.body(
+                                11,
+                                weight: FontWeight.w600,
+                                color: AppColors.white(0.85),
+                              ),
+                            ),
                           ],
                         ),
-                      )),
-                ]);
+                      ),
+                    ),
+                  ],
+                );
               },
             ),
           ),
           const SizedBox(height: 24),
-          Text('ALTER SUGGESTS REACHING OUT',
-              style: AppText.kicker(AppColors.white(0.45), size: 12)),
+          Text(
+            'ALTER SUGGESTS REACHING OUT',
+            style: AppText.kicker(AppColors.white(0.45), size: 12),
+          ),
           const SizedBox(height: 12),
-          _suggest(AppColors.purpleLight, AppColors.purpleDeep, 'Prof. Nair',
-              'Has a research-lab slot opening — reply today', 'Draft'),
+          _suggest(
+            AppColors.purpleLight,
+            AppColors.purpleDeep,
+            'Prof. Nair',
+            'Has a research-lab slot opening — reply today',
+            'Draft',
+          ),
           const SizedBox(height: 10),
-          _suggest(AppColors.green, AppColors.greenDeep, 'GDG Bengaluru',
-              'Hosting the hackathon you matched 94%', 'Intro'),
+          _suggest(
+            AppColors.green,
+            AppColors.greenDeep,
+            'GDG Bengaluru',
+            'Hosting the hackathon you matched 94%',
+            'Intro',
+          ),
         ],
       ),
     );
@@ -838,40 +1119,52 @@ class SocialGraphScreen extends StatelessWidget {
     return GlassCard(
       padding: const EdgeInsets.all(14),
       radius: 16,
-      child: Row(children: [
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: LinearGradient(
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
                 colors: [c1, c2],
                 begin: Alignment.topLeft,
-                end: Alignment.bottomRight),
+                end: Alignment.bottomRight,
+              ),
+            ),
           ),
-        ),
-        const SizedBox(width: 13),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(name, style: AppText.body(14.5, weight: FontWeight.w600)),
-              Text(sub, style: AppText.body(12, color: AppColors.white(0.55))),
-            ],
+          const SizedBox(width: 13),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(name, style: AppText.body(14.5, weight: FontWeight.w600)),
+                Text(
+                  sub,
+                  style: AppText.body(12, color: AppColors.white(0.55)),
+                ),
+              ],
+            ),
           ),
-        ),
-        Container(
-          height: 34,
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: AppColors.lime,
-            borderRadius: BorderRadius.circular(20),
+          Container(
+            height: 34,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: AppColors.lime,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              action,
+              style: AppText.body(
+                12,
+                weight: FontWeight.w700,
+                color: AppColors.bg,
+              ),
+            ),
           ),
-          child: Text(action,
-              style: AppText.body(12, weight: FontWeight.w700, color: AppColors.bg)),
-        ),
-      ]),
+        ],
+      ),
     );
   }
 }
@@ -907,10 +1200,26 @@ class _Trace {
 }
 
 const _trace = <_Trace>[
-  _Trace('Context', 'Calendar shows an unusually clear week ahead', AppColors.cyan),
-  _Trace('Career', 'Portfolio missing a recent LLM fine-tuning project', AppColors.lime),
-  _Trace('Opportunity', 'A 48h hackathon matches the exact gap (72% fit)', AppColors.orange),
-  _Trace('Research', '3 of your target companies are sponsoring it', AppColors.pink),
+  _Trace(
+    'Context',
+    'Calendar shows an unusually clear week ahead',
+    AppColors.cyan,
+  ),
+  _Trace(
+    'Career',
+    'Portfolio missing a recent LLM fine-tuning project',
+    AppColors.lime,
+  ),
+  _Trace(
+    'Opportunity',
+    'A 48h hackathon matches the exact gap (72% fit)',
+    AppColors.orange,
+  ),
+  _Trace(
+    'Research',
+    '3 of your target companies are sponsoring it',
+    AppColors.pink,
+  ),
 ];
 
 class DeepAnalysisScreen extends StatelessWidget {
@@ -924,15 +1233,21 @@ class DeepAnalysisScreen extends StatelessWidget {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 18, 20, 40),
         children: [
-          Row(children: [
-            const StarMark(size: 18),
-            const SizedBox(width: 10),
-            Text('Reasoning trace · how Alter concluded',
-                style: AppText.body(13, color: AppColors.white(0.6))),
-          ]),
+          Row(
+            children: [
+              const StarMark(size: 18),
+              const SizedBox(width: 10),
+              Text(
+                'Reasoning trace · how Alter concluded',
+                style: AppText.body(13, color: AppColors.white(0.6)),
+              ),
+            ],
+          ),
           const SizedBox(height: 14),
-          Text('"Do a 48-hour hackathon\nthis weekend."',
-              style: AppText.display(25, weight: FontWeight.w400, height: 1.15)),
+          Text(
+            '"Do a 48-hour hackathon\nthis weekend."',
+            style: AppText.display(25, weight: FontWeight.w400, height: 1.15),
+          ),
           const SizedBox(height: 24),
           Column(
             children: List.generate(_trace.length, (i) {
@@ -942,31 +1257,39 @@ class DeepAnalysisScreen extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Column(children: [
-                      Container(
-                        width: 24,
-                        height: 24,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: t.c,
-                          border: Border.all(color: const Color(0xFF0D0A16), width: 4),
-                        ),
-                      ),
-                      if (!last)
-                        Expanded(
-                          child: Container(
-                            width: 2,
-                            margin: const EdgeInsets.symmetric(vertical: 2),
-                            color: AppColors.white(0.12),
+                    Column(
+                      children: [
+                        Container(
+                          width: 24,
+                          height: 24,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: t.c,
+                            border: Border.all(
+                              color: const Color(0xFF0D0A16),
+                              width: 4,
+                            ),
                           ),
                         ),
-                    ]),
+                        if (!last)
+                          Expanded(
+                            child: Container(
+                              width: 2,
+                              margin: const EdgeInsets.symmetric(vertical: 2),
+                              color: AppColors.white(0.12),
+                            ),
+                          ),
+                      ],
+                    ),
                     const SizedBox(width: 16),
                     Expanded(
                       child: Padding(
                         padding: EdgeInsets.only(bottom: last ? 0 : 18, top: 1),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 14,
+                          ),
                           decoration: BoxDecoration(
                             color: AppColors.white(0.05),
                             borderRadius: BorderRadius.circular(16),
@@ -975,11 +1298,19 @@ class DeepAnalysisScreen extends StatelessWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(t.k.toUpperCase(), style: AppText.kicker(t.c)),
+                              Text(
+                                t.k.toUpperCase(),
+                                style: AppText.kicker(t.c),
+                              ),
                               const SizedBox(height: 4),
-                              Text(t.v,
-                                  style: AppText.body(14,
-                                      color: AppColors.white(0.85), height: 1.5)),
+                              Text(
+                                t.v,
+                                style: AppText.body(
+                                  14,
+                                  color: AppColors.white(0.85),
+                                  height: 1.5,
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -994,10 +1325,14 @@ class DeepAnalysisScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [
-                AppColors.lime.withValues(alpha: 0.16),
-                AppColors.purple.withValues(alpha: 0.10),
-              ], begin: Alignment.topLeft, end: Alignment.bottomRight),
+              gradient: LinearGradient(
+                colors: [
+                  AppColors.lime.withValues(alpha: 0.16),
+                  AppColors.purple.withValues(alpha: 0.10),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
               borderRadius: BorderRadius.circular(22),
               border: Border.all(color: AppColors.lime.withValues(alpha: 0.3)),
             ),
@@ -1008,42 +1343,65 @@ class DeepAnalysisScreen extends StatelessWidget {
                 const SizedBox(height: 8),
                 RichText(
                   text: TextSpan(
-                    style: AppText.body(15, color: AppColors.white(0.88), height: 1.55),
+                    style: AppText.body(
+                      15,
+                      color: AppColors.white(0.88),
+                      height: 1.55,
+                    ),
                     children: const [
-                      TextSpan(text: 'All four signals converge on one action with a '),
                       TextSpan(
-                          text: '72% projected fit gain',
-                          style: TextStyle(color: AppColors.lime, fontWeight: FontWeight.w700)),
+                        text: 'All four signals converge on one action with a ',
+                      ),
+                      TextSpan(
+                        text: '72% projected fit gain',
+                        style: TextStyle(
+                          color: AppColors.lime,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                       TextSpan(text: '. Confidence: high.'),
                     ],
                   ),
                 ),
                 const SizedBox(height: 16),
-                Row(children: [
-                  Expanded(
-                    child: Container(
-                      height: 48,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                          color: AppColors.lime, borderRadius: BorderRadius.circular(14)),
-                      child: Text('Add to plan',
-                          style: AppText.body(14, weight: FontWeight.w700, color: AppColors.bg)),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Container(
-                      height: 48,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: AppColors.white(0.06),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: AppColors.white(0.16)),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        height: 48,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: AppColors.lime,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Text(
+                          'Add to plan',
+                          style: AppText.body(
+                            14,
+                            weight: FontWeight.w700,
+                            color: AppColors.bg,
+                          ),
+                        ),
                       ),
-                      child: Text('Dismiss', style: AppText.body(14, weight: FontWeight.w600)),
                     ),
-                  ),
-                ]),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Container(
+                        height: 48,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: AppColors.white(0.06),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: AppColors.white(0.16)),
+                        ),
+                        child: Text(
+                          'Dismiss',
+                          style: AppText.body(14, weight: FontWeight.w600),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),

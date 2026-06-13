@@ -111,7 +111,7 @@ class StatsScreen extends ConsumerWidget {
             const SizedBox(height: 24),
             OutlineButton2(
               label: 'Open Reputation Dashboard',
-              onTap: () => context.push(AlterRoutes.reputation),
+              onTap: () => context.go(AlterRoutes.reputation),
             ),
           ],
         ),

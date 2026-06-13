@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 import time
 from typing import Any
@@ -66,10 +67,10 @@ class ApiGatewayService:
         ]
 
     async def system_health(self) -> SystemHealthResponse:
-        services = []
         async with httpx.AsyncClient(timeout=1.5) as client:
-            for route in self.routes():
-                services.append(await _check_service(client, route))
+            services = await asyncio.gather(
+                *(_check_service(client, route) for route in self.routes())
+            )
         status = "ok" if all(service.status == "ok" for service in services) else "degraded"
         return SystemHealthResponse(status=status, services=services)
 

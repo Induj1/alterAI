@@ -280,7 +280,7 @@ class FutureScreen extends StatelessWidget {
     String route,
   ) {
     return GestureDetector(
-      onTap: () => context.push(route),
+      onTap: () => context.go(route),
       child: Container(
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(

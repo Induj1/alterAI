@@ -313,7 +313,7 @@ class _LanguagesScreenState extends State<LanguagesScreen> {
                 const Spacer(),
                 LimeButton(
                   label: 'Continue',
-                  onTap: () => context.push(AlterRoutes.about),
+                  onTap: () => context.go(AlterRoutes.about),
                 ),
               ],
             ),

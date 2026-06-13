@@ -116,10 +116,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
                 const SizedBox(height: 16),
                 SegmentedButton<ThemeMode>(
+                  showSelectedIcon: false,
+                  style: const ButtonStyle(
+                    padding: WidgetStatePropertyAll(
+                      EdgeInsets.symmetric(horizontal: 8),
+                    ),
+                    textStyle: WidgetStatePropertyAll(
+                      TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+                    ),
+                    visualDensity: VisualDensity.compact,
+                  ),
                   segments: const [
                     ButtonSegment(
                       value: ThemeMode.system,
-                      label: Text('System'),
+                      label: Text('Auto'),
                       icon: Icon(LucideIcons.monitor),
                     ),
                     ButtonSegment(

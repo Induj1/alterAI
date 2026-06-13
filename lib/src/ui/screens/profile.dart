@@ -90,7 +90,7 @@ class ProfileScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 18),
             GestureDetector(
-              onTap: () => context.push(AlterRoutes.backend),
+              onTap: () => context.go(AlterRoutes.backend),
               child: Container(
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
@@ -153,7 +153,7 @@ class ProfileScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 11),
             GestureDetector(
-              onTap: () => context.push(AlterRoutes.reputation),
+              onTap: () => context.go(AlterRoutes.reputation),
               child: Container(
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
@@ -217,7 +217,7 @@ class ProfileScreen extends ConsumerWidget {
             const SizedBox(height: 11),
             // Social graph entry
             GestureDetector(
-              onTap: () => context.push(AlterRoutes.social),
+              onTap: () => context.go(AlterRoutes.social),
               child: Container(
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
@@ -278,7 +278,7 @@ class ProfileScreen extends ConsumerWidget {
             const SizedBox(height: 11),
             // NFC
             GestureDetector(
-              onTap: () => context.push(AlterRoutes.nfc),
+              onTap: () => context.go(AlterRoutes.nfc),
               child: Container(
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
@@ -385,7 +385,7 @@ class ProfileScreen extends ConsumerWidget {
   }) {
     return Expanded(
       child: GlassCard(
-        onTap: () => context.push(AlterRoutes.backend),
+        onTap: () => context.go(AlterRoutes.backend),
         padding: const EdgeInsets.all(14),
         radius: 14,
         child: Row(

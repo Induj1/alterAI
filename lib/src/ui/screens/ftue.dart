@@ -20,18 +20,20 @@ class FtueWhatScreen extends StatelessWidget {
           PositionedOrb(
             top: 120,
             left: -60,
-            orb: const Orb(size: 340, colors: [
-              AppColors.purpleLight,
-              AppColors.purpleDeep,
-            ], blur: 8),
+            orb: const Orb(
+              size: 340,
+              colors: [AppColors.purpleLight, AppColors.purpleDeep],
+              blur: 8,
+            ),
           ),
           PositionedOrb(
             top: 240,
             right: -40,
-            orb: const Orb(size: 200, colors: [
-              AppColors.orange,
-              Color(0xFFFF4D2D),
-            ], blur: 10),
+            orb: const Orb(
+              size: 200,
+              colors: [AppColors.orange, Color(0xFFFF4D2D)],
+              blur: 10,
+            ),
           ),
         ],
         child: SafeArea(
@@ -40,13 +42,21 @@ class FtueWhatScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(mainAxisSize: MainAxisSize.min, children: [
-                  const StarMark(size: 22),
-                  const SizedBox(width: 8),
-                  Text('ALTER',
-                      style: AppText.display(14,
-                          weight: FontWeight.w600, letterSpacing: 3)),
-                ]),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const StarMark(size: 22),
+                    const SizedBox(width: 8),
+                    Text(
+                      'ALTER',
+                      style: AppText.display(
+                        14,
+                        weight: FontWeight.w600,
+                        letterSpacing: 3,
+                      ),
+                    ),
+                  ],
+                ),
                 const Spacer(),
                 Text('WHAT IS ALTER', style: AppText.kicker(AppColors.lime)),
                 const SizedBox(height: 18),
@@ -56,8 +66,9 @@ class FtueWhatScreen extends StatelessWidget {
                     children: const [
                       TextSpan(text: 'Not an assistant.\nA '),
                       TextSpan(
-                          text: 'future',
-                          style: TextStyle(color: AppColors.lime)),
+                        text: 'future',
+                        style: TextStyle(color: AppColors.lime),
+                      ),
                       TextSpan(text: ' operating system.'),
                     ],
                   ),
@@ -67,22 +78,27 @@ class FtueWhatScreen extends StatelessWidget {
                   "Today's AI waits for you to ask. Alter is proactive — it "
                   "understands your context, simulates your possible futures, "
                   "and surfaces intelligence before you even think to ask.",
-                  style: AppText.body(16,
-                      color: AppColors.white(0.62), height: 1.55),
+                  style: AppText.body(
+                    16,
+                    color: AppColors.white(0.62),
+                    height: 1.55,
+                  ),
                 ),
                 const Spacer(),
-                Row(children: [
-                  _dot(22, AppColors.lime),
-                  const SizedBox(width: 8),
-                  _dot(5, AppColors.white(0.25)),
-                  const SizedBox(width: 8),
-                  _dot(5, AppColors.white(0.25)),
-                ]),
+                Row(
+                  children: [
+                    _dot(22, AppColors.lime),
+                    const SizedBox(width: 8),
+                    _dot(5, AppColors.white(0.25)),
+                    const SizedBox(width: 8),
+                    _dot(5, AppColors.white(0.25)),
+                  ],
+                ),
                 const SizedBox(height: 20),
                 LimeButton(
                   label: 'Discover Alter',
                   height: 62,
-                  onTap: () => context.push(AlterRoutes.features),
+                  onTap: () => context.go(AlterRoutes.features),
                 ),
               ],
             ),
@@ -93,11 +109,10 @@ class FtueWhatScreen extends StatelessWidget {
   }
 
   Widget _dot(double w, Color c) => Container(
-        width: w,
-        height: 5,
-        decoration:
-            BoxDecoration(color: c, borderRadius: BorderRadius.circular(3)),
-      );
+    width: w,
+    height: 5,
+    decoration: BoxDecoration(color: c, borderRadius: BorderRadius.circular(3)),
+  );
 }
 
 // ============================================================
@@ -109,8 +124,15 @@ class FeatureData {
   final List<Color> bg;
   final List<Color> orb;
   final Color glyph;
-  const FeatureData(this.kicker, this.title, this.body, this.chips, this.bg,
-      this.orb, this.glyph);
+  const FeatureData(
+    this.kicker,
+    this.title,
+    this.body,
+    this.chips,
+    this.bg,
+    this.orb,
+    this.glyph,
+  );
 }
 
 const features = <FeatureData>[
@@ -186,7 +208,9 @@ class _FeaturePagesScreenState extends State<FeaturePagesScreen> {
       context.go(AlterRoutes.getStarted);
     } else {
       _controller.nextPage(
-          duration: const Duration(milliseconds: 350), curve: Curves.easeOut);
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeOut,
+      );
     }
   }
 
@@ -210,86 +234,99 @@ class _FeaturePagesScreenState extends State<FeaturePagesScreen> {
             stops: const [0.0, 0.55, 1.0],
           ),
         ),
-        child: Stack(children: [
-          Positioned(
-            top: 90,
-            left: 0,
-            right: 0,
-            child: Center(
-                child: Orb(size: 300, colors: f.orb, blur: 30)),
-          ),
-          PageView.builder(
-            controller: _controller,
-            itemCount: features.length,
-            onPageChanged: (i) => setState(() => _index = i),
-            itemBuilder: (_, i) => _FeaturePage(features[i], i + 1),
-          ),
-          // Footer controls
-          Positioned(
-            left: 30,
-            right: 30,
-            bottom: 40,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: List.generate(features.length, (i) {
-                    final active = i == _index;
-                    return AnimatedContainer(
-                      duration: const Duration(milliseconds: 250),
-                      margin: const EdgeInsets.only(right: 7),
-                      width: active ? 20 : 5,
-                      height: 5,
-                      decoration: BoxDecoration(
-                        color: active ? AppColors.lime : AppColors.white(0.28),
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                    );
-                  }),
-                ),
-                GestureDetector(
-                  onTap: _next,
-                  child: Container(
-                    width: 60,
-                    height: 60,
-                    decoration: BoxDecoration(
-                      color: AppColors.lime,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                            color: AppColors.lime.withValues(alpha: 0.5),
-                            blurRadius: 24,
-                            offset: const Offset(0, 10)),
-                      ],
-                    ),
-                    child: const Icon(Icons.arrow_forward,
-                        color: AppColors.bg, size: 26),
-                  ),
-                ),
-              ],
+        child: Stack(
+          children: [
+            Positioned(
+              top: 90,
+              left: 0,
+              right: 0,
+              child: Center(child: Orb(size: 300, colors: f.orb, blur: 30)),
             ),
-          ),
-          // Top bar
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(30, 12, 30, 0),
+            PageView.builder(
+              controller: _controller,
+              itemCount: features.length,
+              onPageChanged: (i) => setState(() => _index = i),
+              itemBuilder: (_, i) => _FeaturePage(features[i], i + 1),
+            ),
+            // Footer controls
+            Positioned(
+              left: 30,
+              right: 30,
+              bottom: 40,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('WHAT ALTER DOES · ${_index + 1}/5',
-                      style: AppText.kicker(AppColors.white(0.55))),
+                  Row(
+                    children: List.generate(features.length, (i) {
+                      final active = i == _index;
+                      return AnimatedContainer(
+                        duration: const Duration(milliseconds: 250),
+                        margin: const EdgeInsets.only(right: 7),
+                        width: active ? 20 : 5,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: active
+                              ? AppColors.lime
+                              : AppColors.white(0.28),
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                      );
+                    }),
+                  ),
                   GestureDetector(
-                    onTap: () => context.go(AlterRoutes.getStarted),
-                    child: Text('Skip',
-                        style: AppText.body(13,
-                            weight: FontWeight.w600,
-                            color: AppColors.white(0.5))),
+                    onTap: _next,
+                    child: Container(
+                      width: 60,
+                      height: 60,
+                      decoration: BoxDecoration(
+                        color: AppColors.lime,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.lime.withValues(alpha: 0.5),
+                            blurRadius: 24,
+                            offset: const Offset(0, 10),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.arrow_forward,
+                        color: AppColors.bg,
+                        size: 26,
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
-          ),
-        ]),
+            // Top bar
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(30, 12, 30, 0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'WHAT ALTER DOES · ${_index + 1}/5',
+                      style: AppText.kicker(AppColors.white(0.55)),
+                    ),
+                    GestureDetector(
+                      onTap: () => context.go(AlterRoutes.getStarted),
+                      child: Text(
+                        'Skip',
+                        style: AppText.body(
+                          13,
+                          weight: FontWeight.w600,
+                          color: AppColors.white(0.5),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -316,20 +353,36 @@ class _FeaturePage extends StatelessWidget {
                 borderRadius: BorderRadius.circular(30),
                 border: Border.all(color: AppColors.white(0.18)),
               ),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                StarMark(size: 16, color: f.glyph),
-                const SizedBox(width: 8),
-                Text(f.kicker,
-                    style: AppText.body(12,
-                        weight: FontWeight.w700, letterSpacing: 0.8)),
-              ]),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  StarMark(size: 16, color: f.glyph),
+                  const SizedBox(width: 8),
+                  Text(
+                    f.kicker,
+                    style: AppText.body(
+                      12,
+                      weight: FontWeight.w700,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 18),
-            Text(f.title, style: AppText.display(40, weight: FontWeight.w500, height: 1.04)),
+            Text(
+              f.title,
+              style: AppText.display(40, weight: FontWeight.w500, height: 1.04),
+            ),
             const SizedBox(height: 18),
-            Text(f.body,
-                style: AppText.body(15.5,
-                    color: AppColors.white(0.72), height: 1.55)),
+            Text(
+              f.body,
+              style: AppText.body(
+                15.5,
+                color: AppColors.white(0.72),
+                height: 1.55,
+              ),
+            ),
             const SizedBox(height: 14),
             Wrap(
               spacing: 8,
@@ -353,7 +406,12 @@ class GetStartedScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: GradientScaffold(
-        bgColors: const [AppColors.lime, Color(0xFF6F8F2E), Color(0xFF15101F), AppColors.bg],
+        bgColors: const [
+          AppColors.lime,
+          Color(0xFF6F8F2E),
+          Color(0xFF15101F),
+          AppColors.bg,
+        ],
         bgStops: const [],
         bgCenter: const Alignment(0.0, 1.1),
         orbs: [
@@ -361,10 +419,14 @@ class GetStartedScreen extends StatelessWidget {
             bottom: 120,
             left: 0,
             right: 0,
-            orb: Orb(size: 360, blur: 20, colors: [
-              AppColors.lime.withValues(alpha: 0.55),
-              AppColors.purple.withValues(alpha: 0.3),
-            ]),
+            orb: Orb(
+              size: 360,
+              blur: 20,
+              colors: [
+                AppColors.lime.withValues(alpha: 0.55),
+                AppColors.purple.withValues(alpha: 0.3),
+              ],
+            ),
           ),
         ],
         child: SafeArea(
@@ -373,13 +435,21 @@ class GetStartedScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(mainAxisSize: MainAxisSize.min, children: [
-                  const StarMark(size: 22),
-                  const SizedBox(width: 8),
-                  Text('ALTER',
-                      style: AppText.display(14,
-                          weight: FontWeight.w600, letterSpacing: 3)),
-                ]),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const StarMark(size: 22),
+                    const SizedBox(width: 8),
+                    Text(
+                      'ALTER',
+                      style: AppText.display(
+                        14,
+                        weight: FontWeight.w600,
+                        letterSpacing: 3,
+                      ),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 54),
                 RichText(
                   text: TextSpan(
@@ -387,8 +457,9 @@ class GetStartedScreen extends StatelessWidget {
                     children: const [
                       TextSpan(text: 'See how Alter helps your future '),
                       TextSpan(
-                          text: 'bloom',
-                          style: TextStyle(color: AppColors.lime)),
+                        text: 'bloom',
+                        style: TextStyle(color: AppColors.lime),
+                      ),
                       TextSpan(text: '.'),
                     ],
                   ),
@@ -397,19 +468,22 @@ class GetStartedScreen extends StatelessWidget {
                 Text(
                   'Five AI personas, a future simulator, and a radar that hunts '
                   'opportunity for you — all from a single "Hey Alter."',
-                  style: AppText.body(16,
-                      color: AppColors.white(0.66), height: 1.55),
+                  style: AppText.body(
+                    16,
+                    color: AppColors.white(0.66),
+                    height: 1.55,
+                  ),
                 ),
                 const Spacer(),
                 LimeButton(
                   label: 'Get started',
                   height: 64,
-                  onTap: () => context.push(AlterRoutes.login),
+                  onTap: () => context.go(AlterRoutes.login),
                 ),
                 const SizedBox(height: 12),
                 OutlineButton2(
                   label: 'I already have an account',
-                  onTap: () => context.push(AlterRoutes.login),
+                  onTap: () => context.go(AlterRoutes.login),
                 ),
               ],
             ),

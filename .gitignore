@@ -4,6 +4,7 @@
 .flutter-plugins-dependencies
 .packages
 build/
+.codex-run/
 
 # Python
 __pycache__/
