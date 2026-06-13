@@ -50,6 +50,15 @@ class VisibleNode {
   final bool editable;
   final bool scrollable;
   final Map<Object?, Object?> bounds;
+
+  double get centerX => (_number('left') + _number('right')) / 2;
+
+  double get centerY => (_number('top') + _number('bottom')) / 2;
+
+  double _number(String key) {
+    final value = bounds[key];
+    return value is num ? value.toDouble() : 0;
+  }
 }
 
 class DeviceScreenSnapshot {

@@ -134,6 +134,7 @@ class _PhoneControlHub extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final latest = state.audit.take(4).toList();
+    final screen = state.lastStructuredScreen;
 
     return GlassPanel(
       child: Column(
@@ -185,8 +186,40 @@ class _PhoneControlHub extends ConsumerWidget {
                 selected: true,
                 icon: LucideIcons.smartphone,
               ),
+              if (screen != null) ...[
+                PremiumChip(
+                  label: '${screen.buttons.length} buttons',
+                  selected: screen.buttons.isNotEmpty,
+                  icon: LucideIcons.workflow,
+                ),
+                PremiumChip(
+                  label: '${screen.inputs.length} inputs',
+                  selected: screen.inputs.isNotEmpty,
+                  icon: LucideIcons.pencil,
+                ),
+              ],
             ],
           ),
+          if (screen != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(11),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surface.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                '${screen.packageName}: ${screen.summary}',
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                  height: 1.3,
+                ),
+              ),
+            ),
+          ],
           if (state.error.isNotEmpty) ...[
             const SizedBox(height: 10),
             Text(

@@ -27,14 +27,49 @@ ALTER cannot use Accessibility until the user enables `ALTER phone control` in A
 The agent planner can now call tools for:
 
 - Opening apps and settings.
-- Reading visible screen text.
+- Reading visible screen text and converting it into a structured screen model.
 - Clicking visible text.
 - Typing into focused fields.
 - Scrolling.
 - Pressing Back, Home, Recents, Notifications, and Quick Settings.
+- Queuing confirmation-required actions into OpenClaw.
 
-Direct clicks on high-impact labels such as Send, Pay, Confirm, Install, Approve, Delete, Allow, and Transfer are blocked in the agent tool executor. These actions must stay behind user confirmation or OpenClaw.
+Direct clicks on high-impact labels such as Send, Pay, Confirm, Install, Approve, Delete, Allow, and Transfer are blocked in the direct agent path. These actions are classified by the action policy engine and must stay behind OpenClaw confirmation.
 
 ## OpenClaw Bridge
 
-OpenClaw execution now tries to route confirmed actions into native device actions where there is a safe mapping. Unknown action types are still marked and audited, but ALTER does not pretend that unmapped actions were automated.
+OpenClaw actions now carry a structured command payload:
+
+- `kind`
+- `args`
+- `policy_tier`
+- `policy_reason`
+- `requires_accessibility`
+
+OpenClaw execution routes confirmed actions into native device actions where there is a safe mapping. Unknown action types are still marked and audited, but ALTER does not pretend that unmapped actions were automated.
+
+## Policy Engine
+
+The phone action policy classifies actions into:
+
+- `safe`: reversible, local, or Android-confirmed surface actions.
+- `confirm`: actions that can send, pay, install, approve, delete, submit, or otherwise commit something.
+- `blocked`: destructive, security-bypass, credential-harvesting, or device-wiping actions.
+
+The agent direct path can execute only `safe` actions. OpenClaw can execute `confirm` actions only after explicit UI confirmation.
+
+## Screen Understanding
+
+`readScreen` returns a structured screen with:
+
+- current package/class
+- visible elements
+- inferred roles: button, input, list, toggle, link, text
+- center coordinates
+- per-element policy classification
+
+This lets ALTER inspect the UI before choosing the next action instead of guessing.
+
+## Wake Handoff
+
+The foreground wake service keeps the last wake event if Flutter is not actively listening and replays it when the app attaches to `alter.ai/wake_events`. The notification also changes to a tap-to-speak handoff when `Hey Alter` is heard.

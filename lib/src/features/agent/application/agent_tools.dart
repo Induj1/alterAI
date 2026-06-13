@@ -4,6 +4,7 @@ import '../../contextos/application/daytwin_controller.dart';
 import '../../contextos/application/decision_council_controller.dart';
 import '../../contextos/application/futuretwin_controller.dart';
 import '../../contextos/application/lifeshield_controller.dart';
+import '../../contextos/application/openclaw_adapter.dart';
 import '../../contextos/domain/contextos_models.dart';
 import '../../device_control/application/phone_control_controller.dart';
 import '../data/device_actions.dart';
@@ -299,6 +300,24 @@ const kAgentTools = <Map<String, dynamic>>[
       },
     },
   },
+  {
+    'type': 'function',
+    'function': {
+      'name': 'queue_openclaw_action',
+      'description':
+          'Queue a phone action in OpenClaw for explicit user review and confirmation. Use for send/pay/install/approve/delete or any action that commits something.',
+      'parameters': {
+        'type': 'object',
+        'properties': {
+          'action_type': {'type': 'string'},
+          'title': {'type': 'string'},
+          'detail': {'type': 'string'},
+          'irreversible': {'type': 'boolean'},
+        },
+        'required': ['action_type', 'title'],
+      },
+    },
+  },
 ];
 
 /// Short human label for a tool, shown as a chip while it runs.
@@ -320,6 +339,7 @@ String agentToolLabel(String name) => switch (name) {
   'type_text' => 'Typing text...',
   'press_phone_button' => 'Pressing phone control...',
   'scroll_screen' => 'Scrolling screen...',
+  'queue_openclaw_action' => 'Queuing OpenClaw action...',
   _ => 'Working…',
 };
 
@@ -401,14 +421,10 @@ Future<String> executeAgentTool(
     case 'read_screen':
       final snapshot = await phone.readScreen();
       if (!snapshot.ok) return snapshot.message;
-      final visible = snapshot.nodes
-          .map((node) => node.text)
-          .where((text) => text.trim().isNotEmpty)
-          .take(24)
-          .join(' | ');
-      return visible.isEmpty
-          ? 'No visible text found on the current screen.'
-          : 'Visible screen text: $visible';
+      final structured = ref
+          .read(phoneControlControllerProvider)
+          .lastStructuredScreen;
+      return structured?.toAgentSummary() ?? snapshot.message;
     case 'click_text':
       final target = s('text');
       if (_isHighImpactClick(target)) {
@@ -421,6 +437,15 @@ Future<String> executeAgentTool(
       return phone.press(s('button'));
     case 'scroll_screen':
       return phone.scroll(s('direction'));
+    case 'queue_openclaw_action':
+      return ref
+          .read(openClawQueueProvider.notifier)
+          .enqueueStructured(
+            type: s('action_type'),
+            title: s('title'),
+            detail: s('detail'),
+            irreversible: args['irreversible'] == true,
+          );
     default:
       return 'Unknown tool: $name';
   }

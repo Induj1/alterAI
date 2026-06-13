@@ -196,7 +196,7 @@ class HeyAlterWakeService : Service(), RecognitionListener {
         commandHandoffUntilMillis = System.currentTimeMillis() + COMMAND_HANDOFF_DELAY_MS
         recognizer?.cancel()
         listening = false
-        updateNotification("Heard \"Hey Alter\"")
+        updateNotification("Heard \"Hey Alter\" - tap to speak")
 
         val event = mapOf(
             "phrase" to phrase,
@@ -313,9 +313,15 @@ class HeyAlterWakeService : Service(), RecognitionListener {
 object HeyAlterWakeEvents {
     private val mainHandler = Handler(Looper.getMainLooper())
     private var sink: EventChannel.EventSink? = null
+    private var lastEvent: Map<String, Any?>? = null
 
     fun attach(eventSink: EventChannel.EventSink?) {
         sink = eventSink
+        lastEvent?.let { event ->
+            mainHandler.post {
+                sink?.success(event)
+            }
+        }
     }
 
     fun detach() {
@@ -323,6 +329,7 @@ object HeyAlterWakeEvents {
     }
 
     fun emit(event: Map<String, Any?>) {
+        lastEvent = event
         mainHandler.post {
             sink?.success(event)
         }

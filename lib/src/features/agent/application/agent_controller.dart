@@ -237,7 +237,7 @@ class AgentController extends Notifier<AgentState> {
         'Never claim you actually sent, paid, called, or installed anything; you '
         'prepare it and the user confirms. Never directly click Send, Pay, '
         'Confirm, Install, Approve, Delete, or Allow; route that through OpenClaw '
-        'or ask the user to tap it. If you need a phone number or detail '
+        'with queue_openclaw_action or ask the user to tap it. If you need a phone number or detail '
         'you don\'t have, ask for it. After a tool returns, summarize the result '
         'in one or two spoken sentences.';
   }

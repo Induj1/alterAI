@@ -33,7 +33,7 @@ The native Android layer includes:
 - On-device recognizer preference on Android 12+ when `SpeechRecognizer.isOnDeviceRecognitionAvailable` returns true.
 - Offline-preferred fallback using Android `SpeechRecognizer` with `EXTRA_PREFER_OFFLINE`.
 
-This is a native foreground service, not a hidden background recorder. Android shows the microphone privacy indicator and foreground notification while it runs. The current detector uses Android's speech recognizer as the local wake layer; a production-grade custom hotword model such as Porcupine, openWakeWord, or a small TFLite keyword model can replace the phrase matcher behind the same service/channel contract later.
+This is a native foreground service, not a hidden background recorder. Android shows the microphone privacy indicator and foreground notification while it runs. The current detector uses Android's speech recognizer as the local wake layer; a production-grade custom hotword model such as Porcupine, openWakeWord, or a small TFLite keyword model can replace the phrase matcher behind the same service/channel contract later. The event handoff now keeps the last wake event and replays it when Flutter attaches, so background wake detection can hand control back to the app more reliably.
 
 ## Android Limits
 

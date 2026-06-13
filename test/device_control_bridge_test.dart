@@ -1,4 +1,6 @@
 import 'package:alter/src/features/device_control/data/device_control_bridge.dart';
+import 'package:alter/src/features/device_control/domain/phone_action_policy.dart';
+import 'package:alter/src/features/device_control/domain/screen_understanding.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -35,5 +37,53 @@ void main() {
     expect(snapshot.ok, isTrue);
     expect(snapshot.nodes.single.text, 'Continue');
     expect(snapshot.nodes.single.clickable, isTrue);
+  });
+
+  test('classifies high-impact visible clicks as confirmation required', () {
+    final policy = PhoneActionPolicy.classify(
+      kind: 'click_text',
+      target: 'Send money',
+      requiresAccessibility: true,
+    );
+
+    expect(policy.risk, PhoneActionRisk.confirmationRequired);
+    expect(policy.canExecuteOn(PhoneActionSurface.agentDirect), isFalse);
+    expect(policy.canExecuteOn(PhoneActionSurface.openClawConfirmed), isTrue);
+  });
+
+  test('builds structured screen roles from visible nodes', () {
+    final snapshot = DeviceScreenSnapshot.fromMap({
+      'ok': true,
+      'message': 'Read 2 visible nodes.',
+      'packageName': 'com.example',
+      'className': 'Root',
+      'text': 'Name Continue',
+      'nodes': [
+        {
+          'text': 'Name',
+          'className': 'android.widget.EditText',
+          'viewId': 'name_field',
+          'clickable': true,
+          'editable': true,
+          'scrollable': false,
+          'bounds': {'left': 0, 'top': 0, 'right': 200, 'bottom': 40},
+        },
+        {
+          'text': 'Continue',
+          'className': 'android.widget.Button',
+          'viewId': 'continue_button',
+          'clickable': true,
+          'editable': false,
+          'scrollable': false,
+          'bounds': {'left': 0, 'top': 50, 'right': 200, 'bottom': 90},
+        },
+      ],
+    });
+
+    final structured = StructuredScreen.fromSnapshot(snapshot);
+
+    expect(structured.inputs.single.text, 'Name');
+    expect(structured.buttons.single.text, 'Continue');
+    expect(structured.summary, contains('1 buttons'));
   });
 }
