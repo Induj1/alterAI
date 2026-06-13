@@ -16,17 +16,6 @@ class BackendConfig {
   final String gatewayUrl;
 
   bool get hasGateway => gatewayUrl.trim().isNotEmpty;
-
-  String serviceUrl(BackendService service) {
-    final uri = Uri.tryParse(gatewayUrl);
-    if (uri == null || !uri.hasScheme || uri.host.isEmpty) {
-      return '';
-    }
-    return uri
-        .replace(port: service.port, path: '', query: '')
-        .toString()
-        .replaceFirst(RegExp(r'/$'), '');
-  }
 }
 
 enum BackendService {

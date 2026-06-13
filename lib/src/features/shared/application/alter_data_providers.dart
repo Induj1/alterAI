@@ -97,10 +97,10 @@ final lensInsightsProvider = FutureProvider<List<LensInsight>>((ref) {
 
 BackendFeatureApiClient? _featureClient(
   BackendConfig config,
-  BackendService service,
+  BackendService _,
 ) {
   if (!config.hasGateway) return null;
-  final url = config.serviceUrl(service);
+  final url = config.gatewayUrl;
   if (url.isEmpty) return null;
   return BackendFeatureApiClient(
     baseUrl: url,

@@ -43,6 +43,24 @@ class BackendApiClient {
     return _decode(response);
   }
 
+  Future<Map<String, dynamic>?> patchJson(
+    String path,
+    Map<String, Object?> body,
+  ) async {
+    if (!isConfigured) return null;
+    final response = await _client
+        .patch(
+          Uri.parse('$_baseUrl$path'),
+          headers: const {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode(body),
+        )
+        .timeout(_backendTimeout);
+    return _decode(response);
+  }
+
   void close() => _client.close();
 
   Map<String, dynamic> _decode(http.Response response) {

@@ -6,9 +6,10 @@ import time
 
 from uuid import UUID
 
+import httpx
 from fastapi import FastAPI, File, Form, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 
 from .config import get_settings
 from .schemas import (
@@ -58,6 +59,30 @@ from .schemas import (
 from .service import ApiGatewayService, create_api_gateway_service
 
 _rate_windows: dict[str, deque[float]] = defaultdict(deque)
+
+_SERVICE_PROXY_PREFIXES = {
+    "voice": "voice_gateway",
+    "clone-council": "clone_council",
+    "future-simulation": "future_simulation",
+    "memory": "memory_system",
+    "opportunities": "opportunity_engine",
+    "social-graph": "social_graph",
+    "alter-lens": "alter_lens",
+    "reputation": "reputation_engine",
+    "officekit": "officekit",
+}
+_HOP_BY_HOP_HEADERS = {
+    "connection",
+    "keep-alive",
+    "proxy-authenticate",
+    "proxy-authorization",
+    "te",
+    "trailer",
+    "transfer-encoding",
+    "upgrade",
+    "host",
+    "content-length",
+}
 
 app = FastAPI(
     title="ALTER API Gateway",
@@ -369,3 +394,62 @@ async def voice_action_runtime(
     request: VoiceActionRuntimeRequest,
 ) -> VoiceActionRuntimeResponse:
     return await get_service().voice_action_runtime(request)
+
+
+@app.api_route(
+    "/v1/{proxied_path:path}",
+    methods=["GET", "POST", "PATCH", "PUT", "DELETE"],
+)
+async def proxy_feature_service(proxied_path: str, request: Request) -> Response:
+    prefix = proxied_path.split("/", 1)[0]
+    service_name = _SERVICE_PROXY_PREFIXES.get(prefix)
+    if service_name is None:
+        return JSONResponse(
+            status_code=404,
+            content={
+                "detail": f"No API gateway route is registered for /v1/{proxied_path}.",
+            },
+        )
+
+    routes_by_name = {
+        route.name: route.base_url.rstrip("/") for route in get_service().routes()
+    }
+    base_url = routes_by_name.get(service_name, "")
+    if not base_url:
+        return JSONResponse(
+            status_code=502,
+            content={"detail": f"Service route is not configured: {service_name}."},
+        )
+
+    target_url = f"{base_url}/v1/{proxied_path}"
+    if request.url.query:
+        target_url = f"{target_url}?{request.url.query}"
+    headers = {
+        key: value
+        for key, value in request.headers.items()
+        if key.lower() not in _HOP_BY_HOP_HEADERS
+    }
+    body = await request.body()
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            proxied = await client.request(
+                request.method,
+                target_url,
+                content=body if body else None,
+                headers=headers,
+            )
+    except httpx.HTTPError as error:
+        return JSONResponse(
+            status_code=502,
+            content={
+                "detail": f"{service_name} unavailable: {error}",
+                "service": service_name,
+            },
+        )
+
+    content_type = proxied.headers.get("content-type")
+    return Response(
+        content=proxied.content,
+        status_code=proxied.status_code,
+        media_type=content_type,
+    )

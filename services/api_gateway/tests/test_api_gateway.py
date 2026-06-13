@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
+import alter_api_gateway.api as gateway_api
 from alter_api_gateway.api import app
 from alter_api_gateway.config import Settings
 from alter_api_gateway.schemas import MissionBriefingRequest
@@ -38,6 +39,65 @@ def test_api_routes_endpoint() -> None:
 
     assert response.status_code == 200
     assert any(item["name"] == "alter_lens" for item in response.json())
+
+
+def test_gateway_registers_feature_service_proxy() -> None:
+    route_paths = {route.path for route in app.routes}
+
+    assert "/v1/{proxied_path:path}" in route_paths
+
+
+def test_gateway_proxy_rejects_unknown_feature_prefix() -> None:
+    client = TestClient(app)
+
+    response = client.get("/v1/not-a-service/example")
+
+    assert response.status_code == 404
+    assert "No API gateway route" in response.json()["detail"]
+
+
+def test_gateway_proxy_forwards_known_feature_prefix(monkeypatch) -> None:
+    calls: dict[str, object] = {}
+
+    class _Route:
+        name = "clone_council"
+        base_url = "http://clone-council.local"
+
+    class _Service:
+        def routes(self):
+            return [_Route()]
+
+    class _Response:
+        content = b'{"agents":[]}'
+        status_code = 200
+        headers = {"content-type": "application/json"}
+
+    class _Client:
+        def __init__(self, timeout: float):
+            calls["timeout"] = timeout
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        async def request(self, method, url, content=None, headers=None):
+            calls["method"] = method
+            calls["url"] = url
+            calls["content"] = content
+            calls["headers"] = headers
+            return _Response()
+
+    monkeypatch.setattr(gateway_api, "get_service", lambda: _Service())
+    monkeypatch.setattr(gateway_api.httpx, "AsyncClient", _Client)
+
+    response = TestClient(app).get("/v1/clone-council/agents?limit=1")
+
+    assert response.status_code == 200
+    assert response.json() == {"agents": []}
+    assert calls["method"] == "GET"
+    assert calls["url"] == "http://clone-council.local/v1/clone-council/agents?limit=1"
 
 
 def test_multilingual_languages_include_all_indian_languages() -> None:

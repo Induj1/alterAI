@@ -134,7 +134,7 @@ class CouncilDebateController extends Notifier<CouncilDebateState> {
     final userId = Supabase.instance.client.auth.currentUser?.id;
     Object? backendError;
     final config = await ref.read(backendConfigProvider.future);
-    final serviceUrl = config.serviceUrl(BackendService.cloneCouncil);
+    final serviceUrl = config.gatewayUrl;
     if (serviceUrl.isNotEmpty) {
       final client = BackendFeatureApiClient(baseUrl: serviceUrl);
       try {

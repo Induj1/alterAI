@@ -340,9 +340,7 @@ class BackendServiceDetailScreen extends ConsumerWidget {
     final config = ref.watch(backendConfigProvider).value;
     final health = ref.watch(backendHealthProvider);
     final status = _statusMap(health.value)[spec.backendName];
-    final serviceUrl = spec.service == null || config == null
-        ? config?.gatewayUrl ?? ''
-        : config.serviceUrl(spec.service!);
+    final serviceUrl = config?.gatewayUrl ?? '';
 
     return AmbientScaffold(
       child: Column(

@@ -188,7 +188,7 @@ class _FutureSimulatorScreenState extends ConsumerState<FutureSimulatorScreen> {
       final horizonMo = (_timeHorizon * 60).round();
 
       final config = await ref.read(backendConfigProvider.future);
-      final serviceUrl = config.serviceUrl(BackendService.futureSimulation);
+      final serviceUrl = config.gatewayUrl;
       if (serviceUrl.isNotEmpty) {
         final client = BackendFeatureApiClient(baseUrl: serviceUrl);
         try {

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../backend/application/backend_config_controller.dart';
+import '../../backend/data/backend_api_client.dart';
 import '../data/permission_hub_bridge.dart';
 
 final permissionHubBridgeProvider = Provider<PermissionHubBridge>((ref) {
@@ -42,7 +45,12 @@ class PermissionHubController extends Notifier<PermissionHubState> {
     state = state.copyWith(loading: true, error: '');
     try {
       final statuses = await ref.read(permissionHubBridgeProvider).request(id);
-      state = state.copyWith(loading: false, items: _merge(statuses));
+      final items = _merge(statuses);
+      state = state.copyWith(loading: false, items: items);
+      final item = items.where((entry) => entry.id == id).firstOrNull;
+      if (item != null) {
+        await _syncConsent(item);
+      }
     } catch (error) {
       state = state.copyWith(loading: false, error: error.toString());
     }
@@ -73,6 +81,30 @@ class PermissionHubController extends Notifier<PermissionHubState> {
       for (final item in PermissionHubItem.defaults())
         item.copyWith(status: statuses[item.id]),
     ];
+  }
+
+  Future<void> _syncConsent(PermissionHubItem item) async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null || userId.isEmpty) return;
+    final config = await ref.read(backendConfigProvider.future);
+    if (!config.hasGateway) return;
+    final client = BackendApiClient(baseUrl: config.gatewayUrl);
+    try {
+      await client.postJson('/v1/security/consent', {
+        'user_id': userId,
+        'source': item.id,
+        'access_level': item.systemManaged
+            ? 'system_setting'
+            : 'runtime_permission',
+        'granted': item.granted,
+        'retention_days': 365,
+        'reason': 'Updated from Android Permission Hub.',
+      });
+    } catch (_) {
+      // Native permission state remains authoritative; consent sync can retry later.
+    } finally {
+      client.close();
+    }
   }
 }
 

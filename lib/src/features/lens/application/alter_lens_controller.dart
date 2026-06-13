@@ -32,7 +32,7 @@ class AlterLensController extends Notifier<AlterLensState> {
     try {
       final profile = ref.read(userProfileProvider).asData?.value;
       final config = await ref.read(backendConfigProvider.future);
-      final serviceUrl = config.serviceUrl(BackendService.alterLens);
+      final serviceUrl = config.gatewayUrl;
       if (serviceUrl.isNotEmpty) {
         final client = BackendFeatureApiClient(baseUrl: serviceUrl);
         try {

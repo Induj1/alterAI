@@ -278,8 +278,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       'OpenAI',
                       hasKey ? 'Your key (BYOK)' : 'Shared key via proxy',
                     ),
-                    const _SystemRow('Neo4j', 'Social graph (planned)'),
-                    const _SystemRow('Qdrant', 'Semantic memory (planned)'),
+                    const _SystemRow('Neo4j', 'Social graph backend adapter'),
+                    const _SystemRow(
+                      'Qdrant',
+                      'Vector memory service in backend stack',
+                    ),
                   ],
                 ),
               ),
