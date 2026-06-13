@@ -206,6 +206,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
           const SizedBox(height: 18),
+          GlassPanel(
+            child: SectionHeader(
+              title: 'Permissions',
+              subtitle:
+                  'Review microphone, notifications, Accessibility, camera, contacts, and notification access.',
+              trailing: PremiumButton(
+                label: 'Open hub',
+                compact: true,
+                icon: LucideIcons.shield_check,
+                onPressed: () => context.go('/permissions'),
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
           ResponsiveGrid(
             mediumColumns: 2,
             expandedColumns: 2,
@@ -216,7 +230,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   children: [
                     const SectionHeader(
                       title: 'Privacy',
-                      subtitle: 'Agent actions stay permissioned and auditable.',
+                      subtitle:
+                          'Agent actions stay permissioned and auditable.',
                     ),
                     const SizedBox(height: 14),
                     _SwitchRow(
@@ -245,7 +260,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       subtitle: 'Production adapters ready to replace mocks.',
                     ),
                     const SizedBox(height: 14),
-                    const _SystemRow('Supabase', 'Auth, Postgres, Edge Functions'),
+                    const _SystemRow(
+                      'Supabase',
+                      'Auth, Postgres, Edge Functions',
+                    ),
                     _SystemRow(
                       'OpenAI',
                       hasKey ? 'Your key (BYOK)' : 'Shared key via proxy',
@@ -302,8 +320,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                     ? profile.role
                                     : user?.email ?? '—',
                                 style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onSurface
-                                      .withValues(alpha: 0.58),
+                                  color: theme.colorScheme.onSurface.withValues(
+                                    alpha: 0.58,
+                                  ),
                                 ),
                               ),
                             ],
@@ -350,8 +369,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               Text(
                                 user.email ?? '—',
                                 style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onSurface
-                                      .withValues(alpha: 0.58),
+                                  color: theme.colorScheme.onSurface.withValues(
+                                    alpha: 0.58,
+                                  ),
                                 ),
                               ),
                             ],

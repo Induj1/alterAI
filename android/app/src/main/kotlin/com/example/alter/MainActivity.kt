@@ -1,15 +1,21 @@
 package com.example.alter
 
 import android.Manifest
+import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
+import android.provider.Settings
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
+    private var pendingPermissionResult: MethodChannel.Result? = null
+    private var pendingPermissionKey: String? = null
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
@@ -70,6 +76,34 @@ class MainActivity : FlutterActivity() {
         MethodChannel(messenger, DEVICE_CONTROL_CHANNEL).setMethodCallHandler { call, result ->
             DeviceControlBridge.handle(this, call, result)
         }
+
+        MethodChannel(messenger, PERMISSIONS_CHANNEL).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "getPermissionStatuses" -> result.success(permissionStatuses())
+                "requestPermission" -> requestHubPermission(
+                    call.argument<String>("permission").orEmpty(),
+                    result,
+                )
+                "openAppSettings" -> {
+                    openAppSettings()
+                    result.success(permissionStatuses())
+                }
+                else -> result.notImplemented()
+            }
+        }
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray,
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode != HUB_PERMISSION_REQUEST) return
+        val result = pendingPermissionResult
+        pendingPermissionResult = null
+        pendingPermissionKey = null
+        result?.success(permissionStatuses())
     }
 
     private fun requestWakePermissionsIfNeeded(): String? {
@@ -94,10 +128,153 @@ class MainActivity : FlutterActivity() {
             checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
     }
 
+    private fun requestHubPermission(
+        key: String,
+        result: MethodChannel.Result,
+    ) {
+        when (key) {
+            "accessibility" -> {
+                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                result.success(permissionStatuses())
+            }
+            "notification_listener" -> {
+                startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                result.success(permissionStatuses())
+            }
+            "notifications" -> {
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+                    result.success(permissionStatuses())
+                    return
+                }
+                requestRuntimePermission(key, result)
+            }
+            else -> {
+                requestRuntimePermission(key, result)
+            }
+        }
+    }
+
+    private fun requestRuntimePermission(
+        key: String,
+        result: MethodChannel.Result,
+    ) {
+        val androidPermission = androidPermissionFor(key)
+        if (androidPermission == null) {
+            result.error("unknown_permission", "Unknown permission: $key", null)
+            return
+        }
+        if (hasPermission(androidPermission)) {
+            result.success(permissionStatuses())
+            return
+        }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+            result.success(permissionStatuses())
+            return
+        }
+        if (pendingPermissionResult != null) {
+            result.error("permission_request_active", "Another permission request is active.", null)
+            return
+        }
+        pendingPermissionResult = result
+        pendingPermissionKey = key
+        requestPermissions(arrayOf(androidPermission), HUB_PERMISSION_REQUEST)
+    }
+
+    private fun permissionStatuses(): Map<String, Any?> {
+        return mapOf(
+            "microphone" to permissionStatus(
+                granted = hasPermission(Manifest.permission.RECORD_AUDIO),
+                systemManaged = false,
+            ),
+            "notifications" to permissionStatus(
+                granted = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                    hasPermission(Manifest.permission.POST_NOTIFICATIONS),
+                systemManaged = false,
+            ),
+            "camera" to permissionStatus(
+                granted = hasPermission(Manifest.permission.CAMERA),
+                systemManaged = false,
+            ),
+            "contacts" to permissionStatus(
+                granted = hasPermission(Manifest.permission.READ_CONTACTS),
+                systemManaged = false,
+            ),
+            "accessibility" to permissionStatus(
+                granted = isAlterAccessibilityEnabled(),
+                systemManaged = true,
+            ),
+            "notification_listener" to permissionStatus(
+                granted = isNotificationListenerEnabled(),
+                systemManaged = true,
+            ),
+        )
+    }
+
+    private fun permissionStatus(
+        granted: Boolean,
+        systemManaged: Boolean,
+    ): Map<String, Any?> {
+        return mapOf(
+            "granted" to granted,
+            "systemManaged" to systemManaged,
+        )
+    }
+
+    private fun androidPermissionFor(key: String): String? {
+        return when (key) {
+            "microphone" -> Manifest.permission.RECORD_AUDIO
+            "notifications" -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                Manifest.permission.POST_NOTIFICATIONS
+            } else {
+                null
+            }
+            "camera" -> Manifest.permission.CAMERA
+            "contacts" -> Manifest.permission.READ_CONTACTS
+            else -> null
+        }
+    }
+
+    private fun isAlterAccessibilityEnabled(): Boolean {
+        val enabled = Settings.Secure.getInt(
+            contentResolver,
+            Settings.Secure.ACCESSIBILITY_ENABLED,
+            0,
+        ) == 1
+        if (!enabled) return false
+        val expected = ComponentName(this, AlterAccessibilityService::class.java).flattenToString()
+        val enabledServices = Settings.Secure.getString(
+            contentResolver,
+            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
+        ).orEmpty()
+        return enabledServices.split(':').any { service ->
+            service.equals(expected, ignoreCase = true)
+        }
+    }
+
+    private fun isNotificationListenerEnabled(): Boolean {
+        val enabledListeners = Settings.Secure.getString(
+            contentResolver,
+            "enabled_notification_listeners",
+        ).orEmpty()
+        return enabledListeners.split(':').any { listener ->
+            listener.contains(packageName, ignoreCase = true)
+        }
+    }
+
+    private fun openAppSettings() {
+        val intent = Intent(
+            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+            Uri.parse("package:$packageName"),
+        )
+        startActivity(intent)
+    }
+
     companion object {
         private const val WAKE_SERVICE_CHANNEL = "alter.ai/wake_service"
         private const val WAKE_EVENTS_CHANNEL = "alter.ai/wake_events"
         private const val DEVICE_CONTROL_CHANNEL = "alter.ai/device_control"
+        private const val PERMISSIONS_CHANNEL = "alter.ai/permissions"
         private const val WAKE_PERMISSION_REQUEST = 9124
+        private const val HUB_PERMISSION_REQUEST = 9125
     }
 }

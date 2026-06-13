@@ -27,6 +27,7 @@ import '../features/mission/presentation/mission_control_screen.dart';
 import '../features/nfc/presentation/nfc_networking_screen.dart';
 import '../features/onboarding/presentation/onboarding_screen.dart';
 import '../features/opportunity/presentation/opportunity_radar_screen.dart';
+import '../features/permissions/presentation/permission_hub_screen.dart';
 import '../features/profile/presentation/profile_setup_screen.dart';
 import '../features/reputation/presentation/reputation_dashboard_screen.dart';
 import '../features/settings/presentation/settings_screen.dart';
@@ -47,7 +48,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final path = state.uri.path;
       if (path == '/splash') return null;
       if (user == null && path != '/login') return '/login';
-      if (user != null && path == '/login') return '/agent';
+      if (user != null && path == '/login') return '/permissions';
       return null;
     },
     routes: [
@@ -65,6 +66,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/onboarding',
         pageBuilder: (context, state) =>
             _fadePage(key: state.pageKey, child: const OnboardingScreen()),
+      ),
+      GoRoute(
+        path: '/permissions',
+        pageBuilder: (context, state) =>
+            _fadePage(key: state.pageKey, child: const PermissionHubScreen()),
       ),
       ShellRoute(
         builder: (context, state, child) {

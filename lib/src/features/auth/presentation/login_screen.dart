@@ -51,7 +51,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       } else {
         await auth.signIn(email, password);
       }
-      if (mounted) context.go('/agent');
+      if (mounted) context.go('/permissions');
     } catch (e) {
       if (mounted) {
         setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
@@ -75,15 +75,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 GradientBorderPanel(
-                  child: GlassPanel(
-                    padding: const EdgeInsets.all(22),
-                    child: Icon(
-                      LucideIcons.sparkles,
-                      size: 42,
-                      color: theme.colorScheme.primary,
-                    ),
-                  ),
-                )
+                      child: GlassPanel(
+                        padding: const EdgeInsets.all(22),
+                        child: Icon(
+                          LucideIcons.sparkles,
+                          size: 42,
+                          color: theme.colorScheme.primary,
+                        ),
+                      ),
+                    )
                     .animate(onPlay: (c) => c.repeat())
                     .shimmer(duration: 2100.ms, color: Colors.white54),
                 const SizedBox(height: 24),
@@ -131,15 +131,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         obscure: _obscure,
                         suffix: IconButton(
                           icon: Icon(
-                            _obscure
-                                ? LucideIcons.eye
-                                : LucideIcons.eye_off,
+                            _obscure ? LucideIcons.eye : LucideIcons.eye_off,
                             size: 18,
-                            color: theme.colorScheme.onSurface
-                                .withValues(alpha: 0.5),
+                            color: theme.colorScheme.onSurface.withValues(
+                              alpha: 0.5,
+                            ),
                           ),
-                          onPressed: () =>
-                              setState(() => _obscure = !_obscure),
+                          onPressed: () => setState(() => _obscure = !_obscure),
                         ),
                         onSubmitted: (_) => _submit(),
                       ),
@@ -255,8 +253,10 @@ class _Field extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: AlterPalette.iris, width: 1.5),
         ),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
       ),
     );
   }
