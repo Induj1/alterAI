@@ -8,6 +8,7 @@ import '../../../core/widgets/ambient_scaffold.dart';
 import '../../../core/widgets/glass_panel.dart';
 import '../../../core/widgets/gradient_text.dart';
 import '../../../core/widgets/premium_controls.dart';
+import '../../../ui/routes.dart';
 import '../application/permission_hub_controller.dart';
 
 class PermissionHubScreen extends ConsumerStatefulWidget {
@@ -146,12 +147,12 @@ class _PermissionHubScreenState extends ConsumerState<PermissionHubScreen>
                   child: PremiumButton(
                     label: 'Continue to ALTER',
                     icon: LucideIcons.arrow_right,
-                    onPressed: () => context.go('/agent'),
+                    onPressed: () => context.go(AlterRoutes.languages),
                   ),
                 ),
                 const SizedBox(width: 10),
                 OutlinedButton(
-                  onPressed: () => context.go('/agent'),
+                  onPressed: () => context.go(AlterRoutes.languages),
                   child: const Text('Skip for now'),
                 ),
               ],

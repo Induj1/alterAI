@@ -376,3 +376,57 @@ class ArchitectureResponse(BaseModel):
     components: list[str]
     data_flow: list[str]
     output_contract: dict[str, list[str]]
+
+
+class LifeFeedTask(BaseModel):
+    title: str = Field(min_length=1, max_length=240)
+    meta: str = Field(default="", max_length=240)
+    badge: str = Field(default="", max_length=40)
+    done: bool = False
+    hot: bool = False
+
+
+class LifeFeedOpportunity(BaseModel):
+    tag: str = Field(min_length=1, max_length=40)
+    match_score: int = Field(ge=0, le=100)
+    title: str = Field(min_length=1, max_length=240)
+    meta: str = Field(default="", max_length=240)
+
+
+class LifeFeedResponse(BaseModel):
+    user_id: UUID
+    greeting: str
+    date_summary: str
+    focus_title: str
+    focus_rationale: str
+    tasks: list[LifeFeedTask]
+    opportunities: list[LifeFeedOpportunity]
+    items_needing_attention: int = Field(ge=0, le=50)
+    generated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class UserSettingsPatch(BaseModel):
+    languages: list[str] = Field(default_factory=list, max_length=12)
+    role: str = Field(default="", max_length=80)
+    permissions: dict[str, bool] = Field(default_factory=dict)
+
+
+class UserSettingsResponse(BaseModel):
+    user_id: UUID
+    languages: list[str]
+    role: str
+    permissions: dict[str, bool]
+    theme_light: bool = False
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class PlatformIntegration(BaseModel):
+    id: str
+    name: str
+    connected: bool
+    status: str = "disconnected"
+
+
+class IntegrationsResponse(BaseModel):
+    user_id: UUID
+    platforms: list[PlatformIntegration]

@@ -12,17 +12,14 @@ ALTER is a mobile-first Flutter application for a voice-first AI Future Operatin
 
 ## Screens
 
-- Mission Control
-- Splash
-- Onboarding
-- Voice Assistant
-- Clone Council
-- Future Simulator
-- Opportunity Radar
-- Social Graph
-- Reputation Dashboard
-- Alter Lens
-- Settings
+- FTUE & onboarding (What is Alter, feature tour, login, languages, about you)
+- Life Feed (home tab)
+- Future hub (Council, Simulator, Radar)
+- Voice assistant with Alter Lens
+- Stats / Reputation
+- Profile with Social Graph & NFC
+- Settings drawer (theme, permissions, sign out)
+- Deep screens: Clone Council, Future Simulator, Opportunity Radar, Social Graph, Deep Analysis
 
 ## Run
 

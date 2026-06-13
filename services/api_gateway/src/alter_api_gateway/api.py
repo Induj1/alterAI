@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from fastapi import FastAPI
+from uuid import UUID
+
+from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import get_settings
@@ -13,8 +15,10 @@ from .schemas import (
     FutureTwinRequest,
     FutureTwinResponse,
     HealthResponse,
+    IntegrationsResponse,
     IntelligenceDecisionRequest,
     IntelligenceDecisionResponse,
+    LifeFeedResponse,
     MissionBriefingRequest,
     MissionBriefingResponse,
     OutcomeUpdateRequest,
@@ -23,6 +27,8 @@ from .schemas import (
     ProofCaptureResponse,
     ServiceRoute,
     SystemHealthResponse,
+    UserSettingsPatch,
+    UserSettingsResponse,
     VoiceActionRuntimeRequest,
     VoiceActionRuntimeResponse,
 )
@@ -161,6 +167,29 @@ async def system_health() -> SystemHealthResponse:
 @app.post("/v1/mission/briefing", response_model=MissionBriefingResponse)
 async def mission_briefing(request: MissionBriefingRequest) -> MissionBriefingResponse:
     return get_service().mission_briefing(request)
+
+
+@app.get("/v1/life-feed", response_model=LifeFeedResponse)
+async def life_feed(user_id: UUID = Query(...)) -> LifeFeedResponse:
+    return get_service().life_feed(user_id)
+
+
+@app.get("/v1/user/settings", response_model=UserSettingsResponse)
+async def user_settings(user_id: UUID = Query(...)) -> UserSettingsResponse:
+    return get_service().user_settings(user_id)
+
+
+@app.patch("/v1/user/settings", response_model=UserSettingsResponse)
+async def patch_user_settings(
+    patch: UserSettingsPatch,
+    user_id: UUID = Query(...),
+) -> UserSettingsResponse:
+    return get_service().patch_user_settings(user_id, patch)
+
+
+@app.get("/v1/integrations", response_model=IntegrationsResponse)
+async def integrations(user_id: UUID = Query(...)) -> IntegrationsResponse:
+    return get_service().integrations(user_id)
 
 
 @app.post("/v1/demo/future-os", response_model=DemoRunResponse)
