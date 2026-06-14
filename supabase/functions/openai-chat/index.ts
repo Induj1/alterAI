@@ -22,7 +22,7 @@ const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 const EMBED_URL = 'https://api.openai.com/v1/embeddings';
 const EMBED_MODEL = 'text-embedding-3-small';
-const DAILY_REQUEST_LIMIT = 200; // per user per day on the platform key
+const DAILY_REQUEST_LIMIT = 100000; // effectively unlimited (demo); raise/lower as needed
 
 // Default Groq model for the platform key (tool-calling capable). Override with
 // the GROQ_MODEL secret without redeploying code.
