@@ -7,7 +7,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../app/app_state.dart';
 import '../../backend/application/backend_config_controller.dart';
+import '../../contextos/application/gemma_model_manager.dart';
 import '../../home/presentation/main_shell.dart';
 import '../../summon/bubble_bridge.dart';
 import '../../voice/application/native_wake_service_controller.dart';
@@ -296,6 +298,7 @@ class _Header extends StatelessWidget {
           tooltip: 'All screens',
           onTap: () => _showNavSheet(context),
         ),
+        const _OnDeviceToggle(),
         _GhostIconButton(
           icon: sarvamOn ? LucideIcons.square : LucideIcons.audio_lines,
           tint: sarvamOn ? _pink : _cyan,
@@ -337,6 +340,34 @@ class _GhostIconButton extends StatelessWidget {
       tooltip: tooltip,
       icon: Icon(icon, size: 18, color: tint ?? _textLo),
       onPressed: onTap,
+    );
+  }
+}
+
+/// Header toggle for On-device mode. When lime/on, plain conversational turns
+/// are answered by the installed local model instead of the cloud; the agent
+/// still reaches the cloud for tools or deep reasoning. Dimmed until a model is
+/// installed (tapping it on with no model is harmless — it just stays on cloud).
+class _OnDeviceToggle extends ConsumerWidget {
+  const _OnDeviceToggle();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final on = ref.watch(alterAppControllerProvider).onDeviceMode;
+    final ready = ref.watch(gemmaModelProvider).isReady;
+    return IconButton(
+      tooltip: on
+          ? 'On-device mode ON — simple chats run on the phone'
+          : ready
+          ? 'On-device mode OFF — tap to run simple chats on the phone'
+          : 'Install an edge model to enable on-device chat',
+      icon: Icon(
+        LucideIcons.cpu,
+        size: 18,
+        color: on ? _lime : (ready ? _textLo : _textLo.withValues(alpha: 0.4)),
+      ),
+      onPressed:
+          ref.read(alterAppControllerProvider.notifier).toggleOnDeviceMode,
     );
   }
 }

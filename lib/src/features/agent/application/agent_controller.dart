@@ -5,7 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
+import '../../../app/app_state.dart';
 import '../../backend/application/backend_config_controller.dart';
+import '../../contextos/application/gemma_model_manager.dart';
 import '../../ondevice/on_device_ai.dart';
 import '../../privacy/data/context_privacy_filter.dart';
 import '../../profile/application/profile_provider.dart';
@@ -324,6 +326,18 @@ class AgentController extends Notifier<AgentState> {
     await _loadRecall(input); // pull the user's twin memory into this turn
     state = state.copyWith(isThinking: true, error: '');
 
+    // On-device mode: answer plain, private chats fully on the phone. Defers to
+    // the cloud path below for anything needing tools or deep reasoning, or if
+    // the local model isn't ready / fails to produce text.
+    final localReply = await _tryOnDeviceAnswer(input);
+    if (localReply != null && localReply.trim().isNotEmpty) {
+      _api.add({'role': 'assistant', 'content': localReply});
+      _push(AgentRole.assistant, localReply);
+      state = state.copyWith(isThinking: false);
+      await _speak(localReply);
+      return;
+    }
+
     try {
       // Model routing: harder, reasoning-heavy turns get the stronger model;
       // everyday turns stay on the fast, cheap one (decided on-device).
@@ -395,6 +409,58 @@ class AgentController extends Notifier<AgentState> {
       );
       _push(AgentRole.assistant, 'Something went wrong: ${state.error}');
     }
+  }
+
+  /// When On-device mode is on and a local model is loaded, answer plain
+  /// conversational turns fully on the phone. Returns null to defer to the
+  /// cloud (tools, deep reasoning, model not ready, or inference failure) so the
+  /// existing path is unchanged in every other case.
+  Future<String?> _tryOnDeviceAnswer(String input) async {
+    if (!ref.read(alterAppControllerProvider).onDeviceMode) return null;
+    if (!ref.read(gemmaModelProvider).isReady) return null;
+
+    // Route with cheap heuristics (no inference) so deciding is instant; only a
+    // plain 'chat' turn stays on-device, everything actionable/deep goes cloud.
+    const router = HeuristicOnDeviceAi();
+    final intent = await router.classifyIntent(input);
+    const cloudIntents = {
+      'schedule',
+      'message',
+      'call',
+      'search',
+      'navigate',
+      'decision',
+      'planning',
+      'reflect',
+    };
+    if (cloudIntents.contains(intent)) return null;
+    if (await router.needsDeepReasoning(input)) return null;
+
+    return ref
+        .read(gemmaModelProvider.notifier)
+        .generate(_onDevicePrompt(), temperature: 0.6);
+  }
+
+  /// Builds a compact prompt for the on-device model from the recent turns
+  /// (the latest user message is already the tail of [_api]).
+  String _onDevicePrompt() {
+    final buf = StringBuffer()
+      ..writeln(
+        "You are ALTER, a concise, friendly personal assistant running "
+        "privately on the user's phone. Reply in 1-3 sentences. Do not invent "
+        "facts about the user.",
+      );
+    final turns = _api
+        .where((m) => m['role'] == 'user' || m['role'] == 'assistant')
+        .where((m) => (m['content'] ?? '').toString().trim().isNotEmpty)
+        .toList();
+    final tail = turns.length > 6 ? turns.sublist(turns.length - 6) : turns;
+    for (final m in tail) {
+      final who = m['role'] == 'user' ? 'User' : 'ALTER';
+      buf.writeln('$who: ${m['content']}');
+    }
+    buf.write('ALTER:');
+    return buf.toString();
   }
 
   Future<void> _speak(String text) async {

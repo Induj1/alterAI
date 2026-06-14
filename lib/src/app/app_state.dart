@@ -14,6 +14,7 @@ const _cameraModeKey = 'alter.app.camera_mode';
 const _privacyShieldKey = 'alter.app.privacy_shield';
 const _proactiveBriefsKey = 'alter.app.proactive_briefs';
 const _voiceListeningKey = 'alter.app.voice_listening';
+const _onDeviceModeKey = 'alter.app.on_device_mode';
 
 class AlterAppState {
   const AlterAppState({
@@ -24,6 +25,7 @@ class AlterAppState {
     required this.cameraMode,
     required this.privacyShield,
     required this.proactiveBriefs,
+    required this.onDeviceMode,
   });
 
   factory AlterAppState.initial() {
@@ -35,6 +37,7 @@ class AlterAppState {
       cameraMode: 'Context',
       privacyShield: true,
       proactiveBriefs: true,
+      onDeviceMode: false,
     );
   }
 
@@ -46,6 +49,11 @@ class AlterAppState {
   final bool privacyShield;
   final bool proactiveBriefs;
 
+  /// When true, plain conversational turns are answered fully on-device by the
+  /// installed local model; the agent only reaches the cloud for tools or deep
+  /// reasoning. No effect until a model is installed.
+  final bool onDeviceMode;
+
   AlterAppState copyWith({
     bool? onboardingComplete,
     ThemeMode? themeMode,
@@ -54,6 +62,7 @@ class AlterAppState {
     String? cameraMode,
     bool? privacyShield,
     bool? proactiveBriefs,
+    bool? onDeviceMode,
   }) {
     return AlterAppState(
       onboardingComplete: onboardingComplete ?? this.onboardingComplete,
@@ -63,6 +72,7 @@ class AlterAppState {
       cameraMode: cameraMode ?? this.cameraMode,
       privacyShield: privacyShield ?? this.privacyShield,
       proactiveBriefs: proactiveBriefs ?? this.proactiveBriefs,
+      onDeviceMode: onDeviceMode ?? this.onDeviceMode,
     );
   }
 }
@@ -114,6 +124,13 @@ class AlterAppController extends Notifier<AlterAppState> {
     unawaited(_persistAndSync());
   }
 
+  void setOnDeviceMode(bool value) {
+    state = state.copyWith(onDeviceMode: value);
+    unawaited(_persistAndSync());
+  }
+
+  void toggleOnDeviceMode() => setOnDeviceMode(!state.onDeviceMode);
+
   Future<void> _loadPersistedState() async {
     final prefs = await SharedPreferences.getInstance();
     final themeName = prefs.getString(_themeModeKey);
@@ -129,6 +146,7 @@ class AlterAppController extends Notifier<AlterAppState> {
       proactiveBriefs:
           prefs.getBool(_proactiveBriefsKey) ?? state.proactiveBriefs,
       voiceListening: prefs.getBool(_voiceListeningKey) ?? state.voiceListening,
+      onDeviceMode: prefs.getBool(_onDeviceModeKey) ?? state.onDeviceMode,
     );
   }
 
@@ -140,6 +158,7 @@ class AlterAppController extends Notifier<AlterAppState> {
     await prefs.setBool(_privacyShieldKey, state.privacyShield);
     await prefs.setBool(_proactiveBriefsKey, state.proactiveBriefs);
     await prefs.setBool(_voiceListeningKey, state.voiceListening);
+    await prefs.setBool(_onDeviceModeKey, state.onDeviceMode);
     await _syncBackendSettings();
   }
 
