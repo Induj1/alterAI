@@ -1,59 +1,47 @@
-import 'package:device_calendar/device_calendar.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 
 final onDeviceContextProvider = Provider<OnDeviceContext>(
-  (ref) => OnDeviceContext(),
+  (ref) => const OnDeviceContext(),
 );
 
-/// Reads consented on-device context — today's calendar + current location — so
-/// the agent can reason about the user's actual day ("you have a 3pm, leave
-/// now"). Each read requests its own runtime permission and degrades gracefully
-/// when denied or unavailable. Nothing is read passively or in the background.
+/// Reads consented on-device context — today's calendar (via a native
+/// ContentResolver bridge) + current location (geolocator) — so the agent can
+/// reason about the user's actual day ("you have a 3pm, leave now"). Each read
+/// is permissioned at the point of use; nothing is read passively/in the
+/// background.
 class OnDeviceContext {
-  OnDeviceContext();
+  const OnDeviceContext();
 
-  final DeviceCalendarPlugin _calendar = DeviceCalendarPlugin();
+  static const _calendar = MethodChannel('alter.ai/calendar');
 
   /// Today's calendar events as readable "HH:MM Title" lines, or a status line.
   Future<String> todayCalendar() async {
     try {
-      var granted = (await _calendar.hasPermissions()).data ?? false;
-      if (!granted) {
-        granted = (await _calendar.requestPermissions()).data ?? false;
+      final res = await _calendar.invokeMethod<Map<dynamic, dynamic>>(
+        'todayEvents',
+      );
+      if (res == null) return 'Calendar unavailable.';
+      if (res['granted'] != true) {
+        return 'Calendar access requested — allow it, then ask me again.';
       }
-      if (!granted) return 'Calendar access not granted.';
-
-      final calendars = (await _calendar.retrieveCalendars()).data ??
-          const <Calendar>[];
-      if (calendars.isEmpty) return 'No calendars found on this device.';
-
-      final now = DateTime.now();
-      final start = DateTime(now.year, now.month, now.day);
-      final end = start.add(const Duration(days: 1));
-
-      final events = <Event>[];
-      for (final calendar in calendars) {
-        final id = calendar.id;
-        if (id == null) continue;
-        final result = await _calendar.retrieveEvents(
-          id,
-          RetrieveEventsParams(startDate: start, endDate: end),
-        );
-        events.addAll(result.data ?? const <Event>[]);
-      }
+      final events = (res['events'] is List)
+          ? (res['events'] as List).whereType<Map<dynamic, dynamic>>().toList()
+          : const <Map<dynamic, dynamic>>[];
       if (events.isEmpty) return 'No events on the calendar today.';
 
-      events.sort((a, b) => (a.start ?? now).compareTo(b.start ?? now));
-      String hhmm(DateTime? d) {
-        if (d == null) return '';
+      String hhmm(Object? millis) {
+        if (millis is! int) return '';
+        final d = DateTime.fromMillisecondsSinceEpoch(millis);
         return '${d.hour.toString().padLeft(2, '0')}:'
             '${d.minute.toString().padLeft(2, '0')}';
       }
 
       return events.take(8).map((e) {
-        final time = hhmm(e.start);
-        final title = (e.title ?? '').trim().isEmpty ? 'Untitled' : e.title!;
+        final time = hhmm(e['start']);
+        final raw = (e['title'] ?? '').toString().trim();
+        final title = raw.isEmpty ? 'Untitled' : raw;
         return time.isEmpty ? title : '$time $title';
       }).join('; ');
     } catch (e) {

@@ -87,6 +87,10 @@ class MainActivity : FlutterActivity() {
             AlterHceBridge.handle(this, call, result)
         }
 
+        MethodChannel(messenger, CALENDAR_CHANNEL).setMethodCallHandler { call, result ->
+            CalendarReader.handle(this, call, result)
+        }
+
         MethodChannel(messenger, PERMISSIONS_CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
                 "getPermissionStatuses" -> result.success(permissionStatuses())
@@ -313,6 +317,7 @@ class MainActivity : FlutterActivity() {
         private const val DEVICE_CONTROL_CHANNEL = "alter.ai/device_control"
         private const val AUDIO_CAPTURE_CHANNEL = "alter.ai/audio_capture"
         private const val NFC_HCE_CHANNEL = "alter.ai/nfc_hce"
+        private const val CALENDAR_CHANNEL = "alter.ai/calendar"
         private const val PERMISSIONS_CHANNEL = "alter.ai/permissions"
         private const val WAKE_PERMISSION_REQUEST = 9124
         private const val HUB_PERMISSION_REQUEST = 9125
