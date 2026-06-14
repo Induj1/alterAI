@@ -4,11 +4,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 const _gatewayPrefKey = 'alter.backend.gateway_url';
 const _compileTimeGatewayUrl = String.fromEnvironment('ALTER_API_GATEWAY_URL');
 
-/// Deployed ALTER backend (Cloudflare tunnel). Default so the app reaches the
+/// Deployed ALTER backend (Railway — stable URL). Default so the app reaches the
 /// live gateway out of the box; overridable in-app or via
 /// --dart-define=ALTER_API_GATEWAY_URL=...
 const _deployedGatewayUrl =
-    'https://hewlett-advised-gonna-stuffed.trycloudflare.com';
+    'https://alter-backend-production-8bf4.up.railway.app';
 
 final backendConfigProvider =
     AsyncNotifierProvider<BackendConfigController, BackendConfig>(
