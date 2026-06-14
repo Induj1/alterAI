@@ -15,6 +15,8 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
+const EMBED_URL = 'https://api.openai.com/v1/embeddings';
+const EMBED_MODEL = 'text-embedding-3-small';
 const DAILY_REQUEST_LIMIT = 200; // per user per day on the platform key
 const ALLOWED_MODELS = new Set([
   'gpt-4o-mini',
@@ -24,7 +26,7 @@ const ALLOWED_MODELS = new Set([
 ]);
 
 interface ChatRequest {
-  messages: Array<Record<string, unknown>>;
+  messages?: Array<Record<string, unknown>>;
   model?: string;
   temperature?: number;
   max_tokens?: number;
@@ -32,6 +34,8 @@ interface ChatRequest {
   byok_key?: string;
   tools?: unknown;
   tool_choice?: unknown;
+  // Semantic memory: when present, return one embedding vector per string.
+  embed?: string[];
 }
 
 function json(body: unknown, status = 200): Response {
@@ -94,13 +98,6 @@ Deno.serve(async (req) => {
   } catch {
     return json({ error: 'Invalid JSON body' }, 400);
   }
-  if (!Array.isArray(body.messages) || body.messages.length === 0) {
-    return json({ error: 'messages is required' }, 400);
-  }
-
-  const model = ALLOWED_MODELS.has(body.model ?? '')
-    ? body.model!
-    : 'gpt-4o-mini';
   const byok = (body.byok_key ?? '').trim();
   const usingPlatformKey = byok.length === 0;
 
@@ -128,11 +125,48 @@ Deno.serve(async (req) => {
     }
   }
 
-  // --- Proxy to OpenAI ---
   const apiKey = usingPlatformKey ? Deno.env.get('OPENAI_API_KEY')! : byok;
   if (!apiKey) {
     return json({ error: 'AI service is not configured.' }, 503);
   }
+
+  // --- Embeddings branch (semantic memory): one vector per input string. ---
+  if (Array.isArray(body.embed) && body.embed.length > 0) {
+    const inputs = body.embed.slice(0, 96).map((s) => String(s).slice(0, 8000));
+    const res = await fetch(EMBED_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({ model: EMBED_MODEL, input: inputs }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) {
+      const msg = data?.error?.message ?? `Embeddings failed (${res.status})`;
+      return json({ error: msg }, res.status === 401 ? 502 : res.status);
+    }
+    const embeddings = (data?.data ?? []).map(
+      (d: { embedding: number[] }) => d.embedding,
+    );
+    if (usingPlatformKey) {
+      await admin.rpc('increment_ai_usage', {
+        p_user_id: user.id,
+        p_day: today,
+        p_tokens: data?.usage?.total_tokens ?? 0,
+      });
+    }
+    return json({ embeddings });
+  }
+
+  // --- Chat branch ---
+  if (!Array.isArray(body.messages) || body.messages.length === 0) {
+    return json({ error: 'messages is required' }, 400);
+  }
+
+  const model = ALLOWED_MODELS.has(body.model ?? '')
+    ? body.model!
+    : 'gpt-4o-mini';
 
   const payload: Record<string, unknown> = {
     model,

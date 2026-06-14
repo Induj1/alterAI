@@ -86,6 +86,31 @@ class OpenAIService {
     }
   }
 
+  /// Semantic memory: returns one embedding vector per input string, in order.
+  /// Returns an empty list on any failure so callers can fall back to keyword
+  /// search instead of breaking.
+  Future<List<List<double>>> embed(List<String> inputs) async {
+    if (inputs.isEmpty) return const [];
+    final body = <String, dynamic>{
+      'embed': inputs,
+      if (_hasByok) 'byok_key': byokKey,
+    };
+    try {
+      final response = await _client.functions.invoke('openai-chat', body: body);
+      final data = response.data;
+      if (data is! Map) return const [];
+      final raw = data['embeddings'];
+      if (raw is! List) return const [];
+      return raw
+          .map<List<double>>(
+            (v) => (v as List).map<double>((n) => (n as num).toDouble()).toList(),
+          )
+          .toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
   /// Agent function-calling. [messages] is the full OpenAI-format conversation
   /// (may include assistant tool_calls and role:"tool" results). Returns the
   /// raw assistant message map: { content: String, tool_calls: List? }.

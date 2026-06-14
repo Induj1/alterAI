@@ -1,7 +1,10 @@
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../profile/application/profile_provider.dart';
 
 final persistentIntelligenceStoreProvider =
     AsyncNotifierProvider<PersistentIntelligenceStore, IntelligenceStoreState>(
@@ -101,9 +104,11 @@ class TwinMemoryRecord {
     required this.summary,
     required this.at,
     this.metadata = const {},
+    this.embedding,
   });
 
   factory TwinMemoryRecord.fromJson(Map<String, dynamic> json) {
+    final rawEmbedding = json['embedding'];
     return TwinMemoryRecord(
       source: _string(json['source']),
       title: _string(json['title']),
@@ -112,6 +117,11 @@ class TwinMemoryRecord {
       metadata: Map<String, Object?>.from(
         json['metadata'] as Map? ?? const <String, Object?>{},
       ),
+      embedding: rawEmbedding is List
+          ? rawEmbedding
+              .map((e) => (e as num).toDouble())
+              .toList(growable: false)
+          : null,
     );
   }
 
@@ -121,12 +131,26 @@ class TwinMemoryRecord {
   final DateTime at;
   final Map<String, Object?> metadata;
 
+  /// Cached semantic-search vector (text-embedding-3-small). Null until the
+  /// record has been embedded; persisted so it is computed at most once.
+  final List<double>? embedding;
+
+  TwinMemoryRecord copyWith({List<double>? embedding}) => TwinMemoryRecord(
+    source: source,
+    title: title,
+    summary: summary,
+    at: at,
+    metadata: metadata,
+    embedding: embedding ?? this.embedding,
+  );
+
   Map<String, dynamic> toJson() => {
     'source': source,
     'title': title,
     'summary': summary,
     'at': at.toIso8601String(),
     'metadata': metadata,
+    if (embedding != null) 'embedding': embedding,
   };
 }
 
@@ -252,6 +276,12 @@ class PersistentIntelligenceStore
     final current = await future;
     final q = query.toLowerCase().trim();
     if (q.isEmpty) return current.memories.take(20).toList(growable: false);
+
+    // Prefer semantic recall (embeddings) when cloud AI is available.
+    final ranked = await _semanticSearch(query, current);
+    if (ranked != null) return ranked;
+
+    // Fallback: case-insensitive substring match.
     return current.memories
         .where(
           (memory) =>
@@ -261,6 +291,69 @@ class PersistentIntelligenceStore
         )
         .take(20)
         .toList(growable: false);
+  }
+
+  /// Embedding-based recall. Returns null when embeddings are unavailable so the
+  /// caller falls back to keyword search. Lazily embeds the query plus any
+  /// memories that don't yet have a vector (one batched call), persists those
+  /// vectors, then ranks every memory by cosine similarity to the query.
+  Future<List<TwinMemoryRecord>?> _semanticSearch(
+    String query,
+    IntelligenceStoreState current,
+  ) async {
+    final memories = current.memories;
+    if (memories.isEmpty) return const [];
+    final openai = ref.read(openAIServiceProvider);
+    if (openai == null) return null;
+
+    final missing = <int>[];
+    for (var i = 0; i < memories.length; i++) {
+      final emb = memories[i].embedding;
+      if (emb == null || emb.isEmpty) missing.add(i);
+    }
+    // Cap how many we embed per call so a huge backlog doesn't blow the limit.
+    final toEmbed = missing.take(95).toList();
+    final inputs = <String>[
+      query,
+      for (final i in toEmbed) '${memories[i].title}. ${memories[i].summary}'.trim(),
+    ];
+    final vectors = await openai.embed(inputs);
+    if (vectors.length != inputs.length) return null;
+    final queryVec = vectors.first;
+
+    var working = memories;
+    if (toEmbed.isNotEmpty) {
+      final updated = List<TwinMemoryRecord>.from(memories);
+      for (var k = 0; k < toEmbed.length; k++) {
+        updated[toEmbed[k]] =
+            updated[toEmbed[k]].copyWith(embedding: vectors[k + 1]);
+      }
+      working = updated;
+      await _save(current.copyWith(memories: updated));
+    }
+
+    final scored = <MapEntry<double, TwinMemoryRecord>>[];
+    for (final m in working) {
+      final v = m.embedding;
+      if (v == null || v.length != queryVec.length) continue;
+      scored.add(MapEntry(_cosine(queryVec, v), m));
+    }
+    if (scored.isEmpty) return null;
+    scored.sort((a, b) => b.key.compareTo(a.key));
+    return scored.take(20).map((e) => e.value).toList(growable: false);
+  }
+
+  double _cosine(List<double> a, List<double> b) {
+    var dot = 0.0;
+    var na = 0.0;
+    var nb = 0.0;
+    for (var i = 0; i < a.length; i++) {
+      dot += a[i] * b[i];
+      na += a[i] * a[i];
+      nb += b[i] * b[i];
+    }
+    if (na == 0 || nb == 0) return 0;
+    return dot / (math.sqrt(na) * math.sqrt(nb));
   }
 
   Future<void> recordConsent({
