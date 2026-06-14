@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/storage/secure_blob_store.dart';
 import '../../profile/application/profile_provider.dart';
 
 final persistentIntelligenceStoreProvider =
@@ -212,10 +212,15 @@ class PrivacyEvent {
 
 class PersistentIntelligenceStore
     extends AsyncNotifier<IntelligenceStoreState> {
+  SecureBlobStore? _blob;
+
+  /// Lazily-created encrypted local store (key in the platform keystore).
+  Future<SecureBlobStore> _store() async =>
+      _blob ??= await EncryptedBlobStore.create();
+
   @override
   Future<IntelligenceStoreState> build() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_storePrefKey);
+    final raw = await (await _store()).read(_storePrefKey);
     if (raw == null || raw.isEmpty) return const IntelligenceStoreState();
     try {
       final json = jsonDecode(raw);
@@ -416,8 +421,7 @@ class PersistentIntelligenceStore
 
   Future<void> _save(IntelligenceStoreState next) async {
     state = AsyncValue.data(next);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_storePrefKey, jsonEncode(next.toJson()));
+    await (await _store()).write(_storePrefKey, jsonEncode(next.toJson()));
   }
 }
 
