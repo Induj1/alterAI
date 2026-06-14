@@ -113,7 +113,13 @@ Deno.serve(async (req) => {
   } catch {
     return json({ error: 'Invalid JSON body' }, 400);
   }
-  const byok = (body.byok_key ?? '').trim();
+  // Only treat a provided key as a real BYOK key if it looks like an OpenAI key
+  // (sk-...). This guards against a non-OpenAI token (e.g. a HuggingFace hf_
+  // token) pasted into the key field: forwarding that to OpenAI just gets it
+  // rejected. Anything that isn't an sk- key falls through to the platform
+  // (Groq) path instead.
+  const byokRaw = (body.byok_key ?? '').trim();
+  const byok = byokRaw.startsWith('sk-') ? byokRaw : '';
   const usingPlatformKey = byok.length === 0;
 
   // --- Per-user daily quota (only for the platform key) ---

@@ -431,8 +431,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _saveApiKey() async {
+    // An empty key is allowed: it clears any saved key and reverts to the
+    // shared proxy. (Only an sk- key is used as a real BYOK key anyway.)
     final key = _keyController.text.trim();
-    if (key.isEmpty) return;
 
     final notifier = ref.read(userProfileProvider.notifier);
     final existing = ref.read(userProfileProvider).asData?.value;
