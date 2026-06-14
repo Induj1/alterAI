@@ -6,6 +6,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
 import '../../backend/application/backend_config_controller.dart';
+import '../../ondevice/on_device_ai.dart';
 import '../../privacy/data/context_privacy_filter.dart';
 import '../../profile/application/profile_provider.dart';
 import '../../voice/data/native_audio_capture.dart';
@@ -272,17 +273,12 @@ class AgentController extends Notifier<AgentState> {
     );
   }
 
-  /// Pick the cloud model for a turn. Reasoning-heavy or long requests get the
-  /// stronger model; everyday commands stay on the fast, cheap one.
-  String _routeModel(String input) {
-    final t = input.toLowerCase();
-    const heavy = [
-      'analy', 'compare', 'strateg', 'decide', 'decision', 'should i',
-      'pros and cons', 'trade-off', 'tradeoff', 'plan ', 'weigh', 'evaluate',
-      'why ', 'explain', 'reason',
-    ];
-    final isHeavy = input.length > 220 || heavy.any((k) => t.contains(k));
-    return isHeavy ? 'gpt-4o' : 'gpt-4o-mini';
+  /// Pick the cloud model for a turn using on-device intent classification:
+  /// reasoning-heavy requests get the stronger model; everyday commands stay on
+  /// the fast, cheap one. The decision is made on-device (no cloud round-trip).
+  Future<String> _routeModel(String input) async {
+    final heavy = await ref.read(onDeviceAiProvider).needsDeepReasoning(input);
+    return heavy ? 'gpt-4o' : 'gpt-4o-mini';
   }
 
   // --- The conversational tool-calling loop ---
@@ -330,8 +326,8 @@ class AgentController extends Notifier<AgentState> {
 
     try {
       // Model routing: harder, reasoning-heavy turns get the stronger model;
-      // everyday turns stay on the fast, cheap one.
-      final model = _routeModel(input);
+      // everyday turns stay on the fast, cheap one (decided on-device).
+      final model = await _routeModel(input);
       for (var i = 0; i < 6; i++) {
         final resp = await openai.chatWithTools(
           messages: _withRecall(),
