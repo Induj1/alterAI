@@ -17,6 +17,7 @@ import '../../contextos/domain/contextos_models.dart';
 import '../../device_control/application/phone_control_controller.dart';
 import '../../feedback/application/feedback_log.dart';
 import '../../feedback/domain/feedback_event.dart';
+import '../../privacy/data/context_privacy_filter.dart';
 import '../../social/application/social_graph_service.dart';
 import '../data/device_actions.dart';
 import 'agent_execution_runtime.dart';
@@ -802,9 +803,25 @@ Future<String> executeAgentTool(
         if (!cfg.hasGateway) return 'No backend gateway configured.';
         final client = BackendApiClient(baseUrl: cfg.gatewayUrl);
         try {
+          // Hybrid retrieval: send the phone's own relevant local memory up as
+          // labeled, privacy-filtered client_context. The gateway merges it
+          // with backend context (older gateways simply ignore the field).
+          const filter = ContextPrivacyFilter(maxChars: 400);
+          final mems = await ref
+              .read(persistentIntelligenceStoreProvider.notifier)
+              .searchMemory(s('goal'));
+          final clientContext = mems
+              .take(6)
+              .map((m) => <String, dynamic>{
+                    'source': 'local',
+                    'text': filter.filter('${m.title}: ${m.summary}'),
+                  })
+              .where((c) => (c['text'] as String).trim().isNotEmpty)
+              .toList();
           final body = await client.postJson('/v1/agent/plan', {
             'goal': s('goal'),
             'autonomy_level': 'confirm_before_act',
+            if (clientContext.isNotEmpty) 'client_context': clientContext,
           });
           if (body == null) return 'Could not build a plan right now.';
           final steps = (body['steps'] is List ? body['steps'] as List : const <dynamic>[])

@@ -593,12 +593,25 @@ class DataIngestionResponse(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
+class ContextItem(BaseModel):
+    """One piece of decision context, tagged with where it came from.
+
+    Source labels: local | cloud | user-entered | inferred | imported.
+    """
+
+    source: str = Field(default="local", max_length=24)
+    text: str = Field(min_length=1, max_length=2000)
+
+
 class AgentPlannerRequest(BaseModel):
     user_id: UUID = Field(default_factory=uuid4)
     goal: str = Field(min_length=2, max_length=1000)
     device_state: dict[str, Any] = Field(default_factory=dict)
     allowed_tools: list[str] = Field(default_factory=list, max_length=50)
     autonomy_level: str = Field(default="confirm_before_act", max_length=60)
+    # Optional client-provided (on-device) memory context. Absent → today's
+    # behaviour; present → merged into the decision context pack with labels.
+    client_context: list[ContextItem] = Field(default_factory=list, max_length=50)
 
 
 class AgentPlanStep(BaseModel):
@@ -621,6 +634,8 @@ class AgentPlannerResponse(BaseModel):
     ready_to_execute: bool
     steps: list[AgentPlanStep]
     policy_warnings: list[str]
+    # Local (client) + backend context merged and tagged by source.
+    decision_context_pack: list[ContextItem] = Field(default_factory=list)
     tool_result_feedback_needed: bool = True
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 

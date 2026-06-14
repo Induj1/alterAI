@@ -55,6 +55,7 @@ from .schemas import (
     AgentPlanStep,
     AgentPlannerRequest,
     AgentPlannerResponse,
+    ContextItem,
     ServiceHealth,
     ServiceRoute,
     SarvamSttResponse,
@@ -544,6 +545,7 @@ class ApiGatewayService:
             ready_to_execute=bool(steps) and not any(step.blocked_reason for step in steps),
             steps=steps,
             policy_warnings=warnings,
+            decision_context_pack=_build_context_pack(request),
         )
 
     def privacy_export(self, user_id: UUID) -> PrivacyExportResponse:
@@ -1675,6 +1677,41 @@ def _memory_candidates_from_items(
             }
         )
     return candidates
+
+
+_CONTEXT_SOURCES = {"local", "cloud", "user-entered", "inferred", "imported"}
+
+
+def _build_context_pack(request: AgentPlannerRequest) -> list[ContextItem]:
+    """Merge client-provided (on-device) context with backend-derived context
+    into one decision pack, tagged by source and de-duplicated. Backwards
+    compatible: an empty client_context yields just the backend-derived items.
+    """
+    pack: list[ContextItem] = []
+    seen: set[str] = set()
+
+    def add(source: str, text: str) -> None:
+        clean = " ".join(text.split())[:2000]
+        if not clean:
+            return
+        label = source if source in _CONTEXT_SOURCES else "local"
+        key = f"{label}|{clean.lower()}"
+        if key in seen:
+            return
+        seen.add(key)
+        pack.append(ContextItem(source=label, text=clean))
+
+    # Local context the phone sent up (keeps its own source labels).
+    for item in request.client_context:
+        add(item.source, item.text)
+
+    # Backend-derived context for this decision.
+    add("inferred", f"Goal under consideration: {request.goal}")
+    if request.device_state:
+        keys = ", ".join(sorted(str(k) for k in request.device_state)[:8])
+        add("local", f"Device signals present: {keys}")
+
+    return pack[:40]
 
 
 def _planner_steps(request: AgentPlannerRequest) -> tuple[list[AgentPlanStep], list[str]]:
