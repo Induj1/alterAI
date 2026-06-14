@@ -40,10 +40,56 @@ class GemmaModelState {
   );
 }
 
-/// A small, phone-friendly default. Editable in the install screen — point it
-/// at Gemma 3n E4B (the brief's target) or any LiteRT `.task` model.
+/// A downloadable on-device model option (LiteRT `.task`, MediaPipe).
+class GemmaPreset {
+  const GemmaPreset({
+    required this.name,
+    required this.url,
+    required this.size,
+    required this.note,
+    this.gated = false,
+  });
+
+  final String name;
+  final String url;
+  final String size; // human-readable download size
+  final String note;
+  final bool gated; // needs a HuggingFace token + license acceptance
+}
+
+/// Curated on-device models, best-first. The default is **Gemma 3n E4B** — the
+/// 4B-class on-device model (runs comfortably on a flagship like the iQOO).
+/// The 1B option is ungated and tiny, useful to prove the pipeline end-to-end.
+const kGemmaPresets = <GemmaPreset>[
+  GemmaPreset(
+    name: 'Gemma 3n E4B · 4B-class',
+    url:
+        'https://huggingface.co/google/gemma-3n-E4B-it-litert-preview/resolve/main/gemma-3n-E4B-it-int4.task',
+    size: '~4.4 GB',
+    note: 'Best on-device quality. Needs a HuggingFace token + license accept. '
+        'Flagship-class RAM.',
+    gated: true,
+  ),
+  GemmaPreset(
+    name: 'Gemma 3n E2B · 2B-class',
+    url:
+        'https://huggingface.co/google/gemma-3n-E2B-it-litert-preview/resolve/main/gemma-3n-E2B-it-int4.task',
+    size: '~3.1 GB',
+    note: 'Balanced quality/size. Needs a HuggingFace token.',
+    gated: true,
+  ),
+  GemmaPreset(
+    name: 'Gemma 3 1B · fast',
+    url:
+        'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/Gemma3-1B-IT_multi-prefill-seq_q8_ekv1280.task',
+    size: '~0.5 GB',
+    note: 'Smallest, ungated. Good to verify on-device inference works.',
+  ),
+];
+
+/// Default target: Gemma 3n E4B (4B-class). Editable in the install screen.
 const kDefaultGemmaUrl =
-    'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/Gemma3-1B-IT_multi-prefill-seq_q8_ekv1280.task';
+    'https://huggingface.co/google/gemma-3n-E4B-it-litert-preview/resolve/main/gemma-3n-E4B-it-int4.task';
 
 final gemmaModelProvider = NotifierProvider<GemmaModelManager, GemmaModelState>(
   GemmaModelManager.new,
@@ -52,6 +98,41 @@ final gemmaModelProvider = NotifierProvider<GemmaModelManager, GemmaModelState>(
 class GemmaModelManager extends Notifier<GemmaModelState> {
   InferenceModel? _model;
   InferenceModel? get model => _model;
+
+  // Serializes inference: flutter_gemma runs one session at a time per model,
+  // so every generate() call queues behind the previous one.
+  Future<void> _lock = Future<void>.value();
+
+  /// Run a single prompt through the loaded on-device model and return the
+  /// trimmed text. Returns null if the model isn't ready or inference fails —
+  /// callers fall back to their deterministic path, so nothing ever blocks on
+  /// the model. Calls are serialized.
+  Future<String?> generate(
+    String prompt, {
+    double temperature = 0.4,
+    int topK = 40,
+  }) {
+    final model = _model;
+    if (!state.isReady || model == null) return Future.value(null);
+    final run = _lock.then((_) async {
+      try {
+        final session = await model.createSession(
+          temperature: temperature,
+          topK: topK,
+        );
+        await session.addQueryChunk(Message.text(text: prompt, isUser: true));
+        final out = await session.getResponse();
+        await session.close();
+        final trimmed = out.trim();
+        return trimmed.isEmpty ? null : trimmed;
+      } catch (_) {
+        return null;
+      }
+    });
+    // Keep the chain alive regardless of this call's success.
+    _lock = run.then((_) {}, onError: (_) {});
+    return run;
+  }
 
   @override
   GemmaModelState build() {
@@ -96,7 +177,7 @@ class GemmaModelManager extends Notifier<GemmaModelState> {
             token: (hfToken ?? '').isEmpty ? null : hfToken,
           )
           .withProgress((p) {
-            final frac = (p is num ? p.toDouble() : 0) / 100.0;
+            final frac = p.toDouble() / 100.0;
             state = state.copyWith(
               status: GemmaStatus.downloading,
               progress: frac.clamp(0, 1),

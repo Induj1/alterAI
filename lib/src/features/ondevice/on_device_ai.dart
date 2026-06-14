@@ -1,10 +1,19 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../contextos/application/gemma_model_manager.dart';
 import '../privacy/data/context_privacy_filter.dart';
 
-final onDeviceAiProvider = Provider<OnDeviceAi>(
-  (ref) => const HeuristicOnDeviceAi(),
-);
+/// On-device AI used by the agent. Backed by the real Gemma model when it is
+/// installed and loaded on the phone; otherwise the always-available heuristic.
+/// The agent just reads this provider — the swap is invisible to it.
+final onDeviceAiProvider = Provider<OnDeviceAi>((ref) {
+  const fallback = HeuristicOnDeviceAi();
+  final gemma = ref.watch(gemmaModelProvider);
+  if (gemma.isReady) {
+    return GemmaOnDeviceAi(ref.read(gemmaModelProvider.notifier), fallback);
+  }
+  return fallback;
+});
 
 /// Lightweight, private, on-device tasks. The default implementation is a pure
 /// heuristic that always works with no model — the stub/fallback so the app is
@@ -87,5 +96,95 @@ class HeuristicOnDeviceAi implements OnDeviceAi {
     if (clean.isEmpty) return 'Want me to help you plan your next move?';
     final short = clean.length > 90 ? '${clean.substring(0, 90)}…' : clean;
     return 'Based on "$short" — want me to take the next step on this?';
+  }
+}
+
+/// On-device AI backed by the real Gemma model running on the phone (via
+/// flutter_gemma / MediaPipe). Every method degrades to [_fallback] when the
+/// model returns nothing or fails, so behaviour is never worse than heuristic.
+///
+/// Redaction stays deterministic on purpose — PII stripping is a regex job, not
+/// something to trust a language model with.
+class GemmaOnDeviceAi implements OnDeviceAi {
+  GemmaOnDeviceAi(this._gemma, this._fallback);
+
+  final GemmaModelManager _gemma;
+  final HeuristicOnDeviceAi _fallback;
+
+  static const _intents = <String>[
+    'schedule',
+    'message',
+    'call',
+    'search',
+    'navigate',
+    'decision',
+    'planning',
+    'reflect',
+    'chat',
+  ];
+
+  @override
+  Future<String> classifyIntent(String text) async {
+    final out = await _gemma.generate(
+      'Classify the request into ONE intent from this list: '
+      '${_intents.join(', ')}. Reply with only the single intent word.\n\n'
+      'Request: "$text"\nIntent:',
+      temperature: 0,
+      topK: 1,
+    );
+    if (out != null) {
+      final lower = out.toLowerCase();
+      for (final intent in _intents) {
+        if (lower.contains(intent)) return intent;
+      }
+    }
+    return _fallback.classifyIntent(text);
+  }
+
+  @override
+  Future<bool> needsDeepReasoning(String text) async {
+    final out = await _gemma.generate(
+      'Does answering this well require deep multi-step reasoning — weighing '
+      'trade-offs, planning, or analysis — rather than a quick reply? '
+      'Reply with only YES or NO.\n\nRequest: "$text"\nAnswer:',
+      temperature: 0,
+      topK: 1,
+    );
+    if (out != null) {
+      final u = out.toUpperCase();
+      if (u.contains('YES')) return true;
+      if (u.contains('NO')) return false;
+    }
+    return _fallback.needsDeepReasoning(text);
+  }
+
+  @override
+  Future<String> summarize(String text, {int maxWords = 40}) async {
+    final out = await _gemma.generate(
+      'Summarize the text in at most $maxWords words, plain and factual. '
+      'Reply with only the summary.\n\nText:\n"$text"\nSummary:',
+      temperature: 0.2,
+    );
+    if (out == null || out.isEmpty) {
+      return _fallback.summarize(text, maxWords: maxWords);
+    }
+    // Enforce the word cap even if the model overran it.
+    return _fallback.summarize(out, maxWords: maxWords);
+  }
+
+  @override
+  Future<String> redact(String text) => _fallback.redact(text);
+
+  @override
+  Future<String> draftNudge(String context) async {
+    final out = await _gemma.generate(
+      'Write ONE short, friendly proactive nudge (max 18 words) suggesting a '
+      'helpful next step from this context. No preamble, no quotes.\n\n'
+      'Context: "$context"\nNudge:',
+      temperature: 0.5,
+    );
+    if (out == null || out.isEmpty) return _fallback.draftNudge(context);
+    // One line only.
+    return out.split('\n').first.trim();
   }
 }

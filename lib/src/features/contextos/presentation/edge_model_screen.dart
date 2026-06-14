@@ -19,12 +19,33 @@ class EdgeModelScreen extends ConsumerStatefulWidget {
 class _EdgeModelScreenState extends ConsumerState<EdgeModelScreen> {
   final _url = TextEditingController(text: kDefaultGemmaUrl);
   final _token = TextEditingController();
+  final _test = TextEditingController();
+  String? _testOut;
+  bool _testing = false;
 
   @override
   void dispose() {
     _url.dispose();
     _token.dispose();
+    _test.dispose();
     super.dispose();
+  }
+
+  Future<void> _runTest() async {
+    final prompt = _test.text.trim();
+    if (prompt.isEmpty || _testing) return;
+    setState(() {
+      _testing = true;
+      _testOut = null;
+    });
+    final out = await ref
+        .read(gemmaModelProvider.notifier)
+        .generate(prompt, temperature: 0.4);
+    if (!mounted) return;
+    setState(() {
+      _testing = false;
+      _testOut = out ?? '(no output — model not ready)';
+    });
   }
 
   @override
@@ -119,6 +140,54 @@ class _EdgeModelScreenState extends ConsumerState<EdgeModelScreen> {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Run on-device',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _test,
+                    minLines: 1,
+                    maxLines: 3,
+                    textInputAction: TextInputAction.send,
+                    onSubmitted: (_) => _runTest(),
+                    decoration: const InputDecoration(
+                      hintText: 'Ask Gemma anything — runs fully on the phone',
+                      prefixIcon: Icon(LucideIcons.sparkles),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    child: PremiumButton(
+                      label: _testing ? 'Generating…' : 'Run on-device',
+                      icon: LucideIcons.cpu,
+                      onPressed: _testing ? null : _runTest,
+                    ),
+                  ),
+                  if (_testOut != null) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AlterPalette.mint.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: AlterPalette.mint.withValues(alpha: 0.25),
+                        ),
+                      ),
+                      child: Text(
+                        _testOut!,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 14),
                   OutlinedButton.icon(
                     icon: const Icon(LucideIcons.trash_2, size: 16),
@@ -152,12 +221,48 @@ class _EdgeModelScreenState extends ConsumerState<EdgeModelScreen> {
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    'Default is a small Gemma 3 model. Point it at Gemma 3n E4B '
-                    '(.task) for the full multimodal edge.',
+                    'Default is Gemma 3n E4B — the 4B-class on-device model. '
+                    'Pick a preset (it fills the URL) or paste your own .task '
+                    'model.',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                       height: 1.3,
                     ),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final p in kGemmaPresets)
+                        ChoiceChip(
+                          selected: _url.text.trim() == p.url,
+                          label: Text('${p.name} · ${p.size}'),
+                          avatar: Icon(
+                            p.gated ? LucideIcons.key_round : LucideIcons.zap,
+                            size: 14,
+                          ),
+                          onSelected: (_) => setState(() => _url.text = p.url),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Builder(
+                    builder: (_) {
+                      final sel = kGemmaPresets.where(
+                        (p) => p.url == _url.text.trim(),
+                      );
+                      if (sel.isEmpty) return const SizedBox.shrink();
+                      return Text(
+                        sel.first.note,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: theme.colorScheme.onSurface.withValues(
+                            alpha: 0.55,
+                          ),
+                          height: 1.3,
+                        ),
+                      );
+                    },
                   ),
                   const SizedBox(height: 12),
                   TextField(
