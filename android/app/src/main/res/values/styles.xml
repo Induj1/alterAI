@@ -13,6 +13,8 @@
 
          This Theme is only used starting with V2 of Flutter's Android embedding. -->
     <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
-        <item name="android:windowBackground">?android:colorBackground</item>
+        <!-- Dark window behind Flutter while it initializes — matches the
+             app's deep-violet-black so there is no white flash on cold start. -->
+        <item name="android:windowBackground">@color/ic_launcher_background</item>
     </style>
 </resources>
