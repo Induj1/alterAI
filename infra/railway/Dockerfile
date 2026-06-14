@@ -25,7 +25,8 @@ RUN pip install --upgrade pip && \
     done
 
 COPY infra/railway/start.sh /app/start.sh
-RUN chmod +x /app/start.sh
+# Strip any CR (Windows checkout) so the Linux shell can run the script.
+RUN sed -i 's/\r$//' /app/start.sh && chmod +x /app/start.sh
 
 # Gateway listens here by default; Railway overrides with its own $PORT.
 ENV PORT=8060
