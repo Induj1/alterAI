@@ -107,6 +107,22 @@ ThemeData buildAlterTheme(bool light) {
     brightness: light ? Brightness.light : Brightness.dark,
   );
   final fg = light ? const Color(0xFF18131F) : Colors.white;
+  // Manrope for body/UI, Space Grotesk for display + headlines — the same
+  // typographic split as the reference design (see AppText). Applied globally
+  // so every screen's headings match without per-screen edits.
+  final manrope = GoogleFonts.manropeTextTheme(
+    base.textTheme,
+  ).apply(bodyColor: fg, displayColor: fg);
+  final display = GoogleFonts.spaceGroteskTextTheme(base.textTheme)
+      .apply(bodyColor: fg, displayColor: fg);
+  final textTheme = manrope.copyWith(
+    displayLarge: display.displayLarge?.copyWith(letterSpacing: -0.5),
+    displayMedium: display.displayMedium?.copyWith(letterSpacing: -0.5),
+    displaySmall: display.displaySmall?.copyWith(letterSpacing: -0.4),
+    headlineLarge: display.headlineLarge?.copyWith(letterSpacing: -0.4),
+    headlineMedium: display.headlineMedium?.copyWith(letterSpacing: -0.3),
+    headlineSmall: display.headlineSmall?.copyWith(letterSpacing: -0.2),
+  );
   return base.copyWith(
     scaffoldBackgroundColor: AppColors.screenBase,
     colorScheme: base.colorScheme.copyWith(
@@ -114,9 +130,7 @@ ThemeData buildAlterTheme(bool light) {
       secondary: AppColors.purpleLight,
       surface: AppColors.screenBase,
     ),
-    textTheme: GoogleFonts.manropeTextTheme(
-      base.textTheme,
-    ).apply(bodyColor: fg, displayColor: fg),
+    textTheme: textTheme,
     splashFactory: InkRipple.splashFactory,
   );
 }
