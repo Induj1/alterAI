@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../backend/application/backend_config_controller.dart';
+import '../../home/presentation/main_shell.dart';
 import '../../voice/application/native_wake_service_controller.dart';
 import '../application/agent_controller.dart';
 import '../application/agent_execution_runtime.dart';
@@ -288,6 +290,11 @@ class _Header extends StatelessWidget {
         const Text('voice',
             style: TextStyle(color: _textLo, fontSize: 12, letterSpacing: 1)),
         const Spacer(),
+        _GhostIconButton(
+          icon: Icons.apps,
+          tooltip: 'All screens',
+          onTap: () => _showNavSheet(context),
+        ),
         _GhostIconButton(
           icon: sarvamOn ? LucideIcons.square : LucideIcons.audio_lines,
           tint: sarvamOn ? _pink : _cyan,
@@ -1113,6 +1120,103 @@ class _NudgeCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// App menu opened from the voice screen so every screen (NFC, Graph, Twin,
+/// Memory, etc.) is reachable — the bottom nav shell isn't wired into routing.
+void _showNavSheet(BuildContext context) {
+  showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: _panel,
+    showDragHandle: true,
+    isScrollControlled: true,
+    builder: (sheetContext) {
+      return SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Padding(
+                padding: EdgeInsets.only(left: 4, bottom: 10),
+                child: Text(
+                  'Go to a screen',
+                  style: TextStyle(
+                    color: _textHi,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+              Flexible(
+                child: GridView.count(
+                  shrinkWrap: true,
+                  crossAxisCount: 4,
+                  mainAxisSpacing: 14,
+                  crossAxisSpacing: 10,
+                  childAspectRatio: 0.82,
+                  children: [
+                    for (final d in MainShell.destinations)
+                      _NavTile(
+                        label: d.label,
+                        icon: d.icon,
+                        onTap: () {
+                          Navigator.of(sheetContext).pop();
+                          context.push(d.path);
+                        },
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
+
+class _NavTile extends StatelessWidget {
+  const _NavTile({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: onTap,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: _bg,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _lime.withValues(alpha: 0.16)),
+            ),
+            child: Icon(icon, color: _lime, size: 20),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: _textLo, fontSize: 11),
+          ),
+        ],
       ),
     );
   }

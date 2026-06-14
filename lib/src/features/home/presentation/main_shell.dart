@@ -42,6 +42,14 @@ class MainShell extends StatelessWidget {
     _NavItem('/settings', 'Settings', LucideIcons.settings),
   ];
 
+  /// Public, type-safe view of the destinations so other surfaces (e.g. the
+  /// voice screen's app menu) can navigate without depending on the private
+  /// nav-item type.
+  static List<({String path, String label, IconData icon})> get destinations =>
+      items
+          .map((e) => (path: e.path, label: e.label, icon: e.icon))
+          .toList();
+
   @override
   Widget build(BuildContext context) {
     final expanded = context.isExpanded;
