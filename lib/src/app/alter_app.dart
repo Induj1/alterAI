@@ -24,7 +24,17 @@ class AlterApp extends ConsumerWidget {
         // which paints a yellow underline under every line of text.
         builder: (context, child) => Material(
           type: MaterialType.transparency,
-          child: child ?? const SizedBox.shrink(),
+          child: DefaultTextStyle.merge(
+            // Force decoration off for the whole app. Text rendered without a
+            // Material/DefaultTextStyle ancestor (e.g. the agent screen's hero
+            // wordmark) otherwise inherits Flutter's fallback style, which
+            // paints a yellow underline under every line.
+            style: const TextStyle(
+              decoration: TextDecoration.none,
+              decorationColor: Color(0x00000000),
+            ),
+            child: child ?? const SizedBox.shrink(),
+          ),
         ),
       ),
     );
