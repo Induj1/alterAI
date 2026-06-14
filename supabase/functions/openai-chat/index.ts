@@ -222,8 +222,20 @@ Deno.serve(async (req) => {
     if (body.tool_choice) payload.tool_choice = body.tool_choice;
   }
 
-  const chatRes = await callChat(chatUrl, apiKey, payload);
-  const resBody = await chatRes.json().catch(() => null);
+  let chatRes = await callChat(chatUrl, apiKey, payload);
+  let resBody = await chatRes.json().catch(() => null);
+
+  // Groq sometimes 400s on its OWN malformed or hallucinated tool calls
+  // ("failed_generation", or 'tool "x" was not in request.tools'). Rather than
+  // surface a scary error, retry once as a plain completion (no tools) so the
+  // user still gets a natural-language answer.
+  if (!chatRes.ok && payload.tools) {
+    const retry: Record<string, unknown> = { ...payload };
+    delete retry.tools;
+    delete retry.tool_choice;
+    chatRes = await callChat(chatUrl, apiKey, retry);
+    resBody = await chatRes.json().catch(() => null);
+  }
 
   if (!chatRes.ok) {
     const msg =
