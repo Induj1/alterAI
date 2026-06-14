@@ -15,6 +15,8 @@ import '../../contextos/application/memory_engine.dart';
 import '../../contextos/application/openclaw_adapter.dart';
 import '../../contextos/domain/contextos_models.dart';
 import '../../device_control/application/phone_control_controller.dart';
+import '../../feedback/application/feedback_log.dart';
+import '../../feedback/domain/feedback_event.dart';
 import '../../social/application/social_graph_service.dart';
 import '../data/device_actions.dart';
 import 'agent_execution_runtime.dart';
@@ -241,6 +243,49 @@ const kAgentTools = <Map<String, dynamic>>[
           },
         },
         'required': ['what', 'result'],
+      },
+    },
+  },
+  {
+    'type': 'function',
+    'function': {
+      'name': 'record_feedback',
+      'description':
+          'Log the user\'s explicit feedback on a decision/suggestion so ALTER '
+              'learns their preferences over time (stored locally + as memory). '
+              'Use when they accept/reject/postpone/complete/regret something or '
+              'rate it, or say it worked/failed.',
+      'parameters': {
+        'type': 'object',
+        'properties': {
+          'decision': {
+            'type': 'string',
+            'description': 'What decision or suggestion this is about.'
+          },
+          'kind': {
+            'type': 'string',
+            'enum': [
+              'accepted',
+              'rejected',
+              'postponed',
+              'completed',
+              'regretted'
+            ],
+          },
+          'outcome': {
+            'type': 'string',
+            'enum': ['positive', 'negative', 'neutral', 'unknown'],
+          },
+          'rating': {
+            'type': 'integer',
+            'description': '1–5 satisfaction, optional.'
+          },
+          'note': {
+            'type': 'string',
+            'description': 'Detail or follow-through evidence, optional.'
+          },
+        },
+        'required': ['decision', 'kind'],
       },
     },
   },
@@ -650,6 +695,7 @@ String agentToolLabel(String name) => switch (name) {
       'find_intro' => 'Finding warm intros…',
       'decision_dna' => 'Reading your Decision DNA…',
       'log_outcome' => 'Recording outcome…',
+      'record_feedback' => 'Logging feedback…',
       'translate_text' => 'Translating…',
       'recall_memory' => 'Recalling memory…',
       'trust_source' => 'Trusting source…',
@@ -922,6 +968,28 @@ Future<String> executeAgentTool(
             summary: 'Outcome: ${s('result')}',
           );
       return 'Logged. ALTER will factor this into your Decision DNA.';
+    case 'record_feedback':
+      {
+        final kind = feedbackKindFromString(s('kind'));
+        final event = FeedbackEvent(
+          id: DateTime.now().microsecondsSinceEpoch.toString(),
+          decision: s('decision'),
+          kind: kind,
+          outcome: valenceFromString(s('outcome')),
+          rating: int.tryParse(s('rating')),
+          note: s('note'),
+          at: DateTime.now(),
+        );
+        await ref.read(feedbackLogProvider.notifier).record(event);
+        await ref.read(persistentIntelligenceStoreProvider.notifier).addMemory(
+              source: 'feedback',
+              title: '${kind.name}: ${s('decision')}',
+              summary: s('note').isEmpty
+                  ? 'Feedback recorded (${kind.name}).'
+                  : s('note'),
+            );
+        return 'Logged your feedback (${kind.name}) on "${s('decision')}".';
+      }
     case 'translate_text':
       {
         final cfg = await ref.read(backendConfigProvider.future);

@@ -1,6 +1,26 @@
 # ALTER
 
-ALTER is a mobile-first Flutter application for a voice-first AI Future Operating System.
+ALTER is a **mobile-first personal AI decision-intelligence platform** for
+general users. It helps people make high-impact life and work decisions by
+combining personal memory, future simulation, multi-agent reasoning, opportunity
+discovery, relationship/context intelligence, and outcome feedback.
+
+> **How personalization works (honest):** ALTER personalizes through
+> **local/private memory + retrieval + preference signals + outcome feedback** —
+> *not* per-user fine-tuning, and *not* reinforcement learning. No private user
+> memory is stored in model weights. Feedback is logged as typed events that
+> *prepare* for future preference learning / contextual bandits; nothing trains
+> on a learned policy today.
+
+## Architecture (mobile-first hybrid)
+
+The phone owns private, fast, local context; the cloud handles deep reasoning.
+Local memory is **encrypted at rest** (AES-256-GCM, key in the platform
+keystore) and retrieval runs on-device, falling back gracefully when cloud AI is
+unavailable. Only the minimum needed context — redacted and length-capped —
+leaves the device for cloud reasoning (Clone Council, future simulation,
+opportunity engine). See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the
+current-vs-target design and remaining work.
 
 ## Stack
 

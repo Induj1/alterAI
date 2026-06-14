@@ -6,6 +6,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
 import '../../backend/application/backend_config_controller.dart';
+import '../../privacy/data/context_privacy_filter.dart';
 import '../../profile/application/profile_provider.dart';
 import '../../voice/data/native_audio_capture.dart';
 import '../../voice/data/sarvam_live_voice_client.dart';
@@ -577,11 +578,15 @@ class AgentController extends Notifier<AgentState> {
       final lines = picked
           .map((m) => '- [${m.source}] ${m.title}: ${m.summary}')
           .join('\n');
-      return '${who}Recent things ALTER has learned about this user from their '
-          'phone and conversations:\n$lines\n'
-          'Use this to make your answer personal and tailored to THIS person and '
-          'their situation. Reference what you know when relevant; never invent '
-          'facts not listed here.';
+      // Privacy + context budget: redact obvious PII and cap length before this
+      // personal context leaves the device for cloud reasoning.
+      return const ContextPrivacyFilter().filter(
+        '${who}Recent things ALTER has learned about this user from their '
+        'phone and conversations:\n$lines\n'
+        'Use this to make your answer personal and tailored to THIS person and '
+        'their situation. Reference what you know when relevant; never invent '
+        'facts not listed here.',
+      );
     } catch (_) {
       return '';
     }
