@@ -91,6 +91,47 @@ class MainActivity : FlutterActivity() {
             CalendarReader.handle(this, call, result)
         }
 
+        MethodChannel(messenger, BUBBLE_CHANNEL).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "isOverlayGranted" -> result.success(Settings.canDrawOverlays(this))
+                "isRunning" -> result.success(AlterBubbleService.active)
+                "requestOverlay" -> {
+                    try {
+                        startActivity(
+                            Intent(
+                                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                Uri.parse("package:$packageName"),
+                            ),
+                        )
+                    } catch (_: Throwable) {
+                    }
+                    result.success(Settings.canDrawOverlays(this))
+                }
+                "start" -> {
+                    if (!Settings.canDrawOverlays(this)) {
+                        result.success(false)
+                        return@setMethodCallHandler
+                    }
+                    val intent = Intent(this, AlterBubbleService::class.java)
+                        .setAction(AlterBubbleService.ACTION_START)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        startForegroundService(intent)
+                    } else {
+                        startService(intent)
+                    }
+                    result.success(true)
+                }
+                "stop" -> {
+                    startService(
+                        Intent(this, AlterBubbleService::class.java)
+                            .setAction(AlterBubbleService.ACTION_STOP),
+                    )
+                    result.success(true)
+                }
+                else -> result.notImplemented()
+            }
+        }
+
         MethodChannel(messenger, PERMISSIONS_CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
                 "getPermissionStatuses" -> result.success(permissionStatuses())
@@ -318,6 +359,7 @@ class MainActivity : FlutterActivity() {
         private const val AUDIO_CAPTURE_CHANNEL = "alter.ai/audio_capture"
         private const val NFC_HCE_CHANNEL = "alter.ai/nfc_hce"
         private const val CALENDAR_CHANNEL = "alter.ai/calendar"
+        private const val BUBBLE_CHANNEL = "alter.ai/bubble"
         private const val PERMISSIONS_CHANNEL = "alter.ai/permissions"
         private const val WAKE_PERMISSION_REQUEST = 9124
         private const val HUB_PERMISSION_REQUEST = 9125

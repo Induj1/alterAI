@@ -9,6 +9,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../backend/application/backend_config_controller.dart';
 import '../../home/presentation/main_shell.dart';
+import '../../summon/bubble_bridge.dart';
 import '../../voice/application/native_wake_service_controller.dart';
 import '../application/agent_controller.dart';
 import '../application/agent_execution_runtime.dart';
@@ -1141,6 +1142,7 @@ void _showNavSheet(BuildContext context) {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              const _BubbleToggle(),
               const Padding(
                 padding: EdgeInsets.only(left: 4, bottom: 10),
                 child: Text(
@@ -1217,6 +1219,124 @@ class _NavTile extends StatelessWidget {
             style: const TextStyle(color: _textLo, fontSize: 11),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// "Summon from anywhere" — toggles the native floating-bubble overlay so ALTER
+/// can be opened over any app, system-assistant style.
+class _BubbleToggle extends StatefulWidget {
+  const _BubbleToggle();
+
+  @override
+  State<_BubbleToggle> createState() => _BubbleToggleState();
+}
+
+class _BubbleToggleState extends State<_BubbleToggle> {
+  static const _bridge = BubbleBridge();
+  bool _running = false;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _refresh();
+  }
+
+  Future<void> _refresh() async {
+    final running = await _bridge.isRunning();
+    if (mounted) setState(() => _running = running);
+  }
+
+  Future<void> _toggle() async {
+    setState(() => _busy = true);
+    try {
+      if (_running) {
+        await _bridge.stop();
+      } else if (!await _bridge.isOverlayGranted()) {
+        await _bridge.requestOverlay();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Allow "display over other apps" for ALTER, then tap again.',
+              ),
+            ),
+          );
+        }
+      } else {
+        await _bridge.start();
+      }
+      await _refresh();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: _busy ? null : _toggle,
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          margin: const EdgeInsets.only(bottom: 14),
+          decoration: BoxDecoration(
+            color: _panel,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: _lime.withValues(alpha: _running ? 0.45 : 0.16),
+            ),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.bubble_chart, color: _lime, size: 22),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _running
+                          ? 'Floating bubble is ON'
+                          : 'Summon from anywhere',
+                      style: const TextStyle(
+                        color: _textHi,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    const Text(
+                      'A draggable bubble that opens ALTER over any app',
+                      style: TextStyle(color: _textLo, fontSize: 11),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              if (_busy)
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: _lime),
+                )
+              else
+                Text(
+                  _running ? 'Turn off' : 'Turn on',
+                  style: const TextStyle(
+                    color: _lime,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12,
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }
