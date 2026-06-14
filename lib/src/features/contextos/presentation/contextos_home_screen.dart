@@ -124,7 +124,7 @@ class ContextOsHomeScreen extends ConsumerWidget {
       'The whole loop',
       LucideIcons.command,
       AlterPalette.iris,
-      '/officekit',
+      '/mission',
     ),
     _Mode(
       'Privacy',

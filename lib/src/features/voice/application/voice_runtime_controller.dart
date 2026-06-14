@@ -161,9 +161,9 @@ Analyze the voice command and respond ONLY with valid JSON (no markdown fences, 
   "next_actions": ["action 1", "action 2", "action 3"],
   "follow_up_questions": ["question 1", "question 2"],
   "signals": [
-    {"title": "Memory", "status": "ok", "summary": "Available context checked", "latency_ms": 38},
-    {"title": "Reasoning", "status": "ok", "summary": "Command analysis complete", "latency_ms": 195},
-    {"title": "Profile", "status": "ok", "summary": "Profile fields used only if provided", "latency_ms": 12}
+    {"title": "Memory", "status": "ok", "summary": "Available context checked"},
+    {"title": "Reasoning", "status": "ok", "summary": "Command analysis complete"},
+    {"title": "Profile", "status": "ok", "summary": "Profile fields used only if provided"}
   ]
 }''';
   }

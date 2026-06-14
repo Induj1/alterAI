@@ -75,7 +75,9 @@ class SocialGraphScreen extends ConsumerWidget {
                 padding: EdgeInsets.zero,
                 child: SizedBox(
                   height: context.isCompact ? 280 : 340,
-                  child: const _GraphView(),
+                  child: _GraphView(
+                    nodeCount: contacts.asData?.value.length ?? 0,
+                  ),
                 ),
               ),
               MetricTile(
@@ -84,10 +86,15 @@ class SocialGraphScreen extends ConsumerWidget {
                 icon: LucideIcons.network,
                 accent: AlterPalette.iris,
               ),
-              const MetricTile(
-                label: 'NFC exchanges',
-                value: '--',
-                icon: LucideIcons.nfc,
+              MetricTile(
+                label: 'Strong ties',
+                value: contacts.asData?.value == null
+                    ? '--'
+                    : contacts.asData!.value
+                        .where((c) => c.strength >= 0.6)
+                        .length
+                        .toString(),
+                icon: LucideIcons.zap,
                 accent: AlterPalette.cyan,
               ),
               GlassPanel(
@@ -409,12 +416,14 @@ class _AddContactDialogState extends State<_AddContactDialog> {
 }
 
 class _GraphView extends StatelessWidget {
-  const _GraphView();
+  const _GraphView({required this.nodeCount});
+
+  final int nodeCount;
 
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
-      painter: _GraphPainter(),
+      painter: _GraphPainter(nodeCount: nodeCount),
       child: Center(
         child: DecoratedBox(
           decoration: BoxDecoration(
@@ -433,12 +442,21 @@ class _GraphView extends StatelessWidget {
 }
 
 class _GraphPainter extends CustomPainter {
+  _GraphPainter({required this.nodeCount});
+
+  /// One orbiting node per real contact (capped) so the graphic reflects the
+  /// actual network rather than a fixed decorative count.
+  final int nodeCount;
+
   @override
   void paint(Canvas canvas, Size size) {
+    final count = nodeCount.clamp(0, 12);
+    if (count == 0) return; // no contacts yet — just the centre node (child)
+
     final center = Offset(size.width / 2, size.height / 2);
     final radius = math.min(size.width, size.height) * 0.34;
-    final nodes = List<Offset>.generate(8, (index) {
-      final angle = (math.pi * 2 / 8) * index - math.pi / 2;
+    final nodes = List<Offset>.generate(count, (index) {
+      final angle = (math.pi * 2 / count) * index - math.pi / 2;
       final jitter = index.isEven ? 0.82 : 1.08;
       return Offset(
         center.dx + math.cos(angle) * radius * jitter,
@@ -453,8 +471,10 @@ class _GraphPainter extends CustomPainter {
     for (final node in nodes) {
       canvas.drawLine(center, node, linePaint);
     }
-    for (var i = 0; i < nodes.length; i += 2) {
-      canvas.drawLine(nodes[i], nodes[(i + 3) % nodes.length], linePaint);
+    if (nodes.length >= 4) {
+      for (var i = 0; i < nodes.length; i += 2) {
+        canvas.drawLine(nodes[i], nodes[(i + 3) % nodes.length], linePaint);
+      }
     }
     for (final node in nodes) {
       canvas.drawCircle(
@@ -467,7 +487,8 @@ class _GraphPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _GraphPainter oldDelegate) =>
+      oldDelegate.nodeCount != nodeCount;
 }
 
 class _ContactCard extends StatelessWidget {
