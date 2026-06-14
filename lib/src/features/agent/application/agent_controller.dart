@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -70,10 +71,17 @@ class AgentController extends Notifier<AgentState> {
   final SpeechToText _stt = SpeechToText();
   bool _sttReady = false;
 
+  bool _speaking = false;
+  Timer? _captureTimer;
+  List<Map<String, dynamic>> _recallPrefix = const [];
+
   @override
   AgentState build() {
     _api.add({'role': 'system', 'content': _systemPrompt()});
+    _tts.awaitSpeakCompletion(true);
     ref.onDispose(() {
+      _speaking = false;
+      _captureTimer?.cancel();
       _tts.stop();
       _audio.cancelRecording();
       _audio.stopPlayback();
@@ -90,42 +98,174 @@ class AgentController extends Notifier<AgentState> {
     );
   }
 
-  // --- Voice in ---
+  // --- Voice in (record → cloud transcribe; far better than on-device STT) ---
+  /// The mic button: start capturing, or stop + transcribe if already capturing.
+  /// Capture records the FULL utterance and only stops when you tap again (or,
+  /// for a wake, after a max window) — so it never cuts you off mid-sentence,
+  /// and a cloud model (Sarvam) transcribes it for real accuracy. The on-device
+  /// recognizer is used only as an offline fallback.
   Future<void> toggleListening() async {
-    if (state.isListening) {
-      await _stt.stop();
-      state = state.copyWith(isListening: false);
+    if (state.isSarvamRecording) {
+      await _stopCloudCaptureAndSend();
       return;
     }
+    if (state.isListening) {
+      stopListening();
+      return;
+    }
+    await _startCapture(interrupt: true);
+  }
+
+  void stopListening() {
+    _captureTimer?.cancel();
+    _stt.stop();
+    _audio.cancelRecording();
+    state = state.copyWith(
+      isListening: false,
+      isSarvamRecording: false,
+      partial: '',
+      liveVoiceStatus: '',
+    );
+  }
+
+  /// "Hey ALTER" wake entry point. Only fires when fully idle, so it can never
+  /// talk over ALTER or start a runaway capture.
+  Future<void> startListeningFromWake() async {
+    if (_speaking ||
+        state.isThinking ||
+        state.isListening ||
+        state.isSarvamRecording) {
+      return;
+    }
+    await _startCapture(fromWake: true);
+  }
+
+  /// Begin a capture. Prefers cloud record→transcribe (accurate, no cutoff);
+  /// falls back to the on-device recognizer only when no gateway is reachable.
+  Future<void> _startCapture({
+    bool interrupt = false,
+    bool fromWake = false,
+  }) async {
+    if (state.isThinking || state.isListening || state.isSarvamRecording) {
+      return;
+    }
+    if (_speaking && !interrupt) return; // never cut ALTER off on a wake
+    _speaking = false;
+    await _tts.stop();
+    await _audio.stopPlayback();
+
+    final config = await ref.read(backendConfigProvider.future);
+    if (config.hasGateway) {
+      final started = await _audio.startRecording();
+      if (started.ok) {
+        state = state.copyWith(
+          isSarvamRecording: true,
+          isListening: true,
+          partial: '',
+          error: '',
+          liveVoiceStatus: 'Listening… tap to send',
+        );
+        if (fromWake) {
+          // Hands-free has no "tap to stop", so cap the recording window.
+          _captureTimer?.cancel();
+          _captureTimer = Timer(const Duration(seconds: 12), () {
+            if (state.isSarvamRecording) _stopCloudCaptureAndSend();
+          });
+        }
+        return;
+      }
+      // Recording couldn't start — fall through to the native recognizer.
+    }
+    await _listenNative();
+  }
+
+  /// Stop the cloud recording, transcribe it, and hand the text to the agent.
+  Future<void> _stopCloudCaptureAndSend() async {
+    _captureTimer?.cancel();
+    state = state.copyWith(
+      isSarvamRecording: false,
+      isListening: false,
+      liveVoiceStatus: 'Transcribing…',
+    );
+    final captured = await _audio.stopRecording();
+    if (!captured.ok || captured.audioBase64.isEmpty) {
+      state = state.copyWith(error: captured.message, liveVoiceStatus: '');
+      return;
+    }
+    await _transcribeAndSend(captured);
+  }
+
+  /// Send captured audio to the backend speech stack and dispatch the
+  /// transcript to the conversation.
+  Future<void> _transcribeAndSend(NativeAudioCaptureResult captured) async {
+    try {
+      final config = await ref.read(backendConfigProvider.future);
+      if (!config.hasGateway) {
+        state = state.copyWith(
+          error: 'Connect a backend gateway to use voice.',
+          liveVoiceStatus: '',
+        );
+        return;
+      }
+      final client = SarvamLiveVoiceClient(baseUrl: config.gatewayUrl);
+      final stt = await client.transcribe(captured);
+      client.close();
+      final text = stt.transcript.trim();
+      if (text.isEmpty) {
+        state = state.copyWith(
+          error: stt.error.isNotEmpty
+              ? stt.error
+              : 'Didn\'t catch that — tap the mic and try again.',
+          liveVoiceStatus: '',
+        );
+        return;
+      }
+      state = state.copyWith(liveVoiceStatus: '');
+      await send(text);
+    } catch (error) {
+      state = state.copyWith(
+        error: error.toString().replaceFirst('Exception: ', ''),
+        liveVoiceStatus: '',
+      );
+    }
+  }
+
+  /// On-device fallback recognizer — used only when no gateway is reachable.
+  Future<void> _listenNative() async {
     _sttReady =
         _sttReady ||
         await _stt.initialize(
-          onError: (_) {},
+          onError: (_) {
+            if (state.isListening) {
+              state = state.copyWith(isListening: false, partial: '');
+            }
+          },
           onStatus: (s) {
-            if (s == 'done' || s == 'notListening') {
+            if ((s == 'done' || s == 'notListening') && state.isListening) {
               state = state.copyWith(isListening: false);
             }
           },
         );
     if (!_sttReady) {
       state = state.copyWith(
-        error: 'Speech recognition unavailable. Type instead.',
+        error: 'Microphone unavailable. Type to ALTER instead.',
+        isListening: false,
       );
       return;
     }
-    await _tts.stop();
     state = state.copyWith(isListening: true, partial: '', error: '');
     await _stt.listen(
       listenOptions: SpeechListenOptions(
         listenFor: const Duration(seconds: 20),
-        pauseFor: const Duration(seconds: 3),
+        pauseFor: const Duration(seconds: 4),
         partialResults: true,
       ),
       onResult: (r) {
         state = state.copyWith(partial: r.recognizedWords);
-        if (r.finalResult && r.recognizedWords.trim().isNotEmpty) {
+        if (r.finalResult) {
+          final words = r.recognizedWords.trim();
           state = state.copyWith(isListening: false, partial: '');
-          send(r.recognizedWords);
+          if (words.isNotEmpty) send(words);
         }
       },
     );
@@ -171,12 +311,13 @@ class AgentController extends Notifier<AgentState> {
           summary: 'User message sent to ALTER.',
         );
     _api.add({'role': 'user', 'content': input});
+    await _loadRecall(input); // pull the user's twin memory into this turn
     state = state.copyWith(isThinking: true, error: '');
 
     try {
       for (var i = 0; i < 6; i++) {
         final resp = await openai.chatWithTools(
-          messages: List<Map<String, dynamic>>.from(_api),
+          messages: _withRecall(),
           tools: kAgentTools,
         );
         final content = (resp['content'] ?? '').toString();
@@ -207,7 +348,16 @@ class AgentController extends Notifier<AgentState> {
               pending: true,
             );
             _appendMessage(toolMsg);
-            final result = await executeAgentTool(ref, name, args);
+            String result;
+            try {
+              result = await executeAgentTool(ref, name, args);
+            } catch (e) {
+              // A tool failing must NEVER leave a dangling tool_call: OpenAI
+              // rejects the next turn ("tool_calls must be followed by tool
+              // messages") and the whole chat wedges. Always record a response.
+              result =
+                  'Tool failed: ${e.toString().replaceFirst('Exception: ', '')}';
+            }
             toolMsg.text = result;
             toolMsg.pending = false;
             _bump();
@@ -235,13 +385,20 @@ class AgentController extends Notifier<AgentState> {
 
   Future<void> _speak(String text) async {
     if (text.trim().isEmpty) return;
-    final spokeWithSarvam = await _speakWithSarvam(text);
-    if (spokeWithSarvam) return;
+    // Mark "speaking" for the whole spoken duration so a "Hey ALTER" wake can't
+    // open the mic and cut ALTER off. (awaitSpeakCompletion + the Sarvam
+    // duration block keep these awaits open until playback actually finishes.)
+    _speaking = true;
     try {
+      final spokeWithSarvam = await _speakWithSarvam(text);
+      if (spokeWithSarvam) return;
       await _tts.setLanguage('en-US');
       await _tts.setSpeechRate(0.52);
       await _tts.speak(text);
-    } catch (_) {}
+    } catch (_) {
+    } finally {
+      _speaking = false;
+    }
   }
 
   Future<bool> _speakWithSarvam(String text) async {
@@ -255,80 +412,26 @@ class AgentController extends Notifier<AgentState> {
       );
       client.close();
       if (tts.audioBase64.isEmpty || tts.fallback) return false;
+      final sw = Stopwatch()..start();
       final playback = await _audio.playAudioBase64(
         audioBase64: tts.audioBase64,
         filename: 'alter_sarvam_tts.wav',
       );
-      return playback.ok;
+      if (!playback.ok) return false;
+      // Block until playback actually finishes so hands-free won't hear itself.
+      final remaining = playback.durationMs - sw.elapsedMilliseconds;
+      if (remaining > 0) {
+        await Future<void>.delayed(Duration(milliseconds: remaining + 150));
+      }
+      return true;
     } catch (_) {
       return false;
     }
   }
 
-  Future<void> toggleSarvamLiveVoice() async {
-    if (state.isThinking) return;
-    if (!state.isSarvamRecording) {
-      await _tts.stop();
-      await _audio.stopPlayback();
-      final started = await _audio.startRecording();
-      state = state.copyWith(
-        isSarvamRecording: started.ok,
-        liveVoiceStatus: started.message,
-        error: started.ok ? '' : started.message,
-      );
-      return;
-    }
-
-    state = state.copyWith(
-      isSarvamRecording: false,
-      liveVoiceStatus: 'Transcribing with backend speech stack...',
-    );
-    final captured = await _audio.stopRecording();
-    if (!captured.ok || captured.audioBase64.isEmpty) {
-      state = state.copyWith(error: captured.message, liveVoiceStatus: '');
-      return;
-    }
-
-    try {
-      final config = await ref.read(backendConfigProvider.future);
-      if (!config.hasGateway) {
-        state = state.copyWith(
-          error: 'Save a backend gateway URL before using Sarvam live voice.',
-          liveVoiceStatus: '',
-        );
-        return;
-      }
-      final client = SarvamLiveVoiceClient(baseUrl: config.gatewayUrl);
-      final stt = await client.transcribe(captured);
-      client.close();
-      if (stt.transcript.trim().isEmpty) {
-        state = state.copyWith(
-          error: stt.error.isNotEmpty
-              ? stt.error
-              : 'Speech backend returned no transcript.',
-          liveVoiceStatus: '',
-        );
-        return;
-      }
-      state = state.copyWith(
-        liveVoiceStatus: 'Transcribed by ${stt.provider}: ${stt.transcript}',
-      );
-      await ref
-          .read(persistentIntelligenceStoreProvider.notifier)
-          .addMemory(
-            source: 'sarvam_voice',
-            title: stt.transcript,
-            summary: 'Live voice transcript from ${stt.provider}.',
-            metadata: {'language_code': stt.languageCode},
-          );
-      await send(stt.transcript);
-    } catch (error) {
-      state = state.copyWith(
-        error: error.toString().replaceFirst('Exception: ', ''),
-        liveVoiceStatus: '',
-      );
-    }
-  }
+  /// Secondary "Sarvam live voice" control. Now shares the same accurate
+  /// record→transcribe path as the main mic button.
+  Future<void> toggleSarvamLiveVoice() => toggleListening();
 
   void stopSpeaking() {
     _tts.stop();
@@ -368,6 +471,105 @@ class AgentController extends Notifier<AgentState> {
   // Force a state emit after mutating a message in place.
   void _bump() => state = state.copyWith(messages: [...state.messages]);
 
+  // --- Digital twin: retrieve what ALTER has learned about the user ---
+  Future<void> _loadRecall(String query) async {
+    final recall = await _recallContext(query);
+    _recallPrefix = recall.isEmpty
+        ? const []
+        : [
+            <String, dynamic>{'role': 'system', 'content': recall},
+          ];
+  }
+
+  /// Conversation sent to the model = base system + twin recall + history.
+  List<Map<String, dynamic>> _withRecall() {
+    final base = _repaired(_api);
+    if (_recallPrefix.isEmpty || base.isEmpty) {
+      return base;
+    }
+    return [base.first, ..._recallPrefix, ...base.skip(1)];
+  }
+
+  /// OpenAI rejects any assistant `tool_calls` message that isn't followed by a
+  /// `tool` response for every id. If a prior turn ever left a call dangling,
+  /// every subsequent send would 400 forever. Strip dangling calls and orphan
+  /// tool messages so the conversation self-heals instead of staying wedged.
+  List<Map<String, dynamic>> _repaired(List<Map<String, dynamic>> msgs) {
+    final out = <Map<String, dynamic>>[];
+    for (var i = 0; i < msgs.length; i++) {
+      final m = msgs[i];
+      final calls = m['tool_calls'];
+      if (m['role'] == 'assistant' && calls is List && calls.isNotEmpty) {
+        final ids = calls
+            .map((c) => (c as Map)['id']?.toString())
+            .whereType<String>()
+            .toSet();
+        var j = i + 1;
+        final responded = <String>{};
+        while (j < msgs.length && msgs[j]['role'] == 'tool') {
+          final id = msgs[j]['tool_call_id']?.toString();
+          if (id != null) responded.add(id);
+          j++;
+        }
+        if (ids.difference(responded).isEmpty) {
+          out.add(m);
+          for (var k = i + 1; k < j; k++) {
+            out.add(msgs[k]);
+          }
+        } else {
+          // Dangling: keep only the assistant's text, drop the unanswered calls.
+          final content = m['content'];
+          if (content != null && content.toString().trim().isNotEmpty) {
+            out.add({'role': 'assistant', 'content': content});
+          }
+        }
+        i = j - 1;
+      } else if (m['role'] == 'tool') {
+        // Orphan tool message with no matching assistant call — drop it.
+        continue;
+      } else {
+        out.add(m);
+      }
+    }
+    return out;
+  }
+
+  Future<String> _recallContext(String query) async {
+    try {
+      final store = ref.read(persistentIntelligenceStoreProvider.notifier);
+      final recent = await store.searchMemory('');
+      final relevant = query.trim().isEmpty
+          ? const <TwinMemoryRecord>[]
+          : await store.searchMemory(query);
+      final seen = <String>{};
+      final picked = <TwinMemoryRecord>[];
+      for (final m in [...relevant, ...recent]) {
+        final key = '${m.source}|${m.title}';
+        if (m.title.isEmpty || !seen.add(key)) continue;
+        picked.add(m);
+        if (picked.length >= 8) break;
+      }
+      final profile = ref.read(userProfileProvider).asData?.value;
+      final who = (profile == null || profile.displayName.isEmpty)
+          ? ''
+          : 'About the user — name: ${profile.displayName}'
+                '${profile.role.isNotEmpty ? ', role: ${profile.role}' : ''}'
+                '${profile.goals.isNotEmpty ? '; goals: ${profile.goals.join(', ')}' : ''}'
+                '${profile.skills.isNotEmpty ? '; skills: ${profile.skills.join(', ')}' : ''}.\n';
+      if (picked.isEmpty && who.isEmpty) return '';
+      final lines = picked
+          .map((m) => '- [${m.source}] ${m.title}: ${m.summary}')
+          .join('\n');
+      return '${who}Recent things ALTER has learned about this user from their '
+          'phone and conversations:\n$lines\n'
+          'Use this to make your answer personal and tailored to THIS person and '
+          'their situation. Reference what you know when relevant; never invent '
+          'facts not listed here.';
+    } catch (_) {
+      return '';
+    }
+  }
+
   String _systemPrompt() {
     final profile = ref.read(userProfileProvider).asData?.value;
     final who = profile == null || profile.displayName.isEmpty
@@ -377,6 +579,11 @@ class AgentController extends Notifier<AgentState> {
     return 'You are ALTER, a proactive voice assistant living on the user\'s '
         'iQOO phone. ${who}You converse naturally and briefly — your replies are '
         'spoken aloud, so keep them short, warm, and clear. '
+        'You build a private on-device memory of THIS person over time — their '
+        'messages, notifications, decisions and habits. Relevant memory is given '
+        'to you each turn under "About the user"/"Recent things ALTER has '
+        'learned"; treat it as ground truth and tailor every answer to them '
+        'specifically, like you genuinely know them. '
         'When the user asks you to DO something, USE A TOOL rather than just '
         'describing it. You can: check safety of a message/link/payment, plan '
         'the day, weigh a decision, convene a 5-voice council, call a number, '

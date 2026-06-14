@@ -90,6 +90,13 @@ class BackendFeatureHubScreen extends ConsumerWidget {
               ),
               const SizedBox(width: 12),
               IconButton.filledTonal(
+                tooltip: 'Set gateway URL',
+                icon: const Icon(LucideIcons.pencil, size: 18),
+                onPressed: () =>
+                    _editGateway(context, ref, config?.gatewayUrl ?? ''),
+              ),
+              const SizedBox(width: 8),
+              IconButton.filledTonal(
                 tooltip: 'Refresh backend',
                 icon: const Icon(LucideIcons.refresh_cw, size: 18),
                 onPressed: () {
@@ -784,6 +791,53 @@ class _InlineNote extends StatelessWidget {
       ),
     );
   }
+}
+
+Future<void> _editGateway(
+  BuildContext context,
+  WidgetRef ref,
+  String current,
+) async {
+  final controller = TextEditingController(text: current);
+  final url = await showDialog<String>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Backend gateway URL'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: controller,
+            autofocus: true,
+            keyboardType: TextInputType.url,
+            decoration: const InputDecoration(
+              hintText: 'https://your-tunnel.trycloudflare.com',
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Point ALTER at your running backend. Cloudflare quick-tunnels '
+            'change URL on restart — paste the new one here if it rotates.',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(height: 1.3),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+          child: const Text('Save'),
+        ),
+      ],
+    ),
+  );
+  if (url == null || url.isEmpty) return;
+  await ref.read(backendConfigProvider.notifier).setGatewayUrl(url);
+  ref.invalidate(backendHealthProvider);
 }
 
 Map<String, String> _statusMap(Map<String, dynamic>? health) {

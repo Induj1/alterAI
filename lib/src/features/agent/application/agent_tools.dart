@@ -1,19 +1,288 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../backend/application/backend_config_controller.dart';
+import '../../backend/application/feature_live_providers.dart';
+import '../../backend/application/life_os_providers.dart';
+import '../../backend/data/backend_api_client.dart';
 import '../../contextos/application/daytwin_controller.dart';
 import '../../contextos/application/decision_council_controller.dart';
+import '../../contextos/application/decision_dna_controller.dart';
 import '../../contextos/application/futuretwin_controller.dart';
 import '../../contextos/application/lifeshield_controller.dart';
+import '../../contextos/application/memory_engine.dart';
 import '../../contextos/application/openclaw_adapter.dart';
 import '../../contextos/domain/contextos_models.dart';
 import '../../device_control/application/phone_control_controller.dart';
+import '../../social/application/social_graph_service.dart';
 import '../data/device_actions.dart';
 import 'agent_execution_runtime.dart';
 import 'notification_monitor.dart';
+import 'persistent_intelligence_store.dart';
 
 /// OpenAI tool schemas the agent can call. Engine tools route to the ContextOS
 /// engines; device tools launch permissioned OS surfaces the user confirms.
 const kAgentTools = <Map<String, dynamic>>[
+  {
+    'type': 'function',
+    'function': {
+      'name': 'find_opportunities',
+      'description':
+          'Find real opportunities (hackathons, internships, grants, open-source, '
+              'roles) matched to the user\'s profile via the Opportunity Radar.',
+      'parameters': {'type': 'object', 'properties': <String, dynamic>{}},
+    },
+  },
+  {
+    'type': 'function',
+    'function': {
+      'name': 'read_life_feed',
+      'description':
+          'Read the user\'s live day feed — greeting, today\'s focus, and the '
+              'tasks that need them. Use for "what\'s on my plate / my day".',
+      'parameters': {'type': 'object', 'properties': <String, dynamic>{}},
+    },
+  },
+  {
+    'type': 'function',
+    'function': {
+      'name': 'mission_briefing',
+      'description':
+          'Get the user\'s cross-device mission briefing for an objective.',
+      'parameters': {
+        'type': 'object',
+        'properties': {
+          'objective': {'type': 'string'}
+        },
+        'required': ['objective'],
+      },
+    },
+  },
+  {
+    'type': 'function',
+    'function': {
+      'name': 'agent_plan',
+      'description':
+          'Build a concrete, step-by-step cross-device action plan for a goal, '
+              'including any policy/safety warnings. Use when the user asks '
+              '"how do I…", "make me a plan to…", or wants ALTER to map out the '
+              'steps to achieve something.',
+      'parameters': {
+        'type': 'object',
+        'properties': {
+          'goal': {'type': 'string', 'description': 'The goal to plan for.'}
+        },
+        'required': ['goal'],
+      },
+    },
+  },
+  {
+    'type': 'function',
+    'function': {
+      'name': 'reputation_score',
+      'description':
+          'Get the user\'s reputation / track-record standing: a trust score, '
+              'strengths, risks, and recommendations from their logged '
+              'follow-through. Use for "what\'s my reputation", "how am I '
+              'doing", "what\'s my track record".',
+      'parameters': {'type': 'object', 'properties': <String, dynamic>{}},
+    },
+  },
+  {
+    'type': 'function',
+    'function': {
+      'name': 'capture_proof',
+      'description':
+          'Record a real achievement or completed milestone as PROOF — it '
+              'writes to the user\'s twin memory, updates their reputation, and '
+              'nudges their Future Twin. Use when the user reports they '
+              'accomplished / shipped / won something. Provide a short title '
+              'and a one-line summary of what they did.',
+      'parameters': {
+        'type': 'object',
+        'properties': {
+          'objective': {
+            'type': 'string',
+            'description': 'What the user set out to do / the achievement headline.'
+          },
+          'title': {
+            'type': 'string',
+            'description': 'Short title for the evidence (e.g. "1st place").'
+          },
+          'summary': {
+            'type': 'string',
+            'description': 'One-line description of what they accomplished.'
+          },
+        },
+        'required': ['objective', 'summary'],
+      },
+    },
+  },
+  {
+    'type': 'function',
+    'function': {
+      'name': 'connect_contacts',
+      'description':
+          'Seed the user\'s ALTER social graph from their phone contacts (one '
+              'time, consent-gated) so warm-intro discovery can work. Use when '
+              'the user says "connect my contacts", "build my network", or asks '
+              'for an intro and has no network yet.',
+      'parameters': {'type': 'object', 'properties': <String, dynamic>{}},
+    },
+  },
+  {
+    'type': 'function',
+    'function': {
+      'name': 'remember_person',
+      'description':
+          'Add a richly-described person to the user\'s network for warm-intro '
+              'discovery. Use when the user tells you about someone they know '
+              '("I know Priya, a senior ML recruiter at Google"). Extract the '
+              'structured fields from their description — especially role, '
+              'organization, and skills, which power discovery.',
+      'parameters': {
+        'type': 'object',
+        'properties': {
+          'name': {'type': 'string', 'description': 'The person\'s name.'},
+          'role': {
+            'type': 'string',
+            'description':
+                'One of: Recruiter, Professor, Founder, Investor, Student.'
+          },
+          'organization': {
+            'type': 'string',
+            'description': 'Company / school they\'re at.'
+          },
+          'headline': {
+            'type': 'string',
+            'description': 'Their title or a one-line description.'
+          },
+          'skills': {
+            'type': 'array',
+            'items': {'type': 'string'},
+            'description': 'Skills / domains they work in.'
+          },
+          'interests': {
+            'type': 'array',
+            'items': {'type': 'string'},
+            'description': 'Their interests, if mentioned.'
+          },
+        },
+        'required': ['name'],
+      },
+    },
+  },
+  {
+    'type': 'function',
+    'function': {
+      'name': 'find_intro',
+      'description':
+          'Find warm intro paths through the user\'s network to recruiters or '
+              'mentors matching what they\'re looking for. Use for "who can '
+              'introduce me to…", "find me a recruiter/mentor for…", "warm '
+              'intro to…". Requires the network to be seeded (connect_contacts).',
+      'parameters': {
+        'type': 'object',
+        'properties': {
+          'looking_for': {
+            'type': 'string',
+            'description':
+                'What/who they want, e.g. "ML recruiters in fintech" or "a '
+                    'product design mentor".'
+          },
+          'kind': {
+            'type': 'string',
+            'enum': ['recruiter', 'mentor'],
+            'description': 'Whether they want a recruiter or a mentor.'
+          },
+        },
+        'required': ['looking_for'],
+      },
+    },
+  },
+  {
+    'type': 'function',
+    'function': {
+      'name': 'decision_dna',
+      'description':
+          'Read what ALTER has learned about how the user decides — their '
+              'follow-through trust score and decision patterns.',
+      'parameters': {'type': 'object', 'properties': <String, dynamic>{}},
+    },
+  },
+  {
+    'type': 'function',
+    'function': {
+      'name': 'log_outcome',
+      'description':
+          'Record how something turned out, so ALTER learns the user\'s '
+              'patterns over time (feeds the twin).',
+      'parameters': {
+        'type': 'object',
+        'properties': {
+          'what': {'type': 'string', 'description': 'What the decision/action was.'},
+          'result': {
+            'type': 'string',
+            'description': 'How it went (worked, failed, regretted, verified safe…).'
+          },
+        },
+        'required': ['what', 'result'],
+      },
+    },
+  },
+  {
+    'type': 'function',
+    'function': {
+      'name': 'translate_text',
+      'description':
+          'Translate text into an Indian language via Sarvam (hi-IN, kn-IN, '
+              'ta-IN, te-IN, ml-IN, mr-IN, gu-IN, pa-IN, bn-IN, en-IN).',
+      'parameters': {
+        'type': 'object',
+        'properties': {
+          'text': {'type': 'string'},
+          'target_language_code': {'type': 'string'},
+        },
+        'required': ['text', 'target_language_code'],
+      },
+    },
+  },
+  {
+    'type': 'function',
+    'function': {
+      'name': 'recall_memory',
+      'description':
+          'Search the user\'s on-device twin memory for what ALTER knows about '
+              'a person, topic, or past event.',
+      'parameters': {
+        'type': 'object',
+        'properties': {
+          'query': {'type': 'string'}
+        },
+        'required': ['query'],
+      },
+    },
+  },
+  {
+    'type': 'function',
+    'function': {
+      'name': 'trust_source',
+      'description':
+          'Mark a sender, domain, or app as trusted so LifeShield stops '
+              'over-warning about it.',
+      'parameters': {
+        'type': 'object',
+        'properties': {
+          'value': {'type': 'string', 'description': 'The contact, domain, or app.'},
+          'type': {
+            'type': 'string',
+            'enum': ['domain', 'contact', 'app']
+          },
+        },
+        'required': ['value'],
+      },
+    },
+  },
   {
     'type': 'function',
     'function': {
@@ -355,6 +624,20 @@ const kAgentTools = <Map<String, dynamic>>[
 
 /// Short human label for a tool, shown as a chip while it runs.
 String agentToolLabel(String name) => switch (name) {
+      'find_opportunities' => 'Scanning opportunities…',
+      'read_life_feed' => 'Reading your day…',
+      'mission_briefing' => 'Building briefing…',
+      'agent_plan' => 'Drafting a plan…',
+      'reputation_score' => 'Checking your standing…',
+      'capture_proof' => 'Capturing proof…',
+      'connect_contacts' => 'Building your network…',
+      'remember_person' => 'Saving to your network…',
+      'find_intro' => 'Finding warm intros…',
+      'decision_dna' => 'Reading your Decision DNA…',
+      'log_outcome' => 'Recording outcome…',
+      'translate_text' => 'Translating…',
+      'recall_memory' => 'Recalling memory…',
+      'trust_source' => 'Trusting source…',
   'find_contact' => 'Looking up contact…',
   'safety_check' => 'Running LifeShield…',
   'plan_day' => 'Modeling your day…',
@@ -389,6 +672,276 @@ Future<String> executeAgentTool(
   String s(String k) => (args[k] ?? '').toString();
 
   switch (name) {
+    case 'find_opportunities':
+      {
+        // Hold a subscription so this autoDispose provider can't self-dispose
+        // during its own network await (which throws "Cannot use the Ref ...
+        // after it has been disposed" and crashes the tool turn).
+        final sub = ref.listen(opportunitiesProvider, (_, _) {});
+        try {
+          final opps = await ref.read(opportunitiesProvider.future);
+          if (opps.isEmpty) {
+            return 'No matched opportunities yet — the user needs skills/goals '
+                'in their profile, or the radar backend is unreachable.';
+          }
+          return opps
+              .take(5)
+              .map((o) =>
+                  '${o.title} (${o.category}, ${(o.score * 100).round()}% match, '
+                  '${o.source}) — ${o.window}')
+              .join(' | ');
+        } finally {
+          sub.close();
+        }
+      }
+    case 'read_life_feed':
+      {
+        final sub = ref.listen(lifeFeedProvider, (_, _) {});
+        Map<String, dynamic>? feed;
+        try {
+          feed = await ref.read(lifeFeedProvider.future);
+        } finally {
+          sub.close();
+        }
+        if (feed == null) {
+          return 'Life feed unavailable — sign in and a reachable backend are needed.';
+        }
+        final tasks = feed['tasks'] is List
+            ? (feed['tasks'] as List)
+            : const <dynamic>[];
+        final taskLine = tasks
+            .whereType<Map<dynamic, dynamic>>()
+            .take(5)
+            .map((t) =>
+                '${t['title']}${t['done'] == true ? ' (done)' : ''}')
+            .join('; ');
+        return '${feed['greeting'] ?? ''} ${feed['date_summary'] ?? ''} '
+            'Focus: ${feed['focus_title'] ?? '—'}. Today: $taskLine';
+      }
+    case 'mission_briefing':
+      {
+        final cfg = await ref.read(backendConfigProvider.future);
+        if (!cfg.hasGateway) return 'No backend gateway configured.';
+        final client = BackendApiClient(baseUrl: cfg.gatewayUrl);
+        try {
+          final body = await client.postJson('/v1/mission/briefing', {
+            'objective': s('objective'),
+            'device_context': 'flutter',
+          });
+          return (body?['command_summary'] ?? 'Briefing ready.').toString();
+        } finally {
+          client.close();
+        }
+      }
+    case 'agent_plan':
+      {
+        final cfg = await ref.read(backendConfigProvider.future);
+        if (!cfg.hasGateway) return 'No backend gateway configured.';
+        final client = BackendApiClient(baseUrl: cfg.gatewayUrl);
+        try {
+          final body = await client.postJson('/v1/agent/plan', {
+            'goal': s('goal'),
+            'autonomy_level': 'confirm_before_act',
+          });
+          if (body == null) return 'Could not build a plan right now.';
+          final steps = (body['steps'] is List ? body['steps'] as List : const <dynamic>[])
+              .whereType<Map<dynamic, dynamic>>()
+              .take(6)
+              .toList();
+          if (steps.isEmpty) {
+            return 'No actionable steps were produced for that goal.';
+          }
+          final lines = <String>[];
+          for (var i = 0; i < steps.length; i++) {
+            lines.add('${i + 1}. ${steps[i]['title']}');
+          }
+          final warns = (body['policy_warnings'] is List
+                  ? body['policy_warnings'] as List
+                  : const <dynamic>[])
+              .map((w) => w.toString())
+              .where((w) => w.isNotEmpty)
+              .toList();
+          final tail = warns.isEmpty
+              ? (body['ready_to_execute'] == true
+                  ? ' Ready to run on your confirmation.'
+                  : '')
+              : ' Heads up: ${warns.join('; ')}.';
+          return 'Plan for "${s('goal')}": ${lines.join('  ')}.$tail';
+        } finally {
+          client.close();
+        }
+      }
+    case 'reputation_score':
+      {
+        final uid = Supabase.instance.client.auth.currentUser?.id;
+        if (uid == null) {
+          return 'Sign in first — reputation is tied to the user\'s account.';
+        }
+        final cfg = await ref.read(backendConfigProvider.future);
+        if (!cfg.hasGateway) return 'No backend gateway configured.';
+        final client = BackendApiClient(baseUrl: cfg.gatewayUrl);
+        try {
+          final body = await client.getJson('/v1/reputation/users/$uid/score');
+          if (body == null) return 'Reputation unavailable right now.';
+          final strengths = (body['strengths'] is List
+                  ? body['strengths'] as List
+                  : const <dynamic>[])
+              .map((e) => e.toString())
+              .take(2)
+              .join('; ');
+          final recs = (body['recommendations'] is List
+                  ? body['recommendations'] as List
+                  : const <dynamic>[])
+              .map((e) => e.toString())
+              .take(2)
+              .join('; ');
+          return 'Reputation ${body['score']}/1000 (${body['trust_level']}). '
+              'Strengths: ${strengths.isEmpty ? '—' : strengths}. '
+              'To improve: ${recs.isEmpty ? '—' : recs}.';
+        } finally {
+          client.close();
+        }
+      }
+    case 'capture_proof':
+      {
+        final cfg = await ref.read(backendConfigProvider.future);
+        if (!cfg.hasGateway) return 'No backend gateway configured.';
+        final client = BackendApiClient(baseUrl: cfg.gatewayUrl);
+        try {
+          final title = s('title').isNotEmpty ? s('title') : s('objective');
+          final body = await client.postJson('/v1/proof/capture', {
+            'objective': s('objective'),
+            'source_surface': 'voice',
+            'evidence': [
+              <String, dynamic>{
+                'evidence_type': 'artifact',
+                'title': title,
+                'summary': s('summary'),
+                'source': 'alter_voice',
+              }
+            ],
+          });
+          if (body == null) return 'Could not capture that proof right now.';
+          final next = (body['next_actions'] is List
+                  ? body['next_actions'] as List
+                  : const <dynamic>[])
+              .map((e) => e.toString())
+              .where((e) => e.isNotEmpty)
+              .take(2)
+              .join('; ');
+          return 'Captured as proof — it\'s now in the user\'s twin memory and '
+              'reputation ledger.${next.isEmpty ? '' : ' Next: $next.'}';
+        } finally {
+          client.close();
+        }
+      }
+    case 'connect_contacts':
+      {
+        final count =
+            await ref.read(socialGraphServiceProvider).importContacts();
+        switch (count) {
+          case -1:
+            return 'Contacts permission was denied, so I couldn\'t build the '
+                'network. Grant Contacts access and try again.';
+          case -2:
+            return 'No backend gateway configured — the social graph lives on '
+                'the backend.';
+          case -3:
+            return 'Couldn\'t anchor your profile in the graph. Sign in and '
+                'fill your profile, then retry.';
+          case 0:
+            return 'No usable contacts found to import.';
+          default:
+            return 'Added you plus $count contacts to your network. Now ask me '
+                'to find a warm intro to a recruiter or mentor.';
+        }
+      }
+    case 'remember_person':
+      {
+        List<String> list(String k) => (args[k] is List)
+            ? (args[k] as List)
+                .map((e) => e.toString().trim())
+                .where((e) => e.isNotEmpty)
+                .toList()
+            : const <String>[];
+        return ref.read(socialGraphServiceProvider).rememberPerson(
+              name: s('name'),
+              role: s('role'),
+              organization: s('organization'),
+              headline: s('headline'),
+              skills: list('skills'),
+              interests: list('interests'),
+            );
+      }
+    case 'find_intro':
+      {
+        final lookingFor = s('looking_for');
+        var kind = s('kind').toLowerCase();
+        if (kind != 'recruiter' && kind != 'mentor') {
+          kind = lookingFor.toLowerCase().contains('mentor')
+              ? 'mentor'
+              : 'recruiter';
+        }
+        final terms = lookingFor
+            .split(RegExp(r'[\s,]+'))
+            .where((w) => w.length >= 3)
+            .toList();
+        if (terms.isEmpty && lookingFor.isNotEmpty) terms.add(lookingFor);
+        return ref
+            .read(socialGraphServiceProvider)
+            .discover(kind: kind, terms: terms);
+      }
+    case 'decision_dna':
+      {
+        final dna = await ref.read(decisionDnaProvider.future);
+        final pats = dna.patterns.take(4).map((p) => p.pattern).join('; ');
+        return 'Follow-through ${(dna.trustScore * 100).round()}%. '
+            'Patterns: ${pats.isEmpty ? 'still learning' : pats}.';
+      }
+    case 'log_outcome':
+      await ref.read(persistentIntelligenceStoreProvider.notifier).addMemory(
+            source: 'outcome',
+            title: s('what'),
+            summary: 'Outcome: ${s('result')}',
+          );
+      return 'Logged. ALTER will factor this into your Decision DNA.';
+    case 'translate_text':
+      {
+        final cfg = await ref.read(backendConfigProvider.future);
+        if (!cfg.hasGateway) return 'No backend gateway configured.';
+        final client = BackendApiClient(baseUrl: cfg.gatewayUrl);
+        try {
+          final body = await client.postJson('/v1/multilingual/translate', {
+            'text': s('text'),
+            'target_language_code': s('target_language_code'),
+          });
+          return (body?['translated_text'] ??
+                  body?['output'] ??
+                  body?['text'] ??
+                  'Translation unavailable.')
+              .toString();
+        } finally {
+          client.close();
+        }
+      }
+    case 'recall_memory':
+      {
+        final hits = await ref
+            .read(persistentIntelligenceStoreProvider.notifier)
+            .searchMemory(s('query'));
+        if (hits.isEmpty) {
+          return 'Nothing in memory about "${s('query')}" yet.';
+        }
+        return hits.take(6).map((m) => '${m.title}: ${m.summary}').join('; ');
+      }
+    case 'trust_source':
+      {
+        final type = s('type').isNotEmpty
+            ? s('type')
+            : (s('value').contains('.') ? 'domain' : 'contact');
+        await ref.read(memoryProvider.notifier).addTrusted(type, s('value'));
+        return 'Trusted ${s('value')}. LifeShield will stop over-warning about it.';
+      }
     case 'safety_check':
       final ls = ref.read(lifeShieldControllerProvider.notifier);
       ls.setSource(MomentSource.shareSheet);

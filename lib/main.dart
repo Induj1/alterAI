@@ -6,6 +6,7 @@ import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'src/app/alter_app.dart';
+import 'src/features/agent/application/proactive_background.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,5 +29,12 @@ Future<void> main() async {
     publishableKey:
         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJqdWR6emNkYmhvamFtZmdlaGhoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExODkyNjgsImV4cCI6MjA5Njc2NTI2OH0.4YH_usTvT0bij4db8qsx9MR5oWUrCp4NBIIvwBjKOMA',
   );
+
+  // Schedule the proactive background pass (posts tailored nudges ~every 6h).
+  // Best-effort + idempotent; on web/desktop it simply no-ops.
+  if (!kIsWeb) {
+    await ProactiveBackground.init();
+  }
+
   runApp(const ProviderScope(child: AlterApp()));
 }

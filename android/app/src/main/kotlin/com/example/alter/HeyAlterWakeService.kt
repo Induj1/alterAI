@@ -183,10 +183,24 @@ class HeyAlterWakeService : Service(), RecognitionListener {
             .trim()
 
         if (normalized.isEmpty()) return false
-        if (normalized == "alter" || normalized.startsWith("alter ")) return true
 
+        // Rigid: require a "hey/ok"-like lead word IMMEDIATELY followed by an
+        // "alter"-like name. A bare "alter"-ish word on its own no longer wakes
+        // ALTER, which is what caused stray/false triggers. The pair may appear
+        // anywhere in the phrase (the recognizer often prepends noise).
+        val tokens = normalized.split(" ")
+        for (i in 1 until tokens.size) {
+            if (WAKE_NAME.contains(tokens[i]) && WAKE_LEAD.contains(tokens[i - 1])) {
+                return true
+            }
+        }
+
+        // Keep the exact-phrase list as a fast path / safety net.
         return WAKE_PHRASES.any { phrase ->
-            normalized == phrase || normalized.startsWith("$phrase ")
+            normalized == phrase ||
+                normalized.startsWith("$phrase ") ||
+                normalized.contains(" $phrase ") ||
+                normalized.endsWith(" $phrase")
         }
     }
 
@@ -306,6 +320,16 @@ class HeyAlterWakeService : Service(), RecognitionListener {
             "ok alter",
             "okay alter",
             "hi alter",
+        )
+
+        // Phonetic tolerance: the on-device recognizer occasionally mishears
+        // "alter". Keep only CLOSE sound-alikes so the wake stays rigid and
+        // doesn't false-fire on unrelated words.
+        private val WAKE_LEAD = setOf(
+            "hey", "hay", "ok", "okay", "okey", "hi", "hello",
+        )
+        private val WAKE_NAME = setOf(
+            "alter", "halter", "altar", "walter", "alta",
         )
     }
 }

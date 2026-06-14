@@ -3,17 +3,31 @@ package com.example.alter
 import android.Manifest
 import android.app.Activity
 import android.content.pm.PackageManager
+import android.media.AudioFormat
+import android.media.AudioRecord
 import android.media.MediaPlayer
 import android.media.MediaRecorder
 import android.os.Build
 import android.util.Base64
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
+import java.io.ByteArrayOutputStream
 import java.io.File
 
+/**
+ * Records microphone audio as 16 kHz mono 16-bit PCM and wraps it in a WAV
+ * container. WAV is the format the backend speech stack (Sarvam) reliably
+ * accepts — unlike MediaRecorder's AAC/MP4 output — which makes cloud
+ * transcription accurate instead of falling back.
+ */
 object NativeAudioBridge {
-    private var recorder: MediaRecorder? = null
-    private var recordingFile: File? = null
+    private const val SAMPLE_RATE = 16_000
+    private const val CHANNELS = 1
+
+    private var audioRecord: AudioRecord? = null
+    private var recordThread: Thread? = null
+    @Volatile private var isRecording = false
+    private var pcm: ByteArrayOutputStream? = null
     private var recordingStartedAt: Long = 0L
     private var player: MediaPlayer? = null
 
@@ -41,83 +55,151 @@ object NativeAudioBridge {
         ) {
             return failure("Microphone permission is not granted.")
         }
-        if (recorder != null) {
+        if (audioRecord != null || isRecording) {
             return failure("Recording is already active.")
         }
 
-        val file = File(activity.cacheDir, "alter_sarvam_voice.m4a")
-        val nextRecorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            MediaRecorder(activity)
-        } else {
-            @Suppress("DEPRECATION")
-            MediaRecorder()
-        }
+        val minBuffer = AudioRecord.getMinBufferSize(
+            SAMPLE_RATE,
+            AudioFormat.CHANNEL_IN_MONO,
+            AudioFormat.ENCODING_PCM_16BIT,
+        )
+        val bufferSize = if (minBuffer > 0) minBuffer * 2 else SAMPLE_RATE * 2
 
         return try {
-            nextRecorder.setAudioSource(MediaRecorder.AudioSource.MIC)
-            nextRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-            nextRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-            nextRecorder.setAudioEncodingBitRate(96_000)
-            nextRecorder.setAudioSamplingRate(16_000)
-            nextRecorder.setOutputFile(file.absolutePath)
-            nextRecorder.prepare()
-            nextRecorder.start()
-            recorder = nextRecorder
-            recordingFile = file
+            val record = AudioRecord(
+                MediaRecorder.AudioSource.MIC,
+                SAMPLE_RATE,
+                AudioFormat.CHANNEL_IN_MONO,
+                AudioFormat.ENCODING_PCM_16BIT,
+                bufferSize,
+            )
+            if (record.state != AudioRecord.STATE_INITIALIZED) {
+                record.release()
+                return failure("Could not initialise the microphone.")
+            }
+            val buffer = ByteArrayOutputStream()
+            record.startRecording()
+            isRecording = true
+            audioRecord = record
+            pcm = buffer
             recordingStartedAt = System.currentTimeMillis()
+            recordThread = Thread {
+                val chunk = ByteArray(bufferSize)
+                while (isRecording) {
+                    val read = record.read(chunk, 0, chunk.size)
+                    if (read > 0) {
+                        synchronized(buffer) { buffer.write(chunk, 0, read) }
+                    }
+                }
+            }.also { it.start() }
             success("Recording started.")
         } catch (error: Throwable) {
-            try {
-                nextRecorder.release()
-            } catch (_: Throwable) {
-            }
-            recorder = null
-            recordingFile = null
+            isRecording = false
+            audioRecord = null
+            pcm = null
             failure("Could not start recording: ${error.message}")
         }
     }
 
     private fun stopRecording(): Map<String, Any?> {
-        val active = recorder ?: return failure("No recording is active.")
-        val file = recordingFile ?: return failure("Recording file was not created.")
+        if (!isRecording && audioRecord == null) {
+            return failure("No recording is active.")
+        }
+        isRecording = false
+        try {
+            recordThread?.join(800)
+        } catch (_: Throwable) {
+        }
+        recordThread = null
+
+        val record = audioRecord
+        val buffer = pcm
+        audioRecord = null
+        pcm = null
         return try {
-            active.stop()
-            active.release()
-            recorder = null
-            recordingFile = null
-            val bytes = file.readBytes()
+            try {
+                record?.stop()
+            } catch (_: Throwable) {
+            }
+            record?.release()
+            val pcmBytes: ByteArray
+            if (buffer != null) {
+                synchronized(buffer) { pcmBytes = buffer.toByteArray() }
+            } else {
+                pcmBytes = ByteArray(0)
+            }
+            val wav = pcmToWav(pcmBytes)
             mapOf(
                 "ok" to true,
                 "message" to "Recording captured.",
-                "audioBase64" to Base64.encodeToString(bytes, Base64.NO_WRAP),
-                "filename" to file.name,
-                "contentType" to "audio/mp4",
+                "audioBase64" to Base64.encodeToString(wav, Base64.NO_WRAP),
+                "filename" to "alter_voice.wav",
+                "contentType" to "audio/wav",
                 "durationMs" to (System.currentTimeMillis() - recordingStartedAt),
             )
         } catch (error: Throwable) {
-            try {
-                active.release()
-            } catch (_: Throwable) {
-            }
-            recorder = null
-            recordingFile = null
             failure("Could not stop recording: ${error.message}")
         }
     }
 
     private fun cancelRecording(): Map<String, Any?> {
+        isRecording = false
         return try {
-            recorder?.stop()
-            recorder?.release()
-            recordingFile?.delete()
-            recorder = null
-            recordingFile = null
+            try {
+                recordThread?.join(300)
+            } catch (_: Throwable) {
+            }
+            recordThread = null
+            try {
+                audioRecord?.stop()
+            } catch (_: Throwable) {
+            }
+            audioRecord?.release()
+            audioRecord = null
+            pcm = null
             success("Recording cancelled.")
         } catch (error: Throwable) {
-            recorder = null
-            recordingFile = null
+            audioRecord = null
+            pcm = null
             failure("Could not cancel recording: ${error.message}")
         }
+    }
+
+    /** Wrap raw little-endian PCM 16-bit mono samples in a 44-byte WAV header. */
+    private fun pcmToWav(data: ByteArray): ByteArray {
+        val bitsPerSample = 16
+        val byteRate = SAMPLE_RATE * CHANNELS * bitsPerSample / 8
+        val blockAlign = CHANNELS * bitsPerSample / 8
+        val out = ByteArrayOutputStream(44 + data.size)
+
+        fun writeString(value: String) = out.write(value.toByteArray(Charsets.US_ASCII))
+        fun writeIntLe(value: Int) {
+            out.write(value and 0xff)
+            out.write((value shr 8) and 0xff)
+            out.write((value shr 16) and 0xff)
+            out.write((value shr 24) and 0xff)
+        }
+        fun writeShortLe(value: Int) {
+            out.write(value and 0xff)
+            out.write((value shr 8) and 0xff)
+        }
+
+        writeString("RIFF")
+        writeIntLe(36 + data.size)
+        writeString("WAVE")
+        writeString("fmt ")
+        writeIntLe(16)
+        writeShortLe(1) // PCM
+        writeShortLe(CHANNELS)
+        writeIntLe(SAMPLE_RATE)
+        writeIntLe(byteRate)
+        writeShortLe(blockAlign)
+        writeShortLe(bitsPerSample)
+        writeString("data")
+        writeIntLe(data.size)
+        out.write(data)
+        return out.toByteArray()
     }
 
     private fun playAudioBase64(

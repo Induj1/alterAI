@@ -1,9 +1,14 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _gatewayPrefKey = 'alter.backend.gateway_url';
 const _compileTimeGatewayUrl = String.fromEnvironment('ALTER_API_GATEWAY_URL');
+
+/// Deployed ALTER backend (Cloudflare tunnel). Default so the app reaches the
+/// live gateway out of the box; overridable in-app or via
+/// --dart-define=ALTER_API_GATEWAY_URL=...
+const _deployedGatewayUrl =
+    'https://hewlett-advised-gonna-stuffed.trycloudflare.com';
 
 final backendConfigProvider =
     AsyncNotifierProvider<BackendConfigController, BackendConfig>(
@@ -70,13 +75,6 @@ class BackendConfigController extends AsyncNotifier<BackendConfig> {
     if (_compileTimeGatewayUrl.trim().isNotEmpty) {
       return _compileTimeGatewayUrl.trim().replaceFirst(RegExp(r'/$'), '');
     }
-    if (kIsWeb) return 'http://localhost:8060';
-    return switch (defaultTargetPlatform) {
-      TargetPlatform.android => '',
-      TargetPlatform.windows ||
-      TargetPlatform.macOS ||
-      TargetPlatform.linux => 'http://localhost:8060',
-      _ => '',
-    };
+    return _deployedGatewayUrl;
   }
 }

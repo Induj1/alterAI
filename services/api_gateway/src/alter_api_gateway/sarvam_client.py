@@ -136,11 +136,18 @@ class SarvamClient:
         target = language_for_code(target_language_code)
         if not target.sarvam_translate:
             raise ValueError(f"Sarvam Translate does not support {target.code}.")
+        # sarvam-translate:v1 rejects source_language_code="auto"; only the
+        # mayura:v1 model auto-detects the source. Route accordingly so the
+        # common "translate this to X" (unknown source) path actually works.
+        if (source_language_code or "auto").lower() == "auto":
+            model = "mayura:v1"
+        else:
+            model = self._settings.sarvam_translate_model
         payload = {
             "input": text[:2000],
             "source_language_code": source_language_code,
             "target_language_code": target.code,
-            "model": self._settings.sarvam_translate_model,
+            "model": model,
             "mode": "formal",
             "speaker_gender": "Male",
         }
@@ -148,7 +155,7 @@ class SarvamClient:
         return {
             "text": str(data.get("translated_text", "")).strip(),
             "provider": "sarvam",
-            "model": self._settings.sarvam_translate_model,
+            "model": model,
             "source_language_code": data.get("source_language_code", source_language_code),
             "target_language_code": target.code,
             "request_id": data.get("request_id"),

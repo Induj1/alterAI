@@ -5,6 +5,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../features/agent/presentation/agent_screen.dart';
 import '../features/agent/presentation/live_feed_screen.dart';
+import '../features/backend/presentation/council_os_screen.dart';
+import '../features/backend/presentation/future_sim_os_screen.dart';
+import '../features/backend/presentation/life_feed_os_screen.dart';
+import '../features/backend/presentation/opportunity_os_screen.dart';
 import '../features/auth/application/auth_provider.dart';
 import '../features/backend/presentation/backend_feature_hub_screen.dart';
 import '../features/contextos/presentation/context_mission_control_screen.dart';
@@ -63,7 +67,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           path == AlterRoutes.ftueWhat ||
           path == AlterRoutes.features ||
           path == AlterRoutes.getStarted) {
-        return onboardingDone ? AlterRoutes.home : AlterRoutes.permissions;
+        return onboardingDone ? AlterRoutes.agent : AlterRoutes.permissions;
       }
 
       if (path == AlterRoutes.permissions) {
@@ -72,7 +76,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       if (path == AlterRoutes.languages || path == AlterRoutes.about) {
         if (onboardingDone) {
-          return AlterRoutes.home;
+          return AlterRoutes.agent;
         }
         return null;
       }
@@ -155,6 +159,26 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AlterRoutes.feed,
         pageBuilder: (context, state) =>
             _fadePage(key: state.pageKey, child: const LiveFeedScreen()),
+      ),
+      GoRoute(
+        path: '/lifefeed',
+        pageBuilder: (context, state) =>
+            _fadePage(key: state.pageKey, child: const LifeFeedOsScreen()),
+      ),
+      GoRoute(
+        path: '/sim',
+        pageBuilder: (context, state) =>
+            _fadePage(key: state.pageKey, child: const FutureSimOsScreen()),
+      ),
+      GoRoute(
+        path: '/clones',
+        pageBuilder: (context, state) =>
+            _fadePage(key: state.pageKey, child: const CouncilOsScreen()),
+      ),
+      GoRoute(
+        path: '/opps',
+        pageBuilder: (context, state) =>
+            _fadePage(key: state.pageKey, child: const OpportunityOsScreen()),
       ),
       GoRoute(
         path: AlterRoutes.contextos,
