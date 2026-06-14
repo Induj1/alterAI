@@ -4,6 +4,8 @@ import 'dart:math' as math;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/storage/secure_blob_store.dart';
+import '../../memory/local/local_vector_store.dart';
+import '../../memory/local/memory_entity.dart';
 import '../../profile/application/profile_provider.dart';
 
 final persistentIntelligenceStoreProvider =
@@ -214,6 +216,9 @@ class PersistentIntelligenceStore
     extends AsyncNotifier<IntelligenceStoreState> {
   SecureBlobStore? _blob;
 
+  /// Set when the memory set changes so the on-device vector index is rebuilt.
+  bool _vectorDirty = true;
+
   /// Lazily-created encrypted local store (key in the platform keystore).
   Future<SecureBlobStore> _store() async =>
       _blob ??= await EncryptedBlobStore.create();
@@ -275,6 +280,7 @@ class PersistentIntelligenceStore
         ].take(500).toList(growable: false),
       ),
     );
+    _vectorDirty = true;
   }
 
   Future<List<TwinMemoryRecord>> searchMemory(String query) async {
@@ -335,6 +341,40 @@ class PersistentIntelligenceStore
       }
       working = updated;
       await _save(current.copyWith(memories: updated));
+      _vectorDirty = true;
+    }
+
+    // On-device vector DB (ObjectBox HNSW) — offline nearest-neighbor search.
+    // Privacy: only the embedding + a non-reversible refKey live here; the text
+    // stays in the encrypted blob. Any failure falls back to in-Dart cosine, so
+    // retrieval never breaks.
+    try {
+      final byKey = <String, TwinMemoryRecord>{};
+      final rows = <MemoryEntity>[];
+      for (final m in working) {
+        final v = m.embedding;
+        if (v == null || v.length != queryVec.length) continue;
+        final key = _refKey(m);
+        byKey[key] = m;
+        rows.add(MemoryEntity(refKey: key, embedding: v));
+      }
+      if (rows.isNotEmpty) {
+        final vstore = await LocalVectorStore.open();
+        if (_vectorDirty || vstore.count != rows.length) {
+          vstore.clear();
+          vstore.putMany(rows);
+          _vectorDirty = false;
+        }
+        final hits = vstore.nearest(queryVec);
+        final out = <TwinMemoryRecord>[];
+        for (final hit in hits) {
+          final m = byKey[hit.refKey];
+          if (m != null) out.add(m);
+        }
+        if (out.isNotEmpty) return out;
+      }
+    } catch (_) {
+      // Fall through to the portable in-Dart cosine ranking below.
     }
 
     final scored = <MapEntry<double, TwinMemoryRecord>>[];
@@ -359,6 +399,16 @@ class PersistentIntelligenceStore
     }
     if (na == 0 || nb == 0) return 0;
     return dot / (math.sqrt(na) * math.sqrt(nb));
+  }
+
+  /// Stable, non-reversible key (FNV-1a) for mapping a vector hit back to its
+  /// (encrypted) memory record without storing the text in the vector index.
+  String _refKey(TwinMemoryRecord m) {
+    var hash = 0xcbf29ce484222325;
+    for (final code in '${m.source}|${m.title}'.codeUnits) {
+      hash = (hash ^ code) * 0x100000001b3;
+    }
+    return (hash & 0x7fffffffffffffff).toRadixString(16);
   }
 
   Future<void> recordConsent({
@@ -417,6 +467,7 @@ class PersistentIntelligenceStore
         ],
       ),
     );
+    if (normalized.contains('memories')) _vectorDirty = true;
   }
 
   Future<void> _save(IntelligenceStoreState next) async {
