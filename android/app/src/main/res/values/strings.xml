@@ -7,4 +7,6 @@
     <string name="alter_device_admin_description">Allows ALTER to run as a managed-device admin in test profiles and Device Owner AVDs. This does not bypass Android consent gates.</string>
     <string name="alter_device_admin_enabled">ALTER device admin enabled</string>
     <string name="alter_device_admin_disabled">ALTER device admin disabled</string>
+    <string name="alter_hce_description">Share your ALTER profile with another phone over NFC.</string>
+    <string name="alter_hce_aid_group">ALTER profile exchange</string>
 </resources>

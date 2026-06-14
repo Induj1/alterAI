@@ -1,7 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../profile/application/profile_provider.dart';
+import '../data/nfc_hce_bridge.dart';
 import '../data/nfc_networking_gateway.dart';
+import '../data/nfc_payload_codec.dart';
 import '../domain/nfc_match.dart';
 import '../domain/nfc_match_engine.dart';
 import '../domain/nfc_profile.dart';
@@ -113,6 +117,34 @@ class NfcNetworkingController extends Notifier<NfcNetworkingState> {
     await ref.read(nfcNetworkingGatewayProvider).stop();
     state = state.copyWith(phase: NfcNetworkingPhase.idle);
   }
+
+  /// Phone-to-phone: broadcast the profile over HCE so another ALTER phone can
+  /// receive it by tapping (no physical tag needed).
+  Future<void> shareViaTap() async {
+    const bridge = NfcHceBridge();
+    if (!await bridge.isSupported()) {
+      state = state.copyWith(
+        phase: NfcNetworkingPhase.error,
+        errorMessage: 'This phone does not support NFC tap-to-share (HCE).',
+      );
+      return;
+    }
+    final json = jsonEncode(state.localProfile.toExchangePayload());
+    final ok = await bridge.enableSharing(
+      mimeType: NfcPayloadCodec.mimeType,
+      json: json,
+    );
+    state = state.copyWith(
+      phase: ok ? NfcNetworkingPhase.broadcasting : NfcNetworkingPhase.error,
+      availability: ok ? AlterNfcAvailability.enabled : state.availability,
+      errorMessage: ok ? '' : 'Could not start tap-to-share.',
+    );
+  }
+
+  Future<void> stopTapShare() async {
+    await const NfcHceBridge().disableSharing();
+    state = state.copyWith(phase: NfcNetworkingPhase.idle);
+  }
 }
 
 class NfcNetworkingState {
@@ -157,6 +189,7 @@ enum NfcNetworkingPhase {
   checking,
   scanning,
   writing,
+  broadcasting,
   matched,
   unavailable,
   error,

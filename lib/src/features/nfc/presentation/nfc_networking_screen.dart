@@ -77,6 +77,8 @@ class NfcNetworkingScreen extends ConsumerWidget {
                 onScan: controller.scanAndMatch,
                 onShare: controller.shareProfile,
                 onCheck: controller.refreshAvailability,
+                onTapShare: controller.shareViaTap,
+                onStopShare: controller.stopTapShare,
               ),
               _ExchangeBundle(profile: state.localProfile),
               _ScoreStack(result: result),
@@ -109,20 +111,26 @@ class _TapPanel extends StatelessWidget {
     required this.onScan,
     required this.onShare,
     required this.onCheck,
+    required this.onTapShare,
+    required this.onStopShare,
   });
 
   final NfcNetworkingState state;
   final VoidCallback onScan;
   final VoidCallback onShare;
   final VoidCallback onCheck;
+  final VoidCallback onTapShare;
+  final VoidCallback onStopShare;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final broadcasting = state.phase == NfcNetworkingPhase.broadcasting;
     final status = switch (state.phase) {
       NfcNetworkingPhase.checking => 'Checking NFC',
       NfcNetworkingPhase.scanning => 'Listening for tap',
       NfcNetworkingPhase.writing => 'Sharing profile',
+      NfcNetworkingPhase.broadcasting => 'Hold near another phone',
       NfcNetworkingPhase.matched => 'Match created',
       NfcNetworkingPhase.unavailable => 'NFC unavailable',
       NfcNetworkingPhase.error => 'Needs attention',
@@ -145,7 +153,9 @@ class _TapPanel extends StatelessWidget {
           const SizedBox(height: 20),
           SizedBox(
             height: 172,
-            child: Center(child: _NfcPulse(isActive: state.isBusy)),
+            child: Center(
+              child: _NfcPulse(isActive: state.isBusy || broadcasting),
+            ),
           ),
           const SizedBox(height: 18),
           Text(
@@ -170,20 +180,35 @@ class _TapPanel extends StatelessWidget {
           Wrap(
             spacing: 10,
             runSpacing: 10,
-            children: [
-              PremiumButton(
-                label: 'Receive',
-                icon: LucideIcons.nfc,
-                compact: true,
-                onPressed: state.isBusy ? null : onScan,
-              ),
-              PremiumButton(
-                label: 'Share',
-                icon: LucideIcons.network,
-                compact: true,
-                onPressed: state.isBusy ? null : onShare,
-              ),
-            ],
+            children: broadcasting
+                ? [
+                    PremiumButton(
+                      label: 'Stop sharing',
+                      icon: LucideIcons.square,
+                      compact: true,
+                      onPressed: onStopShare,
+                    ),
+                  ]
+                : [
+                    PremiumButton(
+                      label: 'Receive',
+                      icon: LucideIcons.nfc,
+                      compact: true,
+                      onPressed: state.isBusy ? null : onScan,
+                    ),
+                    PremiumButton(
+                      label: 'Tap to share',
+                      icon: LucideIcons.radio,
+                      compact: true,
+                      onPressed: state.isBusy ? null : onTapShare,
+                    ),
+                    PremiumButton(
+                      label: 'Write tag',
+                      icon: LucideIcons.network,
+                      compact: true,
+                      onPressed: state.isBusy ? null : onShare,
+                    ),
+                  ],
           ),
         ],
       ),

@@ -7,6 +7,9 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <uses-permission android:name="android.permission.NFC"/>
+    <uses-feature android:name="android.hardware.nfc" android:required="false"/>
+    <uses-feature android:name="android.hardware.nfc.hce" android:required="false"/>
     <application
         android:label="ALTER AI"
         android:name="${applicationName}"
@@ -37,6 +40,19 @@
             android:name=".HeyAlterWakeService"
             android:exported="false"
             android:foregroundServiceType="microphone" />
+        <!-- Phone-to-phone profile sharing: emulates a Type-4 NDEF tag over HCE
+             so another phone in reader mode reads the ALTER profile on tap. -->
+        <service
+            android:name=".AlterHceService"
+            android:exported="true"
+            android:permission="android.permission.BIND_NFC_SERVICE">
+            <intent-filter>
+                <action android:name="android.nfc.cardemulation.action.HOST_APDU_SERVICE"/>
+            </intent-filter>
+            <meta-data
+                android:name="android.nfc.cardemulation.host_apdu_service"
+                android:resource="@xml/alter_apduservice"/>
+        </service>
         <service
             android:name=".AlterAccessibilityService"
             android:exported="true"
