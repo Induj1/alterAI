@@ -271,6 +271,19 @@ class AgentController extends Notifier<AgentState> {
     );
   }
 
+  /// Pick the cloud model for a turn. Reasoning-heavy or long requests get the
+  /// stronger model; everyday commands stay on the fast, cheap one.
+  String _routeModel(String input) {
+    final t = input.toLowerCase();
+    const heavy = [
+      'analy', 'compare', 'strateg', 'decide', 'decision', 'should i',
+      'pros and cons', 'trade-off', 'tradeoff', 'plan ', 'weigh', 'evaluate',
+      'why ', 'explain', 'reason',
+    ];
+    final isHeavy = input.length > 220 || heavy.any((k) => t.contains(k));
+    return isHeavy ? 'gpt-4o' : 'gpt-4o-mini';
+  }
+
   // --- The conversational tool-calling loop ---
   Future<void> send(String text) async {
     final input = text.trim();
@@ -315,10 +328,14 @@ class AgentController extends Notifier<AgentState> {
     state = state.copyWith(isThinking: true, error: '');
 
     try {
+      // Model routing: harder, reasoning-heavy turns get the stronger model;
+      // everyday turns stay on the fast, cheap one.
+      final model = _routeModel(input);
       for (var i = 0; i < 6; i++) {
         final resp = await openai.chatWithTools(
           messages: _withRecall(),
           tools: kAgentTools,
+          model: model,
         );
         final content = (resp['content'] ?? '').toString();
         final toolCalls = resp['tool_calls'];

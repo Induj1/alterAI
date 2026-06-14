@@ -5,6 +5,7 @@ import '../../backend/application/backend_config_controller.dart';
 import '../../backend/application/feature_live_providers.dart';
 import '../../backend/application/life_os_providers.dart';
 import '../../backend/data/backend_api_client.dart';
+import '../../context/data/on_device_context.dart';
 import '../../contextos/application/daytwin_controller.dart';
 import '../../contextos/application/decision_council_controller.dart';
 import '../../contextos/application/decision_dna_controller.dart';
@@ -40,6 +41,19 @@ const kAgentTools = <Map<String, dynamic>>[
       'description':
           'Read the user\'s live day feed — greeting, today\'s focus, and the '
               'tasks that need them. Use for "what\'s on my plate / my day".',
+      'parameters': {'type': 'object', 'properties': <String, dynamic>{}},
+    },
+  },
+  {
+    'type': 'function',
+    'function': {
+      'name': 'read_my_context',
+      'description':
+          'Read the user\'s real on-device context — today\'s calendar events '
+              'and current location (consent-gated, asked at point of use). Use '
+              'when answering needs their actual day or whereabouts, e.g. '
+              '"what\'s on my calendar?", "am I free at 3?", "should I leave '
+              'now?".',
       'parameters': {'type': 'object', 'properties': <String, dynamic>{}},
     },
   },
@@ -626,6 +640,7 @@ const kAgentTools = <Map<String, dynamic>>[
 String agentToolLabel(String name) => switch (name) {
       'find_opportunities' => 'Scanning opportunities…',
       'read_life_feed' => 'Reading your day…',
+      'read_my_context' => 'Checking your day…',
       'mission_briefing' => 'Building briefing…',
       'agent_plan' => 'Drafting a plan…',
       'reputation_score' => 'Checking your standing…',
@@ -718,6 +733,8 @@ Future<String> executeAgentTool(
         return '${feed['greeting'] ?? ''} ${feed['date_summary'] ?? ''} '
             'Focus: ${feed['focus_title'] ?? '—'}. Today: $taskLine';
       }
+    case 'read_my_context':
+      return ref.read(onDeviceContextProvider).snapshot();
     case 'mission_briefing':
       {
         final cfg = await ref.read(backendConfigProvider.future);
