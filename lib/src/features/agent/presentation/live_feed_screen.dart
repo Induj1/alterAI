@@ -3,11 +3,13 @@ import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../ui/routes.dart';
 import '../../../core/theme/alter_palette.dart';
 import '../../../core/widgets/ambient_scaffold.dart';
 import '../../../core/widgets/glass_panel.dart';
-import '../../../core/widgets/gradient_text.dart';
 import '../../../core/widgets/premium_controls.dart';
+import '../../../ui/routes.dart';
+import '../../../ui/widgets.dart';
 import '../../contextos/application/lifeshield_controller.dart';
 import '../../contextos/domain/contextos_models.dart';
 import '../application/notification_monitor.dart';
@@ -22,26 +24,17 @@ class LiveFeedScreen extends ConsumerWidget {
     final notifier = ref.read(notificationMonitorProvider.notifier);
 
     return AmbientScaffold(
+      header: ShellPageHeader(
+        title: 'FEED',
+        subtitle:
+            'ALTER watches incoming notifications and triages each one on-device. '
+            'Nothing leaves your phone unless you open a moment for cloud analysis.',
+        onGear: () => context.push(AlterRoutes.settings),
+      ),
+      scrollable: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          GradientText(
-            'Live Feed',
-            style: theme.textTheme.displaySmall?.copyWith(
-              fontWeight: FontWeight.w900,
-              height: 1.02,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'ALTER watches incoming notifications and triages each one on-device. '
-            'Nothing leaves your phone unless you open a moment for cloud analysis.',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-              height: 1.35,
-            ),
-          ),
-          const SizedBox(height: 16),
           if (!m.supported)
             GlassPanel(
               child: Text(
@@ -117,7 +110,7 @@ class LiveFeedScreen extends ConsumerWidget {
                         ref
                             .read(lifeShieldControllerProvider.notifier)
                             .setInput(lm.excerpt);
-                        context.go('/shield');
+                        context.go(AlterRoutes.shield);
                       },
                     ),
                   )),

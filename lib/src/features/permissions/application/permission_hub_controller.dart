@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../device_control/data/device_owner_bridge.dart';
 import '../data/permission_hub_bridge.dart';
 
 final permissionHubBridgeProvider = Provider<PermissionHubBridge>((ref) {
   return PermissionHubBridge();
+});
+
+final deviceOwnerBridgeProvider = Provider<DeviceOwnerBridge>((ref) {
+  return DeviceOwnerBridge();
 });
 
 final permissionHubControllerProvider =
@@ -41,6 +45,11 @@ class PermissionHubController extends Notifier<PermissionHubState> {
   Future<void> request(String id) async {
     state = state.copyWith(loading: true, error: '');
     try {
+      if (id == 'device_admin') {
+        await ref.read(deviceOwnerBridgeProvider).requestDeviceAdminSetup();
+        await refresh();
+        return;
+      }
       final statuses = await ref.read(permissionHubBridgeProvider).request(id);
       state = state.copyWith(loading: false, items: _merge(statuses));
     } catch (error) {
@@ -146,10 +155,19 @@ class PermissionHubItem {
 
   static List<PermissionHubItem> defaults() => const [
     PermissionHubItem(
+      id: 'device_admin',
+      title: 'Device Admin',
+      subtitle:
+          'Required for ALTER policy control. Works alongside other admin apps — does not need device owner.',
+      icon: Icons.admin_panel_settings_outlined,
+      essential: true,
+      systemManaged: true,
+    ),
+    PermissionHubItem(
       id: 'microphone',
       title: 'Microphone',
       subtitle: 'Required for Hey Alter and live voice commands.',
-      icon: LucideIcons.mic,
+      icon: Icons.mic_outlined,
       essential: true,
       systemManaged: false,
     ),
@@ -157,7 +175,7 @@ class PermissionHubItem {
       id: 'notifications',
       title: 'Notifications',
       subtitle: 'Required for the foreground wake service status.',
-      icon: LucideIcons.bell,
+      icon: Icons.notifications_outlined,
       essential: true,
       systemManaged: false,
     ),
@@ -166,7 +184,7 @@ class PermissionHubItem {
       title: 'Phone Control',
       subtitle:
           'Required to read visible screens, tap, type, scroll, and navigate.',
-      icon: LucideIcons.accessibility,
+      icon: Icons.accessibility_new,
       essential: true,
       systemManaged: true,
     ),
@@ -175,7 +193,7 @@ class PermissionHubItem {
       title: 'Notification Access',
       subtitle:
           'Required for proactive chat/app monitoring from notifications.',
-      icon: LucideIcons.bell_ring,
+      icon: Icons.notifications_active_outlined,
       essential: true,
       systemManaged: true,
     ),
@@ -184,7 +202,7 @@ class PermissionHubItem {
       title: 'Camera',
       subtitle:
           'Required for ALTER Lens, QR/payment checks, and visual context.',
-      icon: LucideIcons.camera,
+      icon: Icons.camera_alt_outlined,
       essential: false,
       systemManaged: false,
     ),
@@ -192,7 +210,7 @@ class PermissionHubItem {
       id: 'contacts',
       title: 'Contacts',
       subtitle: 'Required to call or message people by name.',
-      icon: LucideIcons.users,
+      icon: Icons.people_outline,
       essential: false,
       systemManaged: false,
     ),

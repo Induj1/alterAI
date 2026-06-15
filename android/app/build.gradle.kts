@@ -24,11 +24,14 @@ android {
         applicationId = "com.example.alter"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        // flutter_gemma (MediaPipe GenAI) requires API 24+.
         minSdk = maxOf(24, flutter.minSdkVersion)
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+    }
+
+    androidResources {
+        noCompress += listOf("task", "litertlm", "tflite", "bin")
     }
 
     buildTypes {

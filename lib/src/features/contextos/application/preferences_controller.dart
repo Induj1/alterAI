@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../auth/application/auth_provider.dart';
+import '../../../data/local/contextos_dao.dart';
+import '../../../data/local/dao_providers.dart';
 import '../domain/contextos_models.dart';
 
 class ContextOsPrefs {
@@ -38,30 +40,21 @@ class ContextOsPrefs {
 
 final preferencesProvider =
     AsyncNotifierProvider<PreferencesController, ContextOsPrefs>(
-        PreferencesController.new);
+  PreferencesController.new,
+);
 
 class PreferencesController extends AsyncNotifier<ContextOsPrefs> {
   @override
   Future<ContextOsPrefs> build() => _load();
 
   Future<ContextOsPrefs> _load() async {
-    final userId = Supabase.instance.client.auth.currentUser?.id;
+    ref.watch(isDbUnlockedProvider);
+    final userId = ref.read(localUserIdProvider);
     if (userId == null) return const ContextOsPrefs();
     try {
-      final row = await Supabase.instance.client
-          .from('contextos_preferences')
-          .select()
-          .eq('user_id', userId)
-          .maybeSingle();
-      if (row == null) return const ContextOsPrefs();
-      final surfaces = row['enabled_surfaces'];
-      return ContextOsPrefs(
-        privateModeDefault: row['private_mode_default'] == true,
-        cloudConsent: row['cloud_consent'] != false,
-        enabledSurfaces: surfaces is List
-            ? surfaces.map((e) => e.toString()).toSet()
-            : const ContextOsPrefs().enabledSurfaces,
-      );
+      final row =
+          await ref.read(contextOsDaoProvider).getContextOsPreferences(userId);
+      return row?.toPrefs() ?? const ContextOsPrefs();
     } catch (_) {
       return const ContextOsPrefs();
     }
@@ -69,16 +62,18 @@ class PreferencesController extends AsyncNotifier<ContextOsPrefs> {
 
   Future<void> _save(ContextOsPrefs p) async {
     state = AsyncValue.data(p);
-    final userId = Supabase.instance.client.auth.currentUser?.id;
+    final userId = ref.read(localUserIdProvider);
     if (userId == null) return;
     try {
-      await Supabase.instance.client.from('contextos_preferences').upsert({
-        'user_id': userId,
-        'private_mode_default': p.privateModeDefault,
-        'cloud_consent': p.cloudConsent,
-        'enabled_surfaces': p.enabledSurfaces.toList(),
-        'updated_at': DateTime.now().toIso8601String(),
-      });
+      await ref.read(contextOsDaoProvider).upsertContextOsPreferences(
+            ContextOsPreferencesRecord(
+              userId: userId,
+              privateModeDefault: p.privateModeDefault,
+              cloudConsent: p.cloudConsent,
+              enabledSurfaces: p.enabledSurfaces.toList(),
+              updatedAt: DateTime.now(),
+            ),
+          );
     } catch (_) {}
   }
 

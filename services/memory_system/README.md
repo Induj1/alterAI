@@ -1,6 +1,11 @@
 # ALTER Memory System
 
-Lifelong user memory for skills, projects, goals, conversations, opportunities, decisions, mentors, friends, and learning progress.
+Local-first, governed lifelong memory for skills, projects, goals, conversations,
+opportunities, decisions, relationships, and learning progress.
+
+The system defaults to forgetting. A deterministic classifier rejects restricted
+secrets, routes temporary context into TTL-backed short-term memory, and requires
+confirmation before durable or sensitive signals become identity evidence.
 
 ## High-Level Architecture
 
@@ -62,6 +67,7 @@ Short-term memory stores volatile session facts and working context with TTL. Lo
 | Method | Path | Purpose |
 | --- | --- | --- |
 | `POST` | `/v1/memory/items` | Create long-term memory |
+| `POST` | `/v1/memory/ingest` | Classify and safely ingest an interaction |
 | `GET` | `/v1/memory/items/{memory_id}` | Fetch memory |
 | `PATCH` | `/v1/memory/items/{memory_id}` | Update memory |
 | `POST` | `/v1/memory/items/{memory_id}/archive` | Archive memory |
@@ -71,6 +77,22 @@ Short-term memory stores volatile session facts and working context with TTL. Lo
 | `POST` | `/v1/memory/short-term/promote` | Promote short-term memory to long-term |
 | `GET` | `/v1/memory/users/{user_id}/timeline` | Recent durable memories |
 | `GET` | `/v1/memory/architecture` | Service architecture summary |
+| `GET` | `/v1/memory/users/{user_id}/governance` | Inspect retention and control policy |
+| `GET` | `/v1/memory/users/{user_id}/identity` | Build an evidence-based identity snapshot |
+| `GET` | `/v1/memory/users/{user_id}/export` | Export shareable portable memory |
+
+## Memory Lifecycle
+
+```text
+encode -> stabilize -> store -> retrieve -> update -> forget
+```
+
+- Restricted secrets are immediately rejected.
+- Low-information interactions are ephemeral.
+- Session and expiring memories use short-term storage with TTL.
+- Durable and sensitive memories require explicit confirmation by default.
+- Retrieval builds a ranked context package with a strict character budget.
+- Identity snapshots contain evidence links and never infer from one interaction.
 
 ## Run
 

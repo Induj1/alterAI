@@ -1,10 +1,15 @@
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/config/alter_gateway_config.dart';
+import '../../../data/local/contextos_dao.dart';
+import '../../../data/local/dao_providers.dart';
+import '../../auth/application/auth_provider.dart';
+import '../../../data/gateway/alter_gateway_providers.dart';
 import '../../profile/application/profile_provider.dart';
 import '../data/context_engine.dart';
+import '../../memory/application/memory_encode_pipeline.dart';
 import '../data/moment_classifier.dart';
 import '../data/moment_interceptor.dart';
 import '../domain/contextos_models.dart';
@@ -135,7 +140,7 @@ class LifeShieldController extends Notifier<LifeShieldState> {
       moment = moment.copyWith(privacyLevel: PrivacyLevel.private);
     }
 
-    // 2. Edge check (Gemma first-pass: redact + triage — real model when loaded).
+    // 2. Edge check: redact + triage (Gemma 4 when loaded, else pattern check).
     final engine = ref.read(localGemmaEngineProvider);
     final triage = await engine.analyzeAsync(moment.rawContent);
 
@@ -195,9 +200,41 @@ class LifeShieldController extends Notifier<LifeShieldState> {
           'Redacted on-device: ${triage.redactedFields.join(', ')}');
     }
 
+    await ref.read(memoryEncodePipelineProvider).process(
+          rawContent: moment.rawContent,
+          provenance: moment.sourceSurface.label,
+          momentCategory: category,
+          title: category.label,
+        );
+
     if (handles && !wantsCloud) {
       await _persistAnalysis(momentId, state.analysis!);
     }
+    await _ingestMomentToGateway(moment, category, triage);
+  }
+
+  Future<void> _ingestMomentToGateway(
+    Moment moment,
+    MomentCategory category,
+    EdgeTriage triage,
+  ) async {
+    if (!AlterGatewayConfig.isConfigured) return;
+    final userId = ref.read(localUserIdProvider);
+    if (userId == null) return;
+    try {
+      await ref.read(alterGatewayApiClientProvider).ingestData(
+            userId: userId,
+            source: moment.sourceSurface.label,
+            items: <Map<String, Object>>[
+              <String, Object>{
+                'title': category.label,
+                'summary': triage.summary,
+                'category': category.label,
+                'verdict': triage.coarseVerdict.name,
+              },
+            ],
+          );
+    } catch (_) {}
   }
 
   /// Decide → escalate to cloud reasoning (the consent boundary).
@@ -305,78 +342,91 @@ class LifeShieldController extends Notifier<LifeShieldState> {
 
   // --- Persistence (best-effort) ---
   Future<String?> _persistMoment(Moment m, EdgeTriage t) async {
-    final userId = Supabase.instance.client.auth.currentUser?.id;
+    final userId = ref.read(localUserIdProvider);
     if (userId == null) return null;
     try {
-      final row = await Supabase.instance.client
-          .from('captured_moments')
-          .insert({
-            'user_id': userId,
-            'source_surface': m.sourceSurface.id,
-            'source_type': m.sourceType,
-            'raw_excerpt': t.redactedText.length > 400
-                ? t.redactedText.substring(0, 400)
-                : t.redactedText,
-            'redacted_text': t.redactedText,
-            'private_mode': state.privateMode,
-          })
-          .select('id')
-          .maybeSingle();
-      return row?['id']?.toString();
+      final excerpt = t.redactedText.length > 400
+          ? t.redactedText.substring(0, 400)
+          : t.redactedText;
+      final saved = await ref.read(contextOsDaoProvider).insertCapturedMoment(
+            CapturedMomentRecord(
+              id: '',
+              userId: userId,
+              sourceSurface: m.sourceSurface.id,
+              sourceType: m.sourceType,
+              rawExcerpt: excerpt,
+              redactedText: t.redactedText,
+              privateMode: state.privateMode,
+              createdAt: DateTime.now(),
+            ),
+          );
+      return saved.id;
     } catch (_) {
       return null;
     }
   }
 
   Future<void> _persistAnalysis(String? momentId, MomentAnalysis a) async {
-    final userId = Supabase.instance.client.auth.currentUser?.id;
+    final userId = ref.read(localUserIdProvider);
     if (userId == null) return;
     try {
-      await Supabase.instance.client.from('risk_analyses').insert({
-        'user_id': userId,
-        if (momentId != null) 'moment_id': momentId,
-        'verdict': a.verdict.id,
-        'risk_score': a.riskScore,
-        'headline': a.headline,
-        'why_it_matters': a.whyItMatters,
-        'facts': a.facts,
-        'red_flags': a.redFlags,
-        'assumptions': a.assumptions,
-        'missing_info': a.missingInfo,
-        'what_could_make_wrong': a.whatCouldMakeWrong,
-        'verification_steps': a.verificationSteps,
-        'confidence': a.confidence,
-        'edge_summary': a.edgeSummary,
-        'cloud_used': a.cloudUsed,
-      });
+      final dao = ref.read(contextOsDaoProvider);
+      await dao.insertRiskAnalysis(
+        RiskAnalysisRecord(
+          id: '',
+          momentId: momentId,
+          userId: userId,
+          verdict: a.verdict.id,
+          riskScore: a.riskScore,
+          headline: a.headline,
+          whyItMatters: a.whyItMatters,
+          facts: a.facts,
+          redFlags: a.redFlags,
+          assumptions: a.assumptions,
+          missingInfo: a.missingInfo,
+          whatCouldMakeWrong: a.whatCouldMakeWrong,
+          verificationSteps: a.verificationSteps,
+          confidence: a.confidence,
+          edgeSummary: a.edgeSummary,
+          cloudUsed: a.cloudUsed,
+          createdAt: DateTime.now(),
+        ),
+      );
       if (a.actions.isNotEmpty && momentId != null) {
-        await Supabase.instance.client.from('alter_actions').insert([
-          for (final act in a.actions)
-            {
-              'user_id': userId,
-              'moment_id': momentId,
-              'action_type': act.type,
-              'title': act.title,
-              'detail': act.detail,
-              'requires_confirmation': act.requiresConfirmation,
-              'irreversible': act.irreversible,
-            },
-        ]);
+        for (final act in a.actions) {
+          await dao.insertAlterAction(
+            AlterActionRecord(
+              id: '',
+              momentId: momentId,
+              userId: userId,
+              actionType: act.type,
+              title: act.title,
+              detail: act.detail,
+              requiresConfirmation: act.requiresConfirmation,
+              irreversible: act.irreversible,
+              createdAt: DateTime.now(),
+            ),
+          );
+        }
       }
     } catch (_) {}
   }
 
   Future<void> _audit(String? momentId, String kind, String detail) async {
-    final userId = Supabase.instance.client.auth.currentUser?.id;
+    final userId = ref.read(localUserIdProvider);
     if (userId == null) return;
     try {
-      await Supabase.instance.client.from('audit_events').insert({
-        'user_id': userId,
-        if (momentId != null) 'moment_id': momentId,
-        'kind': kind,
-        'detail': detail,
-        'edge_state': state.privateMode ? 'private' : 'edge',
-      });
+      await ref.read(contextOsDaoProvider).insertAuditEvent(
+            AuditEventRecord(
+              id: '',
+              userId: userId,
+              momentId: momentId,
+              kind: kind,
+              detail: detail,
+              edgeState: state.privateMode ? 'private' : 'edge',
+              createdAt: DateTime.now(),
+            ),
+          );
     } catch (_) {}
   }
 

@@ -5,16 +5,18 @@ import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../ui/routes.dart';
 import '../../../core/theme/alter_palette.dart';
 import '../../../core/widgets/ambient_scaffold.dart';
 import '../../../core/widgets/glass_panel.dart';
-import '../../../core/widgets/gradient_text.dart';
 import '../../../core/widgets/premium_controls.dart';
+import '../../../ui/routes.dart';
+import '../../../ui/widgets.dart';
 import '../application/daytwin_controller.dart';
 import '../application/decision_council_controller.dart';
 import '../application/futuretwin_controller.dart';
-import '../application/gemma_model_manager.dart';
 import '../application/lifeshield_controller.dart';
+import '../application/gemma_model_manager.dart';
 import '../application/memory_engine.dart';
 import '../application/openclaw_adapter.dart';
 import '../data/demo_fixtures.dart';
@@ -63,39 +65,22 @@ class _LifeShieldScreenState extends ConsumerState<LifeShieldScreen> {
     });
 
     return AmbientScaffold(
+      header: ShellPageHeader(
+        title: 'SHIELD',
+        subtitle:
+            'Understands the moment before you act — tap, pay, reply, scan, install.',
+        onGear: () => context.push(AlterRoutes.settings),
+      ),
+      scrollable: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    GradientText(
-                      'LifeShield',
-                      style: theme.textTheme.displaySmall?.copyWith(
-                        fontWeight: FontWeight.w900,
-                        height: 1.02,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Understands the moment before you act — tap, pay, reply, scan, install.',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                        height: 1.35,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 10),
-              _PrivateModeToggle(
-                on: state.privateMode,
-                onTap: notifier.togglePrivateMode,
-              ),
-            ],
+          Align(
+            alignment: Alignment.centerRight,
+            child: _PrivateModeToggle(
+              on: state.privateMode,
+              onTap: notifier.togglePrivateMode,
+            ),
           ),
           const SizedBox(height: 16),
           _CaptureCard(
@@ -280,7 +265,7 @@ class _CaptureCard extends StatelessWidget {
               const Spacer(),
               _Pill(
                 icon: LucideIcons.cpu,
-                text: realGemma ? 'Gemma on-device' : 'Edge heuristics (demo)',
+                text: realGemma ? 'Gemma 4 on-device' : 'Pattern check',
                 color: realGemma ? AlterPalette.cyan : AlterPalette.mint,
               ),
             ],
@@ -698,7 +683,7 @@ class _SecondaryActions extends ConsumerWidget {
                   HapticFeedback.selectionClick();
                   ref.read(decisionCouncilProvider.notifier).seed(
                       state.moment?.rawContent ?? state.input);
-                  context.go('/decision-council');
+                  context.go(AlterRoutes.decisionCouncil);
                 },
               ),
             ),
@@ -766,10 +751,10 @@ class _RoutedCard extends ConsumerWidget {
     HapticFeedback.selectionClick();
     if (category.mode == 'daytwin') {
       ref.read(dayTwinControllerProvider.notifier).seed(momentText);
-      context.go('/daytwin');
+      context.go(AlterRoutes.dayTwin);
     } else if (category.mode == 'futuretwin') {
       ref.read(futureTwinControllerProvider.notifier).seed(momentText);
-      context.go('/futuretwin');
+      context.go(AlterRoutes.futureTwin);
     }
   }
 
@@ -881,7 +866,9 @@ class _ContextCard extends StatelessWidget {
               ),
               const Spacer(),
               _StatusDot(
-                label: extraction.cloudEnriched ? 'edge + cloud' : 'on-device',
+                label: extraction.cloudEnriched
+                    ? 'Gemma 4 + cloud'
+                    : 'Pattern check',
                 color: extraction.cloudEnriched
                     ? AlterPalette.cyan
                     : AlterPalette.mint,
@@ -1016,8 +1003,8 @@ class _ProofSheet extends StatelessWidget {
               _Pill(
                 icon: analysis.cloudUsed ? LucideIcons.cloud : LucideIcons.cpu,
                 text: analysis.cloudUsed
-                    ? 'Edge + cloud reasoning'
-                    : 'On-device only',
+                    ? 'Gemma 4 + cloud'
+                    : 'Pattern check only',
                 color: analysis.edgeState.color,
               ),
               const SizedBox(width: 8),
@@ -1340,7 +1327,7 @@ class _ActionRow extends ConsumerWidget {
         content: Text('Queued “${action.title}” in OpenClaw'),
         action: SnackBarAction(
           label: 'Open',
-          onPressed: () => context.go('/openclaw'),
+          onPressed: () => context.go(AlterRoutes.openclaw),
         ),
       ),
     );

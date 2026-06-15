@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
-import '../../../core/theme/alter_palette.dart';
-import '../../../core/widgets/ambient_scaffold.dart';
-import '../../../core/widgets/gradient_text.dart';
+import '../../../ui/theme.dart';
+import '../../../ui/widgets.dart';
 import '../application/agent_controller.dart';
 
 class AgentScreen extends ConsumerStatefulWidget {
@@ -15,12 +15,18 @@ class AgentScreen extends ConsumerStatefulWidget {
   ConsumerState<AgentScreen> createState() => _AgentScreenState();
 }
 
-class _AgentScreenState extends ConsumerState<AgentScreen> {
+class _AgentScreenState extends ConsumerState<AgentScreen>
+    with TickerProviderStateMixin {
   final _input = TextEditingController();
   final _scroll = ScrollController();
+  late final AnimationController _eqWave = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  )..repeat(reverse: true);
 
   @override
   void dispose() {
+    _eqWave.dispose();
     _input.dispose();
     _scroll.dispose();
     super.dispose();
@@ -38,50 +44,86 @@ class _AgentScreenState extends ConsumerState<AgentScreen> {
     });
   }
 
+  VoiceEqualizerMode _eqMode(AgentState state) {
+    if (state.isListening) return VoiceEqualizerMode.listening;
+    if (state.isThinking) return VoiceEqualizerMode.speaking;
+    return VoiceEqualizerMode.idle;
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(agentControllerProvider);
     final notifier = ref.read(agentControllerProvider.notifier);
-    final theme = Theme.of(context);
     _scrollToEnd();
 
-    return AmbientScaffold(
-      scrollable: false,
-      bottomPadding: 0,
+    return DeepScaffold(
+      title: 'ALTER',
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              GradientText(
-                'ALTER',
-                style: theme.textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.w900,
+          Align(
+            alignment: Alignment.centerRight,
+            child: GestureDetector(
+              onTap: notifier.stopSpeaking,
+              child: Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: AppColors.white(0.06),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppColors.white(0.12)),
                 ),
+                child: Icon(LucideIcons.volume_x,
+                    size: 18, color: AppColors.white(0.85)),
               ),
-              const SizedBox(width: 8),
-              Text(
-                'voice agent',
-                style: theme.textTheme.labelMedium?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const Spacer(),
-              IconButton(
-                tooltip: 'Stop talking',
-                icon: const Icon(LucideIcons.volume_x),
-                onPressed: notifier.stopSpeaking,
-              ),
-            ],
+            ),
           ),
+          const SizedBox(height: 8),
+          Center(
+            child: RainbowEqualizer(
+              mode: _eqMode(state),
+              animation: _eqWave,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 22),
+            child: Text(
+              state.isListening
+                  ? 'Listening…'
+                  : state.isThinking
+                      ? 'Alter is thinking'
+                      : 'Talk or type to ALTER',
+              textAlign: TextAlign.center,
+              style: AppText.body(15, weight: FontWeight.w600),
+            ),
+          ),
+          if (state.partial.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(22, 6, 22, 0),
+              child: Text(
+                state.partial,
+                style: AppText.body(14, color: AppColors.cyan).copyWith(
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ),
+          if (state.error.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(22, 6, 22, 0),
+              child: Text(
+                state.error,
+                style: AppText.body(12, color: AppColors.orange),
+              ),
+            ),
           const SizedBox(height: 8),
           Expanded(
             child: ListView.builder(
               controller: _scroll,
               physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.only(bottom: 12),
-              itemCount: state.messages.length + (state.isThinking ? 1 : 0),
+              padding: const EdgeInsets.fromLTRB(22, 4, 22, 12),
+              itemCount:
+                  state.messages.length + (state.isThinking ? 1 : 0),
               itemBuilder: (context, i) {
                 if (i >= state.messages.length) {
                   return const _ThinkingBubble();
@@ -90,41 +132,28 @@ class _AgentScreenState extends ConsumerState<AgentScreen> {
               },
             ),
           ),
-          if (state.partial.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Text(
-                state.partial,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: AlterPalette.iris,
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+              18,
+              8,
+              18,
+              8 + MediaQuery.paddingOf(context).bottom,
             ),
-          if (state.error.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Text(
-                state.error,
-                style: theme.textTheme.labelSmall
-                    ?.copyWith(color: AlterPalette.amber),
-              ),
+            child: _Composer(
+              controller: _input,
+              listening: state.isListening,
+              onMic: () {
+                HapticFeedback.mediumImpact();
+                notifier.toggleListening();
+              },
+              onSend: () {
+                final t = _input.text.trim();
+                if (t.isEmpty) return;
+                _input.clear();
+                notifier.send(t);
+              },
             ),
-          _Composer(
-            controller: _input,
-            listening: state.isListening,
-            onMic: () {
-              HapticFeedback.mediumImpact();
-              notifier.toggleListening();
-            },
-            onSend: () {
-              final t = _input.text.trim();
-              if (t.isEmpty) return;
-              _input.clear();
-              notifier.send(t);
-            },
           ),
-          SizedBox(height: MediaQuery.paddingOf(context).bottom + 8),
         ],
       ),
     );
@@ -138,7 +167,6 @@ class _Bubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     if (message.role == AgentRole.tool) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 5),
@@ -146,32 +174,32 @@ class _Bubble extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: AlterPalette.cyan.withValues(alpha: 0.1),
+              color: AppColors.cyan.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(99),
-              border: Border.all(color: AlterPalette.cyan.withValues(alpha: 0.3)),
+              border: Border.all(color: AppColors.cyan.withValues(alpha: 0.3)),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (message.pending)
-                  const SizedBox(
+                  SizedBox(
                     width: 12,
                     height: 12,
                     child: CircularProgressIndicator(
-                        strokeWidth: 2, color: AlterPalette.cyan),
+                      strokeWidth: 2,
+                      color: AppColors.cyan,
+                    ),
                   )
                 else
-                  Icon(LucideIcons.zap, size: 12, color: AlterPalette.cyan),
+                  Icon(LucideIcons.zap, size: 12, color: AppColors.cyan),
                 const SizedBox(width: 8),
                 Flexible(
                   child: Text(
                     message.text,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: AlterPalette.cyan,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: AppText.body(12,
+                        weight: FontWeight.w700, color: AppColors.cyan),
                   ),
                 ),
               ],
@@ -189,30 +217,32 @@ class _Bubble extends StatelessWidget {
         constraints: BoxConstraints(
           maxWidth: MediaQuery.sizeOf(context).width * 0.82,
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          gradient: isUser ? AlterPalette.premiumGradient : null,
-          color: isUser
+          color: isUser ? AppColors.white(0.10) : null,
+          gradient: isUser
               ? null
-              : theme.colorScheme.surface.withValues(alpha: 0.55),
+              : LinearGradient(
+                  colors: [
+                    AppColors.lime.withValues(alpha: 0.16),
+                    AppColors.purple.withValues(alpha: 0.14),
+                  ],
+                ),
           borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(14),
-            topRight: const Radius.circular(14),
-            bottomLeft: Radius.circular(isUser ? 14 : 4),
-            bottomRight: Radius.circular(isUser ? 4 : 14),
+            topLeft: const Radius.circular(20),
+            topRight: const Radius.circular(20),
+            bottomLeft: Radius.circular(isUser ? 20 : 6),
+            bottomRight: Radius.circular(isUser ? 6 : 20),
           ),
-          border: isUser
-              ? null
-              : Border.all(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.08)),
+          border: Border.all(
+            color: isUser
+                ? AppColors.white(0.14)
+                : AppColors.lime.withValues(alpha: 0.25),
+          ),
         ),
         child: Text(
           message.text,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: isUser ? Colors.white : theme.colorScheme.onSurface,
-            height: 1.35,
-            fontWeight: isUser ? FontWeight.w600 : FontWeight.w500,
-          ),
+          style: AppText.body(14, height: 1.45),
         ),
       ),
     );
@@ -224,20 +254,23 @@ class _ThinkingBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 5),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: theme.colorScheme.surface.withValues(alpha: 0.55),
-          borderRadius: BorderRadius.circular(14),
+          color: AppColors.white(0.06),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppColors.white(0.10)),
         ),
-        child: const SizedBox(
+        child: SizedBox(
           width: 18,
           height: 18,
-          child: CircularProgressIndicator(strokeWidth: 2),
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: AppColors.lime,
+          ),
         ),
       ),
     );
@@ -259,28 +292,51 @@ class _Composer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Row(
       children: [
         Expanded(
-          child: TextField(
-            controller: controller,
-            minLines: 1,
-            maxLines: 4,
-            textInputAction: TextInputAction.send,
-            onSubmitted: (_) => onSend(),
-            decoration: InputDecoration(
-              hintText: listening ? 'Listening…' : 'Talk or type to ALTER…',
-              filled: true,
-              fillColor: theme.colorScheme.surface.withValues(alpha: 0.5),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide.none,
-              ),
-              suffixIcon: IconButton(
-                icon: const Icon(LucideIcons.send_horizontal, size: 18),
-                onPressed: onSend,
-              ),
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppColors.white(0.07),
+              borderRadius: BorderRadius.circular(26),
+              border: Border.all(color: AppColors.white(0.16)),
+            ),
+            padding: const EdgeInsets.only(left: 18, right: 6),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: controller,
+                    minLines: 1,
+                    maxLines: 4,
+                    textInputAction: TextInputAction.send,
+                    onSubmitted: (_) => onSend(),
+                    style: AppText.body(14),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      border: InputBorder.none,
+                      hintText: listening ? 'Listening…' : 'Talk or type…',
+                      hintStyle: AppText.body(14, color: AppColors.white(0.4)),
+                    ),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: onSend,
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    margin: const EdgeInsets.symmetric(vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.lime.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(20),
+                      border:
+                          Border.all(color: AppColors.lime.withValues(alpha: 0.5)),
+                    ),
+                    child: const Icon(Icons.arrow_upward,
+                        size: 18, color: AppColors.lime),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -289,18 +345,21 @@ class _Composer extends StatelessWidget {
           onTap: onMic,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 220),
-            width: 54,
-            height: 54,
+            width: 52,
+            height: 52,
             decoration: BoxDecoration(
               gradient: listening
-                  ? const LinearGradient(
-                      colors: [AlterPalette.aura, AlterPalette.danger])
-                  : AlterPalette.premiumGradient,
+                  ? LinearGradient(
+                      colors: [AppColors.orange, AppColors.danger],
+                    )
+                  : const LinearGradient(
+                      colors: [AppColors.lime, AppColors.limeDeep],
+                    ),
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: (listening ? AlterPalette.aura : AlterPalette.iris)
-                      .withValues(alpha: 0.5),
+                  color: (listening ? AppColors.orange : AppColors.lime)
+                      .withValues(alpha: 0.45),
                   blurRadius: 20,
                   offset: const Offset(0, 8),
                 ),
@@ -308,8 +367,8 @@ class _Composer extends StatelessWidget {
             ),
             child: Icon(
               listening ? LucideIcons.square : LucideIcons.mic,
-              color: Colors.white,
-              size: 24,
+              color: AppColors.bg,
+              size: 22,
             ),
           ),
         ),

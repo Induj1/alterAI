@@ -2,11 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:alter/src/features/contextos/application/council_ambient_controller.dart';
+import 'package:alter/src/features/actions/presentation/action_inbox_card.dart';
 import 'package:alter/src/features/life_feed/application/life_feed_provider.dart';
+import 'package:alter/src/features/life_feed/application/task_completion_provider.dart';
 import 'package:alter/src/features/life_feed/domain/life_feed_models.dart';
+import 'package:alter/src/features/profile/application/profile_provider.dart';
+import 'package:alter/src/features/proactive/application/briefing_controller.dart';
 import 'package:alter/src/ui/routes.dart';
 import 'package:alter/src/ui/theme.dart';
 import 'package:alter/src/ui/widgets.dart';
+import 'package:alter/src/ui/widgets/council_orbit.dart';
 import 'package:alter/src/ui/screens/main_shell.dart';
 
 class DashboardScreen extends ConsumerWidget {
@@ -25,6 +31,13 @@ class DashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final shell = MainShell.of(context);
     final feedAsync = ref.watch(lifeFeedProvider);
+    final briefingAsync = ref.watch(briefingControllerProvider);
+    ref.watch(councilAmbientProvider);
+    final profile = ref.watch(userProfileProvider).asData?.value;
+    final initial = profile?.displayName.isNotEmpty == true
+        ? profile!.displayName[0].toUpperCase()
+        : 'Y';
+    final doneTasks = ref.watch(taskCompletionProvider);
 
     return GradientScaffold(
       bgColors: const [Color(0xFF241A40), Color(0xFF120E1C), AppColors.bg],
@@ -33,8 +46,24 @@ class DashboardScreen extends ConsumerWidget {
         bottom: false,
         child: feedAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (_, __) => _content(context, shell, LifeFeedSnapshot.fallback()),
-          data: (feed) => _content(context, shell, feed),
+          error: (_, __) => _content(
+            context,
+            ref,
+            shell,
+            LifeFeedSnapshot.empty(),
+            briefingAsync.asData?.value,
+            initial,
+            doneTasks,
+          ),
+          data: (feed) => _content(
+            context,
+            ref,
+            shell,
+            feed,
+            briefingAsync.asData?.value,
+            initial,
+            doneTasks,
+          ),
         ),
       ),
     );
@@ -42,8 +71,12 @@ class DashboardScreen extends ConsumerWidget {
 
   Widget _content(
     BuildContext context,
+    WidgetRef ref,
     MainShellState shell,
     LifeFeedSnapshot feed,
+    DailyBriefing? briefing,
+    String userInitial,
+    Set<String> doneTasks,
   ) {
     return ListView(
       padding: const EdgeInsets.fromLTRB(22, 10, 22, 130),
@@ -62,23 +95,78 @@ class DashboardScreen extends ConsumerWidget {
         const SizedBox(height: 6),
         Text(feed.dateSummary,
             style: AppText.body(13.5, color: AppColors.white(0.45))),
+        const SizedBox(height: 16),
+        CouncilOrbit(
+          compact: true,
+          userInitial: userInitial,
+          onConvene: () => context.push(AlterRoutes.council),
+        ),
+        const SizedBox(height: 16),
+        const ActionInboxCard(),
+        if (briefing != null &&
+            (briefing.commitments.isNotEmpty ||
+                briefing.memoryCitations.isNotEmpty)) ...[
+          const SizedBox(height: 16),
+          GlassCard(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Daily briefing',
+                    style: AppText.kicker(AppColors.lime, size: 11)),
+                const SizedBox(height: 6),
+                Text(briefing.headline,
+                    style: AppText.body(14, color: AppColors.white(0.85), height: 1.4)),
+                if (briefing.commitments.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text('Commitments: ${briefing.commitments.join(' · ')}',
+                      style: AppText.body(12, color: AppColors.white(0.55))),
+                ],
+                if (briefing.memoryCitations.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      'Based on: ${briefing.memoryCitations.join(', ')}',
+                      style: AppText.body(11, color: AppColors.white(0.4)),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
         const SizedBox(height: 22),
-        _focusHero(context, shell, feed),
-        const SizedBox(height: 30),
-        _sectionHead('Opportunities for you', 'Radar →',
-            () => context.push(AlterRoutes.radar)),
-        const SizedBox(height: 14),
-        ...feed.opportunities.map((o) => Padding(
-              padding: const EdgeInsets.only(bottom: 11),
-              child: _oppCard(context, o),
-            )),
-        const SizedBox(height: 18),
-        Text("Today's tasks", style: AppText.body(16, weight: FontWeight.w700)),
-        const SizedBox(height: 14),
-        ...feed.tasks.map((t) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: _taskRow(t),
-            )),
+        if (!feed.hasContent)
+          const InferringEmptyState(
+            title: 'Still inferring…',
+            subtitle:
+                'Your life feed fills in as Alter observes your voice, calendar, and actions.',
+          )
+        else ...[
+          _focusHero(context, shell, feed),
+          const SizedBox(height: 30),
+          if (feed.opportunities.isNotEmpty) ...[
+            _sectionHead('Opportunities for you', 'Radar →',
+                () => context.push(AlterRoutes.radar)),
+            const SizedBox(height: 14),
+            ...feed.opportunities.map((o) => Padding(
+                  padding: const EdgeInsets.only(bottom: 11),
+                  child: _oppCard(context, o),
+                )),
+            const SizedBox(height: 18),
+          ],
+          if (feed.tasks.isNotEmpty) ...[
+            Text("Today's tasks", style: AppText.body(16, weight: FontWeight.w700)),
+            const SizedBox(height: 14),
+            ...feed.tasks.map((t) {
+              final id = t.title;
+              final done = doneTasks.contains(id);
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _taskRow(ref, t.copyWith(done: done), id),
+              );
+            }),
+          ],
+        ],
       ],
     );
   }
@@ -203,8 +291,10 @@ class DashboardScreen extends ConsumerWidget {
     );
   }
 
-  Widget _taskRow(LifeFeedTask t) {
-    return Container(
+  Widget _taskRow(WidgetRef ref, LifeFeedTask t, String taskId) {
+    return GestureDetector(
+      onTap: () => ref.read(taskCompletionProvider.notifier).toggle(taskId),
+      child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
       decoration: BoxDecoration(
         gradient: t.hot
@@ -254,6 +344,7 @@ class DashboardScreen extends ConsumerWidget {
                 weight: FontWeight.w700,
                 color: t.badge == 'Now' ? AppColors.lime : AppColors.white(0.45))),
       ]),
+      ),
     );
   }
 }

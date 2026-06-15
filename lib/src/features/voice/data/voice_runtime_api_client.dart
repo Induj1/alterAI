@@ -2,67 +2,69 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
-class VoiceRuntimeApiClient {
-  VoiceRuntimeApiClient({required String baseUrl, http.Client? client})
-    : _baseUrl = baseUrl.replaceFirst(RegExp(r'/$'), ''),
-      _client = client ?? http.Client();
+import '../../../core/config/alter_gateway_config.dart';
+import '../../../core/errors/alter_service_exception.dart';
+import '../../profile/domain/user_profile.dart';
 
-  final String _baseUrl;
+class VoiceRuntimeApiClient {
+  VoiceRuntimeApiClient({http.Client? client})
+      : _client = client ?? http.Client();
+
   final http.Client _client;
+
+  String get _baseUrl => AlterGatewayConfig.normalizedBaseUrl;
 
   Future<VoiceRuntimeResult> run({
     required String transcript,
     required String locale,
+    String? userId,
+    UserProfile? profile,
+    String memoryContext = '',
   }) async {
-    final response = await _client.post(
-      Uri.parse('$_baseUrl/v1/voice/action-runtime'),
-      headers: const <String, String>{'content-type': 'application/json'},
-      body: jsonEncode(<String, Object>{
-        'transcript': transcript,
-        'locale': locale,
-        'device_surface': 'phone',
-        'user_profile': const <String, Object>{
-          'name': 'ALTER Operator',
-          'current_role': 'Student founder',
-          'career_stage': 'student founder',
-          'industry': 'AI',
-          'current_network_size': 180,
-          'risk_tolerance': 0.72,
-          'weekly_learning_hours': 12,
-        },
-        'skills': const <String>[
-          'AI agents',
-          'Flutter',
-          'FastAPI',
-          'Product strategy',
-          'Founder storytelling',
-        ],
-        'goals': const <String>[
-          'Build ALTER into a real startup',
-          'Validate strong user demand',
-          'Create a trusted personal AI operating system',
-        ],
-        'interests': const <String>[
-          'AI assistants',
-          'future decisions',
-          'startup networks',
-        ],
-      }),
-    );
+    final response = await _client
+        .post(
+          Uri.parse('$_baseUrl/v1/voice/action-runtime'),
+          headers: const <String, String>{'content-type': 'application/json'},
+          body: jsonEncode(<String, Object>{
+            if (userId != null && userId.isNotEmpty) 'user_id': userId,
+            'transcript': transcript,
+            'locale': locale,
+            'device_surface': 'phone',
+            'user_profile': _profilePayload(profile),
+            'skills': _skills(profile),
+            'goals': _goals(profile),
+            'interests': _interests(profile),
+            if (memoryContext.isNotEmpty) 'memory_context': memoryContext,
+          }),
+        )
+        .timeout(const Duration(seconds: 60));
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw VoiceRuntimeApiException(
-        'Voice runtime returned ${response.statusCode}: ${response.body}',
+      throw AlterServiceException(
+        'Voice runtime HTTP ${response.statusCode}',
+        kind: _kindForStatus(response.statusCode),
+        statusCode: response.statusCode,
       );
     }
     final body = jsonDecode(response.body);
     if (body is! Map<String, dynamic>) {
-      throw const VoiceRuntimeApiException('Voice runtime returned invalid JSON.');
+      throw const AlterServiceException(
+        'Voice runtime invalid JSON',
+        kind: ServiceErrorKind.parse,
+      );
     }
     return VoiceRuntimeResult.fromJson(body);
   }
 
   void close() => _client.close();
+}
+
+ServiceErrorKind _kindForStatus(int code) {
+  if (code == 401 || code == 403) return ServiceErrorKind.auth;
+  if (code == 404) return ServiceErrorKind.notFound;
+  if (code == 429) return ServiceErrorKind.quota;
+  if (code >= 500) return ServiceErrorKind.server;
+  return ServiceErrorKind.unknown;
 }
 
 class VoiceRuntimeApiException implements Exception {
@@ -195,4 +197,31 @@ double _double(Object? raw) {
 
 String _string(Object? raw, {String fallback = ''}) {
   return raw is String && raw.isNotEmpty ? raw : fallback;
+}
+
+Map<String, Object> _profilePayload(UserProfile? profile) {
+  if (profile == null || profile.displayName.isEmpty) {
+    return const <String, Object>{};
+  }
+  return <String, Object>{
+    'name': profile.displayName,
+    if (profile.role.isNotEmpty) 'current_role': profile.role,
+    if (profile.careerStage.isNotEmpty) 'career_stage': profile.careerStage,
+    if (profile.industry.isNotEmpty) 'industry': profile.industry,
+  };
+}
+
+List<String> _skills(UserProfile? profile) {
+  if (profile?.skills.isNotEmpty == true) return profile!.skills;
+  return const <String>[];
+}
+
+List<String> _goals(UserProfile? profile) {
+  if (profile?.goals.isNotEmpty == true) return profile!.goals;
+  return const <String>[];
+}
+
+List<String> _interests(UserProfile? profile) {
+  if (profile?.interests.isNotEmpty == true) return profile!.interests;
+  return const <String>[];
 }

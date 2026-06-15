@@ -1,5 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../../auth/application/auth_provider.dart';
+import '../../../data/local/contextos_dao.dart';
+import '../../../data/local/dao_providers.dart';
 
 class TrustedEntity {
   const TrustedEntity({this.id, required this.type, required this.value});
@@ -9,33 +12,93 @@ class TrustedEntity {
   final String value;
 }
 
-/// MemoryEngine (trust slice) — remembers contacts/domains/apps the user has
-/// vouched for so LifeShield stops re-warning about them. Backed by
-/// `trusted_entities`; best-effort + in-memory so it works pre-migration.
-final memoryProvider =
-    AsyncNotifierProvider<MemoryEngine, List<TrustedEntity>>(MemoryEngine.new);
+class MemoryGovernanceSettings {
+  const MemoryGovernanceSettings({
+    this.defaultRetention = 'ephemeral',
+    this.durableRequiresConfirmation = true,
+    this.sensitiveRequiresConfirmation = true,
+    this.restrictedStorageAllowed = false,
+    this.portableExportEnabled = true,
+    this.maxRetrievalChars = 6000,
+  });
+
+  final String defaultRetention;
+  final bool durableRequiresConfirmation;
+  final bool sensitiveRequiresConfirmation;
+  final bool restrictedStorageAllowed;
+  final bool portableExportEnabled;
+  final int maxRetrievalChars;
+
+  MemoryGovernanceSettings copyWith({
+    String? defaultRetention,
+    bool? durableRequiresConfirmation,
+    bool? sensitiveRequiresConfirmation,
+    bool? restrictedStorageAllowed,
+    bool? portableExportEnabled,
+    int? maxRetrievalChars,
+  }) =>
+      MemoryGovernanceSettings(
+        defaultRetention: defaultRetention ?? this.defaultRetention,
+        durableRequiresConfirmation:
+            durableRequiresConfirmation ?? this.durableRequiresConfirmation,
+        sensitiveRequiresConfirmation: sensitiveRequiresConfirmation ??
+            this.sensitiveRequiresConfirmation,
+        restrictedStorageAllowed:
+            restrictedStorageAllowed ?? this.restrictedStorageAllowed,
+        portableExportEnabled:
+            portableExportEnabled ?? this.portableExportEnabled,
+        maxRetrievalChars: maxRetrievalChars ?? this.maxRetrievalChars,
+      );
+}
+
+final memoryGovernanceProvider =
+    AsyncNotifierProvider<MemoryGovernanceController, MemoryGovernanceSettings>(
+  MemoryGovernanceController.new,
+);
+
+class MemoryGovernanceController
+    extends AsyncNotifier<MemoryGovernanceSettings> {
+  @override
+  Future<MemoryGovernanceSettings> build() => _load();
+
+  Future<MemoryGovernanceSettings> _load() async {
+    ref.watch(isDbUnlockedProvider);
+    final userId = ref.read(localUserIdProvider);
+    if (userId == null) return const MemoryGovernanceSettings();
+    try {
+      return await ref.read(memoryGovernanceDaoProvider).get(userId) ??
+          const MemoryGovernanceSettings();
+    } catch (_) {
+      return const MemoryGovernanceSettings();
+    }
+  }
+
+  Future<void> save(MemoryGovernanceSettings settings) async {
+    state = AsyncValue.data(settings);
+    final userId = ref.read(localUserIdProvider);
+    if (userId == null) return;
+    try {
+      await ref.read(memoryGovernanceDaoProvider).upsert(userId, settings);
+    } catch (_) {}
+  }
+}
+
+final memoryProvider = AsyncNotifierProvider<MemoryEngine, List<TrustedEntity>>(
+  MemoryEngine.new,
+);
 
 class MemoryEngine extends AsyncNotifier<List<TrustedEntity>> {
   @override
   Future<List<TrustedEntity>> build() => _load();
 
   Future<List<TrustedEntity>> _load() async {
-    final userId = Supabase.instance.client.auth.currentUser?.id;
+    ref.watch(isDbUnlockedProvider);
+    final userId = ref.read(localUserIdProvider);
     if (userId == null) return const [];
     try {
-      final rows = (await Supabase.instance.client
-              .from('trusted_entities')
-              .select('id, entity_type, value')
-              .eq('user_id', userId)
-              .order('created_at', ascending: false) as List)
-          .cast<Map<String, dynamic>>();
-      return rows
-          .map((r) => TrustedEntity(
-                id: r['id']?.toString(),
-                type: (r['entity_type'] ?? 'domain').toString(),
-                value: (r['value'] ?? '').toString(),
-              ))
-          .toList();
+      final rows =
+          await ref.read(contextOsDaoProvider).listTrustedEntities(userId);
+      return rows.map((r) => r.toEntity()).toList();
     } catch (_) {
       return const [];
     }
@@ -44,20 +107,24 @@ class MemoryEngine extends AsyncNotifier<List<TrustedEntity>> {
   Future<void> addTrusted(String type, String value) async {
     final v = value.trim();
     if (v.isEmpty) return;
+    final userId = ref.read(localUserIdProvider);
+    if (userId == null) return;
+
     final current = state.asData?.value ?? const [];
     if (current.any((e) => e.value.toLowerCase() == v.toLowerCase())) return;
 
-    // Optimistic in-memory add so the UI updates even pre-migration.
     state = AsyncValue.data([TrustedEntity(type: type, value: v), ...current]);
 
-    final userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId == null) return;
     try {
-      await Supabase.instance.client.from('trusted_entities').insert({
-        'user_id': userId,
-        'entity_type': type,
-        'value': v,
-      });
+      await ref.read(contextOsDaoProvider).insertTrustedEntity(
+            TrustedEntityRecord(
+              id: '',
+              userId: userId,
+              entityType: type,
+              value: v,
+              createdAt: DateTime.now(),
+            ),
+          );
       state = AsyncValue.data(await _load());
     } catch (_) {}
   }
@@ -65,30 +132,27 @@ class MemoryEngine extends AsyncNotifier<List<TrustedEntity>> {
   Future<void> remove(TrustedEntity entity) async {
     final current = state.asData?.value ?? const [];
     state = AsyncValue.data(
-        current.where((e) => e.value != entity.value).toList());
+      current.where((e) => e.value != entity.value).toList(),
+    );
     if (entity.id == null) return;
     try {
-      await Supabase.instance.client
-          .from('trusted_entities')
-          .delete()
-          .eq('id', entity.id!);
+      await ref.read(contextOsDaoProvider).deleteTrustedEntity(entity.id!);
     } catch (_) {}
   }
 
   Future<void> clearAll() async {
-    final current = state.asData?.value ?? const [];
+    final userId = ref.read(localUserIdProvider);
     state = const AsyncValue.data([]);
-    final userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId == null || current.isEmpty) return;
+    if (userId == null) return;
     try {
-      await Supabase.instance.client
-          .from('trusted_entities')
-          .delete()
-          .eq('user_id', userId);
+      final rows =
+          await ref.read(contextOsDaoProvider).listTrustedEntities(userId);
+      for (final row in rows) {
+        await ref.read(contextOsDaoProvider).deleteTrustedEntity(row.id);
+      }
     } catch (_) {}
   }
 
-  /// Returns the trusted value that appears in [text], if any.
   static String? matchIn(List<TrustedEntity> trusted, String text) {
     final lower = text.toLowerCase();
     for (final e in trusted) {

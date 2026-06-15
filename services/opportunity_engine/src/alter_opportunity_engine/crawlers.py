@@ -163,17 +163,9 @@ class SeedCrawler:
         query: str | None,
         limit: int,
     ) -> tuple[list[RawOpportunity], list[str]]:
-        seeds = _seed_opportunities(source_def.source)
-        if query:
-            query_terms = set(_terms(query))
-            filtered = [
-                seed
-                for seed in seeds
-                if query_terms & set(_terms(" ".join([seed.title, seed.raw_text])))
-            ]
-            seeds = filtered or seeds
-        return seeds[:limit], [
-            f"{source_def.display_name}: using deterministic seed adapter for local mode."
+        return [], [
+            f"{source_def.display_name}: no crawl source configured — "
+            "set ALTER_FIRECRAWL_API_KEY or public source URLs."
         ]
 
 
@@ -193,66 +185,6 @@ def _raw_from_html(source: OpportunitySource, url: str, html: str) -> RawOpportu
         tags=[organization],
         metadata={"crawler": "public_url"},
     )
-
-
-def _seed_opportunities(source: OpportunitySource) -> list[RawOpportunity]:
-    seed_data = {
-        OpportunitySource.linkedin: (
-            "AI Product Internship at venture-backed startup",
-            "Internship for students with Python, product analytics, and AI agent "
-            "interest. Apply soon.",
-        ),
-        OpportunitySource.internshala: (
-            "Remote Backend Internship",
-            "Build FastAPI services, databases, and automation workflows for a growing SaaS team.",
-        ),
-        OpportunitySource.unstop: (
-            "National AI Innovation Challenge",
-            "Competition for builders creating AI products with mentorship, prizes, "
-            "and hiring access.",
-        ),
-        OpportunitySource.devpost: (
-            "Global Agent Hackathon",
-            "Devpost hackathon for AI agents, developer tools, and productivity automation.",
-        ),
-        OpportunitySource.yc: (
-            "Startup Founder Program",
-            "Accelerator-style startup program for founders validating high-growth ideas.",
-        ),
-        OpportunitySource.gsoc: (
-            "Open Source Contributor Program",
-            "GSoC-style open source program for contributors with software engineering skills.",
-        ),
-        OpportunitySource.google_programs: (
-            "Google Developer Student Program",
-            "Google program for students interested in cloud, Android, AI, "
-            "and developer leadership.",
-        ),
-        OpportunitySource.research_fellowships: (
-            "AI Research Fellowship",
-            "Research fellowship for machine learning, human-computer interaction, "
-            "and AI safety work.",
-        ),
-        OpportunitySource.startup_grants: (
-            "Non-dilutive Startup Grant",
-            "Startup grant for early founders building AI, climate, healthcare, "
-            "or education products.",
-        ),
-    }
-    title, text = seed_data[source]
-    return [
-        RawOpportunity(
-            source=source,
-            source_url=f"https://example.com/{source.value}",
-            external_id=f"seed-{source.value}",
-            title=title,
-            organization=source.value.replace("_", " ").title(),
-            raw_text=text,
-            deadline_text="Apply within 30 days",
-            tags=list(_terms(text))[:8],
-            metadata={"crawler": "seed", "compliance": "local deterministic fixture"},
-        )
-    ]
 
 
 def _terms(text: str) -> list[str]:

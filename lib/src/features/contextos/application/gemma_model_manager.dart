@@ -1,18 +1,27 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/config/gemma_model_config.dart';
+import '../../../core/config/gemma_model_spec.dart';
+import '../../../core/config/gemma_model_validation.dart';
+import '../../../core/performance/device_tier.dart';
+import '../../../core/performance/on_device_resource_governor.dart';
+import '../../voice/application/voice_backend_preference.dart';
+import '../../voice/application/voice_io_preference.dart';
 import '../data/gemma_edge_engine.dart';
 import '../data/local_gemma_engine.dart';
 
-/// Lifecycle of the on-device Gemma model.
 enum GemmaStatus {
   checking,
   notInstalled,
+  installed,
   downloading,
   loading,
   ready,
-  unsupported, // web / platform without on-device inference
+  unsupported,
   error,
 }
 
@@ -24,10 +33,30 @@ class GemmaModelState {
   });
 
   final GemmaStatus status;
-  final double progress; // 0..1 while downloading
+  final double progress;
   final String message;
 
   bool get isReady => status == GemmaStatus.ready;
+
+  bool get modelOnDisk =>
+      status == GemmaStatus.ready ||
+      status == GemmaStatus.installed ||
+      status == GemmaStatus.loading;
+
+  bool get usesPatternCheck => !isReady;
+
+  String get statusLabel => switch (status) {
+        GemmaStatus.ready => 'Gemma 4 active',
+        GemmaStatus.installed => 'Downloaded · not loaded',
+        GemmaStatus.notInstalled => 'Not downloaded · pattern check',
+        GemmaStatus.downloading => 'Downloading Gemma 4',
+        GemmaStatus.loading => 'Loading into RAM',
+        GemmaStatus.checking => 'Checking',
+        GemmaStatus.unsupported => 'Pattern check only (web)',
+        GemmaStatus.error => 'Error · pattern check',
+      };
+
+  String get edgePillLabel => isReady ? 'Gemma 4 on-device' : 'Pattern check';
 
   GemmaModelState copyWith({
     GemmaStatus? status,
@@ -41,29 +70,48 @@ class GemmaModelState {
       );
 }
 
-/// A small, phone-friendly default. Editable in the install screen — point it
-/// at Gemma 3n E4B (the brief's target) or any LiteRT `.task` model.
-const kDefaultGemmaUrl =
-    'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/Gemma3-1B-IT_multi-prefill-seq_q8_ekv1280.task';
-
 final gemmaModelProvider =
     NotifierProvider<GemmaModelManager, GemmaModelState>(GemmaModelManager.new);
 
 class GemmaModelManager extends Notifier<GemmaModelState> {
   InferenceModel? _model;
   InferenceModel? get model => _model;
+  bool _downloadInFlight = false;
+  Timer? _idleUnloadTimer;
+  static const _idleUnloadDuration = Duration(minutes: 5);
 
   @override
   GemmaModelState build() {
     if (kIsWeb) {
       return const GemmaModelState(
         status: GemmaStatus.unsupported,
-        message: 'On-device Gemma runs on the phone build, not web.',
+        message: 'Gemma 4 runs on the Android/iOS build, not web.',
       );
     }
-    // Kick off an install check without blocking provider creation.
-    Future.microtask(checkInstalled);
+    ref.read(onDeviceResourceGovernorProvider.notifier).registerDisposer(
+          OnDeviceResource.llm,
+          unloadFromRam,
+        );
+    Future.microtask(_bootstrap);
     return const GemmaModelState(status: GemmaStatus.checking);
+  }
+
+  Future<void> _bootstrap() async {
+    await checkInstalled();
+    if (ref.read(voiceBackendPreferenceProvider) == VoiceBackend.onDevice &&
+        ref.read(keepGemmaInRamProvider) &&
+        state.modelOnDisk &&
+        !state.isReady) {
+      await ensureLoaded();
+    }
+  }
+
+  void _resetIdleUnloadTimer() {
+    _idleUnloadTimer?.cancel();
+    if (!state.isReady || ref.read(keepGemmaInRamProvider)) return;
+    _idleUnloadTimer = Timer(_idleUnloadDuration, () {
+      unawaited(unloadFromRam());
+    });
   }
 
   Future<void> checkInstalled() async {
@@ -71,10 +119,23 @@ class GemmaModelManager extends Notifier<GemmaModelState> {
     try {
       final installed = await FlutterGemma.listInstalledModels();
       if (installed.isEmpty) {
-        state = const GemmaModelState(status: GemmaStatus.notInstalled);
+        state = const GemmaModelState(
+          status: GemmaStatus.notInstalled,
+          message: 'Download Gemma 4 E4B below (~3 GB, no token).',
+        );
         return;
       }
-      await _load();
+      final validationError = await _validateInstalledModels(installed);
+      if (validationError != null) {
+        await remove();
+        state = GemmaModelState(status: GemmaStatus.error, message: validationError);
+        return;
+      }
+      state = GemmaModelState(
+        status: GemmaStatus.installed,
+        message:
+            'Gemma 4 on disk (${installed.first}). Tap Load into RAM when ready.',
+      );
     } catch (e) {
       state = GemmaModelState(
         status: GemmaStatus.notInstalled,
@@ -83,16 +144,42 @@ class GemmaModelManager extends Notifier<GemmaModelState> {
     }
   }
 
-  Future<void> download({String? url, String? hfToken}) async {
-    if (kIsWeb) return;
+  Future<void> _ensureSdkInitialized() async {
+    await FlutterGemma.initialize();
+  }
+
+  Future<String?> _validateInstalledModels(List<String> modelIds) async {
+    for (final id in modelIds) {
+      final incompatible = GemmaModelSpec.androidIncompatibility(id);
+      if (incompatible != null) return incompatible;
+      final error = await GemmaModelValidation.validateInstalledModel(id);
+      if (error != null) return error;
+    }
+    return null;
+  }
+
+  Future<void> download({String? url}) async {
+    if (kIsWeb || _downloadInFlight) return;
+    _downloadInFlight = true;
+    final resolvedUrl = (url ?? kDefaultGemma4Url).trim();
+    if (resolvedUrl.isEmpty) {
+      _downloadInFlight = false;
+      state = const GemmaModelState(
+        status: GemmaStatus.error,
+        message: 'Model URL is empty.',
+      );
+      return;
+    }
+
     state = const GemmaModelState(status: GemmaStatus.downloading, progress: 0);
     try {
+      await _ensureSdkInitialized();
+      final spec = GemmaModelSpec.forUrl(resolvedUrl);
       await FlutterGemma.installModel(
-        modelType: ModelType.gemmaIt,
-        fileType: ModelFileType.task,
+        modelType: spec.modelType,
+        fileType: spec.fileType,
       )
-          .fromNetwork(url ?? kDefaultGemmaUrl,
-              token: (hfToken ?? '').isEmpty ? null : hfToken)
+          .fromNetwork(resolvedUrl, foreground: true)
           .withProgress((p) {
         final frac = (p is num ? p.toDouble() : 0) / 100.0;
         state = state.copyWith(
@@ -100,31 +187,125 @@ class GemmaModelManager extends Notifier<GemmaModelState> {
           progress: frac.clamp(0, 1),
         );
       }).install();
+
+      final installed = await FlutterGemma.listInstalledModels();
+      final validationError = await _validateInstalledModels(installed);
+      if (validationError != null) {
+        await remove();
+        throw StateError(validationError);
+      }
       await _load();
     } catch (e) {
       state = GemmaModelState(
         status: GemmaStatus.error,
-        message: 'Download failed: ${e.toString()}',
+        message: 'Download failed: $e',
       );
+    } finally {
+      _downloadInFlight = false;
     }
   }
 
   Future<void> _load() async {
-    state = const GemmaModelState(status: GemmaStatus.loading);
+    state = const GemmaModelState(
+      status: GemmaStatus.loading,
+      message: 'Loading Gemma 4 into RAM (first time may take several minutes)…',
+    );
     try {
-      _model = await FlutterGemma.getActiveModel(maxTokens: 1024);
+      final installed = await FlutterGemma.listInstalledModels();
+      if (installed.isEmpty) {
+        state = const GemmaModelState(status: GemmaStatus.notInstalled);
+        return;
+      }
+
+      final validationError = await _validateInstalledModels(installed);
+      if (validationError != null) {
+        await remove();
+        state = GemmaModelState(status: GemmaStatus.error, message: validationError);
+        return;
+      }
+
+      final maxTokens = maxTokensForTier(detectDeviceTier());
+      _model = await FlutterGemma.getActiveModel(
+        maxTokens: maxTokens,
+        preferredBackend: PreferredBackend.gpu,
+      ).timeout(
+        const Duration(minutes: 15),
+        onTimeout: () => throw TimeoutException(
+          'Load timed out. Gemma 4 E4B can take 5–15 min on first load — keep the app open.',
+        ),
+      );
       state = const GemmaModelState(
         status: GemmaStatus.ready,
-        message: 'Gemma is running on-device.',
+        message: 'Gemma 4 is running on-device for voice and edge analysis.',
       );
+      _resetIdleUnloadTimer();
       ref.invalidate(localGemmaEngineProvider);
     } catch (e) {
       _model = null;
+      final installed = await FlutterGemma.listInstalledModels();
+      final raw = e.toString();
+      final zipCorrupt = raw.contains('Unable to open zip');
+      if (zipCorrupt) await remove();
       state = GemmaModelState(
-        status: GemmaStatus.error,
-        message: 'Load failed: ${e.toString()}',
+        status: zipCorrupt || installed.isEmpty
+            ? GemmaStatus.error
+            : GemmaStatus.installed,
+        message: _loadErrorMessage(e, installed),
+      );
+      ref.invalidate(localGemmaEngineProvider);
+    }
+  }
+
+  String _loadErrorMessage(Object error, List<String> installed) {
+    final raw = error.toString();
+    final name = installed.isNotEmpty ? installed.first : 'model';
+    final incompatible =
+        name != 'model' ? GemmaModelSpec.androidIncompatibility(name) : null;
+    if (incompatible != null) return incompatible;
+    if (raw.contains('Unable to open zip')) {
+      return 'Model file corrupt or wrong format ($name). Remove and download '
+          'the .litertlm URL (not .task).';
+    }
+    if (raw.contains('TimeoutException') || raw.contains('timed out')) {
+      return raw.replaceFirst('TimeoutException: ', '');
+    }
+    return 'Load failed: $raw';
+  }
+
+  Future<void> loadIntoRam() async {
+    if (kIsWeb || state.isReady) return;
+    await _load();
+  }
+
+  Future<bool> ensureLoaded() async {
+    if (kIsWeb) return false;
+    if (state.isReady && _model != null) {
+      _resetIdleUnloadTimer();
+      return true;
+    }
+    try {
+      final installed = await FlutterGemma.listInstalledModels();
+      if (installed.isEmpty) return false;
+      await _load();
+      return state.isReady;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> unloadFromRam() async {
+    _idleUnloadTimer?.cancel();
+    try {
+      await _model?.close();
+    } catch (_) {}
+    _model = null;
+    if (state.status == GemmaStatus.ready) {
+      state = const GemmaModelState(
+        status: GemmaStatus.installed,
+        message: 'Unloaded from RAM. Pattern check active until you load again.',
       );
     }
+    ref.invalidate(localGemmaEngineProvider);
   }
 
   Future<void> remove() async {
@@ -141,8 +322,6 @@ class GemmaModelManager extends Notifier<GemmaModelState> {
   }
 }
 
-/// The edge engine the whole pipeline uses: real Gemma when the model is loaded,
-/// deterministic heuristics otherwise. Swapping is invisible to callers.
 final localGemmaEngineProvider = Provider<LocalGemmaEngine>((ref) {
   final gemma = ref.watch(gemmaModelProvider);
   final manager = ref.read(gemmaModelProvider.notifier);
@@ -152,7 +331,6 @@ final localGemmaEngineProvider = Provider<LocalGemmaEngine>((ref) {
   return const HeuristicGemmaEngine();
 });
 
-/// True when the real on-device model is driving the edge pass (for honest UI).
 final edgeIsRealGemmaProvider = Provider<bool>(
   (ref) => ref.watch(gemmaModelProvider).isReady,
 );

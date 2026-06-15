@@ -4,23 +4,22 @@ import '../../../services/openai_service.dart';
 import '../../profile/domain/user_profile.dart';
 import '../data/mission_control_api_client.dart';
 
-/// Generates Mission Control intelligence by prompting OpenAI (through the
-/// secure Edge Function) and parsing the result with the existing model
-/// `fromJson` constructors. Replaces the dead FastAPI gateway calls.
-///
-/// All parsers are defensive (missing fields → empty/zero), so prompts focus on
-/// the fields the UI renders; anything the model omits degrades gracefully.
+/// Mission Control intelligence via the ALTER API Gateway when configured,
+/// otherwise OpenAI through the secure Edge Function.
 class MissionAi {
-  MissionAi(this._openai, this._profile);
+  MissionAi(this._openai, this._profile, {MissionControlApiClient? gateway})
+    : _gateway = gateway;
 
-  final OpenAIService _openai;
+  final OpenAIService? _openai;
   final UserProfile? _profile;
+  final MissionControlApiClient? _gateway;
+
+  bool get _usesGateway => _gateway != null;
 
   String get _profileBlock {
     final p = _profile;
     if (p == null || p.displayName.isEmpty) {
-      return 'The operator has not filled in a profile yet. Make reasonable, '
-          'ambitious assumptions for a driven early-career builder.';
+      return 'Profile incomplete — avoid inventing operator context.';
     }
     final parts = <String>[
       'Name: ${p.displayName}',
@@ -29,13 +28,66 @@ class MissionAi {
       if (p.industry.isNotEmpty) 'Industry: ${p.industry}',
       if (p.skills.isNotEmpty) 'Skills: ${p.skills.join(', ')}',
       if (p.goals.isNotEmpty) 'Goals: ${p.goals.join(', ')}',
+      if (p.languages.isNotEmpty) 'Languages: ${p.languages.join(', ')}',
+      if (p.location.isNotEmpty) 'Location: ${p.location}',
+      if (p.availability.isNotEmpty) 'Availability: ${p.availability}',
       if (p.interests.isNotEmpty) 'Interests: ${p.interests.join(', ')}',
     ];
     return parts.join('\n');
   }
 
+  Map<String, Object> get _userProfilePayload {
+    final p = _profile;
+    if (p == null || p.displayName.isEmpty) {
+      return const <String, Object>{};
+    }
+    return <String, Object>{
+      'name': p.displayName,
+      if (p.role.isNotEmpty) 'current_role': p.role,
+      if (p.careerStage.isNotEmpty) 'career_stage': p.careerStage,
+      if (p.industry.isNotEmpty) 'industry': p.industry,
+      'current_network_size': 180,
+      'risk_tolerance': 0.72,
+      'weekly_learning_hours': 12,
+    };
+  }
+
+  List<String> get _skillsPayload =>
+      _profile?.skills.isNotEmpty == true
+          ? _profile!.skills
+          : const <String>[
+              'AI agents',
+              'Flutter',
+              'FastAPI',
+              'Product strategy',
+              'Founder storytelling',
+            ];
+
+  List<String> get _goalsPayload =>
+      _profile?.goals.isNotEmpty == true
+          ? _profile!.goals
+          : const <String>[
+              'Build ALTER into a real startup',
+              'Validate strong user demand',
+              'Earn reputation through follow-through',
+            ];
+
+  List<String> get _interestsPayload =>
+      _profile?.interests.isNotEmpty == true
+          ? _profile!.interests
+          : const <String>[
+              'AI agents',
+              'future of work',
+              'career decisions',
+              'startup networks',
+            ];
+
   Future<Map<String, dynamic>> _json(String system, String user) async {
-    final raw = await _openai.chat(
+    final openai = _openai;
+    if (openai == null) {
+      throw StateError('OpenAI is not available for local intelligence.');
+    }
+    final raw = await openai.chat(
       jsonMode: true,
       temperature: 0.55,
       maxTokens: 1800,
@@ -54,6 +106,9 @@ class MissionAi {
 
   // --- 1. Future-OS demo ---------------------------------------------------
   Future<MissionDemoRun> runDemo(String objective) async {
+    if (_usesGateway) {
+      return _gateway!.runFutureOsDemo(objective: objective);
+    }
     final json = await _json(
       'You are ALTER Mission Control. Simulate running an end-to-end personal '
       'AI operating system against the operator\'s objective. Respond with ONLY '
@@ -77,6 +132,15 @@ class MissionAi {
 
   // --- 2. Intelligence Kernel decision ------------------------------------
   Future<IntelligenceDecisionReport> decide(String question) async {
+    if (_usesGateway) {
+      return _gateway!.decide(
+        question: question,
+        userProfile: _userProfilePayload,
+        skills: _skillsPayload,
+        goals: _goalsPayload,
+        interests: _interestsPayload,
+      );
+    }
     final json = await _json(
       'You are ALTER\'s Intelligence Kernel — a rigorous decision strategist. '
       'Reason through the operator\'s decision over a 36-month horizon and '
@@ -112,6 +176,16 @@ class MissionAi {
     required String successMetricResult,
     required double outcomeScore,
   }) async {
+    if (_usesGateway) {
+      return _gateway!.recordOutcome(
+        report: report,
+        didIt: didIt,
+        whatHappened: whatHappened,
+        whatLearned: whatLearned,
+        successMetricResult: successMetricResult,
+        outcomeScore: outcomeScore,
+      );
+    }
     final json = await _json(
       'You are ALTER\'s execution coach. The operator reports the outcome of a '
       'committed experiment. Score their follow-through and update their trust '
@@ -143,6 +217,16 @@ class MissionAi {
     required String objective,
     required List<FutureTwinEvidenceInput> evidence,
   }) async {
+    if (_usesGateway) {
+      return _gateway!.buildFutureTwin(
+        objective: objective,
+        userProfile: _userProfilePayload,
+        skills: _skillsPayload,
+        goals: _goalsPayload,
+        interests: _interestsPayload,
+        evidence: evidence,
+      );
+    }
     final evidenceText = evidence.isEmpty
         ? 'No recent evidence provided.'
         : evidence
@@ -178,6 +262,14 @@ class MissionAi {
     required String linkedAction,
     required List<ProofEvidenceInput> evidence,
   }) async {
+    if (_usesGateway) {
+      return _gateway!.captureProof(
+        objective: objective,
+        linkedGoal: linkedGoal,
+        linkedAction: linkedAction,
+        evidence: evidence,
+      );
+    }
     final evidenceText = evidence
         .map((e) => '- [${e.evidenceType}] ${e.title}: ${e.summary} '
             '(source: ${e.source})')

@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../auth/application/auth_provider.dart';
+import '../../../data/local/contextos_dao.dart';
+import '../../../data/local/dao_providers.dart';
 import '../data/device_control_bridge.dart';
 import '../domain/phone_action_policy.dart';
 import '../domain/screen_understanding.dart';
@@ -326,16 +328,20 @@ class PhoneControlController extends Notifier<PhoneControlState> {
   }
 
   Future<void> _persistAudit(PhoneControlAuditEntry entry) async {
-    final userId = Supabase.instance.client.auth.currentUser?.id;
+    final userId = ref.read(localUserIdProvider);
     if (userId == null) return;
     try {
-      await Supabase.instance.client.from('audit_events').insert({
-        'user_id': userId,
-        'kind': 'phone_control',
-        'detail': entry.toAuditDetail(),
-        'edge_state': 'edge',
-        'metadata': entry.toJson(),
-      });
+      await ref.read(contextOsDaoProvider).insertAuditEvent(
+            AuditEventRecord(
+              id: '',
+              userId: userId,
+              kind: 'phone_control',
+              detail: entry.toAuditDetail(),
+              edgeState: 'edge',
+              metadata: entry.toJson(),
+              createdAt: DateTime.now(),
+            ),
+          );
     } catch (_) {}
   }
 }

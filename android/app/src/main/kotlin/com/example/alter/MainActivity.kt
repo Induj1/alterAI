@@ -91,6 +91,10 @@ class MainActivity : FlutterActivity() {
                 else -> result.notImplemented()
             }
         }
+
+        MethodChannel(messenger, DEVICE_OWNER_CHANNEL).setMethodCallHandler { call, result ->
+            DeviceOwnerBridge.handle(this, call, result)
+        }
     }
 
     override fun onRequestPermissionsResult(
@@ -133,6 +137,10 @@ class MainActivity : FlutterActivity() {
         result: MethodChannel.Result,
     ) {
         when (key) {
+            "device_admin" -> {
+                DeviceOwnerBridge.requestDeviceAdminSetup(this)
+                result.success(permissionStatuses())
+            }
             "accessibility" -> {
                 startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                 result.success(permissionStatuses())
@@ -182,6 +190,10 @@ class MainActivity : FlutterActivity() {
 
     private fun permissionStatuses(): Map<String, Any?> {
         return mapOf(
+            "device_admin" to permissionStatus(
+                granted = DeviceOwnerBridge.isDeviceAdminActive(this),
+                systemManaged = true,
+            ),
             "microphone" to permissionStatus(
                 granted = hasPermission(Manifest.permission.RECORD_AUDIO),
                 systemManaged = false,
@@ -274,6 +286,7 @@ class MainActivity : FlutterActivity() {
         private const val WAKE_EVENTS_CHANNEL = "alter.ai/wake_events"
         private const val DEVICE_CONTROL_CHANNEL = "alter.ai/device_control"
         private const val PERMISSIONS_CHANNEL = "alter.ai/permissions"
+        private const val DEVICE_OWNER_CHANNEL = "alter.ai/device_owner"
         private const val WAKE_PERMISSION_REQUEST = 9124
         private const val HUB_PERMISSION_REQUEST = 9125
     }

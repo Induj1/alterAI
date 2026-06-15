@@ -13,6 +13,9 @@ create table if not exists public.user_profiles (
   interests       text[] default '{}',
   openai_key      text not null default '',
   onboarding_done boolean default false,
+  languages       text[] default '{English}',
+  location        text not null default '',
+  availability    text not null default '',
   created_at      timestamptz default now(),
   updated_at      timestamptz default now()
 );
@@ -29,5 +32,7 @@ create table if not exists public.conversations (
 alter table public.user_profiles  enable row level security;
 alter table public.conversations   enable row level security;
 
+drop policy if exists "own_user_profiles" on public.user_profiles;
 create policy "own_user_profiles" on public.user_profiles  for all using (auth.uid() = id)      with check (auth.uid() = id);
+drop policy if exists "own_conversations" on public.conversations;
 create policy "own_conversations"  on public.conversations  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);

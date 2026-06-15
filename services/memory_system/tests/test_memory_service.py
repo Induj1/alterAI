@@ -5,6 +5,7 @@ from uuid import UUID
 from alter_memory_system.repository import InMemoryMemoryRepository
 from alter_memory_system.schemas import (
     MemoryItemCreate,
+    MemoryIngestRequest,
     MemoryRetrieveRequest,
     MemorySearchRequest,
     MemoryType,
@@ -73,4 +74,52 @@ def test_short_term_memory_can_be_promoted() -> None:
 
     assert promoted.memory_type == MemoryType.goal
     assert promoted.metadata["short_term_memory_id"] == str(short_term.id)
+
+
+def test_classifier_defaults_to_forgetting_restricted_secrets() -> None:
+    service = create_memory_service(repository=InMemoryMemoryRepository())
+
+    result = service.ingest(
+        MemoryIngestRequest(
+            user_id=USER_ID,
+            content="Your OTP is 482193. Do not share it.",
+            source="sms",
+        )
+    )
+
+    assert result.classification.should_store is False
+    assert result.classification.sensitivity == "restricted"
+    assert result.stored_memory is None
+    assert result.raw_content_deleted is True
+
+
+def test_confirmed_goal_becomes_durable_identity_evidence() -> None:
+    service = create_memory_service(repository=InMemoryMemoryRepository())
+
+    result = service.ingest(
+        MemoryIngestRequest(
+            user_id=USER_ID,
+            content="My goal is to launch ALTER for private on-device assistance.",
+            user_confirmed=True,
+        )
+    )
+    identity = service.identity_snapshot(USER_ID)
+
+    assert result.stored_memory is not None
+    assert result.stored_memory.retention == "durable"
+    assert identity.signals[0].label == "goal"
+
+
+def test_unconfirmed_durable_signal_waits_for_confirmation() -> None:
+    service = create_memory_service(repository=InMemoryMemoryRepository())
+
+    result = service.ingest(
+        MemoryIngestRequest(
+            user_id=USER_ID,
+            content="I prefer all important meetings in the morning.",
+        )
+    )
+
+    assert result.classification.requires_confirmation is True
+    assert result.stored_memory is None
 

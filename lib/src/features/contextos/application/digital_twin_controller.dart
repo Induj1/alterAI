@@ -1,12 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../auth/application/auth_provider.dart';
+import '../../../data/local/contextos_dao.dart';
+import '../../../data/local/dao_providers.dart';
 import '../domain/digital_twin_models.dart';
 
 final digitalTwinProvider =
     AsyncNotifierProvider<DigitalTwinController, DigitalTwinState>(
-      DigitalTwinController.new,
-    );
+  DigitalTwinController.new,
+);
 
 class DigitalTwinController extends AsyncNotifier<DigitalTwinState> {
   @override
@@ -43,38 +45,30 @@ class DigitalTwinController extends AsyncNotifier<DigitalTwinState> {
 
   Future<DigitalTwinState> _load() async {
     var loaded = DigitalTwinState.defaults();
-    final userId = Supabase.instance.client.auth.currentUser?.id;
+    ref.watch(isDbUnlockedProvider);
+    final userId = ref.read(localUserIdProvider);
     if (userId == null) return loaded;
 
     try {
-      final rows = await Supabase.instance.client
-          .from('digital_twin_sources')
-          .select('source_key, access_level, connected')
-          .eq('user_id', userId);
+      final rows =
+          await ref.read(contextOsDaoProvider).listDigitalTwinSources(userId);
       final next = Map<DigitalTwinSource, TwinSourceConsent>.from(
         loaded.sources,
       );
       for (final row in rows) {
-        final consent = TwinSourceConsent.fromJson(row);
+        final consent = row.toConsent();
         next[consent.source] = consent;
       }
       loaded = loaded.copyWith(sources: next);
     } catch (_) {}
 
     try {
-      final settings = await Supabase.instance.client
-          .from('digital_twin_settings')
-          .select('autonomy_level, updated_at')
-          .eq('user_id', userId)
-          .maybeSingle();
+      final settings =
+          await ref.read(contextOsDaoProvider).getDigitalTwinSettings(userId);
       if (settings != null) {
         loaded = loaded.copyWith(
-          autonomyLevel: TwinAutonomyLevel.fromId(
-            (settings['autonomy_level'] ?? '').toString(),
-          ),
-          updatedAt:
-              DateTime.tryParse((settings['updated_at'] ?? '').toString()) ??
-              loaded.updatedAt,
+          autonomyLevel: TwinAutonomyLevel.fromId(settings.autonomyLevel),
+          updatedAt: settings.updatedAt,
         );
       }
     } catch (_) {}
@@ -83,28 +77,32 @@ class DigitalTwinController extends AsyncNotifier<DigitalTwinState> {
   }
 
   Future<void> _persistSource(TwinSourceConsent consent) async {
-    final userId = Supabase.instance.client.auth.currentUser?.id;
+    final userId = ref.read(localUserIdProvider);
     if (userId == null) return;
     try {
-      await Supabase.instance.client.from('digital_twin_sources').upsert({
-        'user_id': userId,
-        'source_key': consent.source.id,
-        'access_level': consent.accessLevel.id,
-        'connected': consent.connected,
-        'updated_at': DateTime.now().toIso8601String(),
-      });
+      await ref.read(contextOsDaoProvider).upsertDigitalTwinSource(
+            DigitalTwinSourceRecord(
+              userId: userId,
+              sourceKey: consent.source.id,
+              accessLevel: consent.accessLevel.id,
+              connected: consent.connected,
+              updatedAt: DateTime.now(),
+            ),
+          );
     } catch (_) {}
   }
 
   Future<void> _persistSettings(DigitalTwinState next) async {
-    final userId = Supabase.instance.client.auth.currentUser?.id;
+    final userId = ref.read(localUserIdProvider);
     if (userId == null) return;
     try {
-      await Supabase.instance.client.from('digital_twin_settings').upsert({
-        'user_id': userId,
-        'autonomy_level': next.autonomyLevel.id,
-        'updated_at': DateTime.now().toIso8601String(),
-      });
+      await ref.read(contextOsDaoProvider).upsertDigitalTwinSettings(
+            DigitalTwinSettingsRecord(
+              userId: userId,
+              autonomyLevel: next.autonomyLevel.id,
+              updatedAt: DateTime.now(),
+            ),
+          );
     } catch (_) {}
   }
 }

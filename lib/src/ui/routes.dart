@@ -4,6 +4,8 @@ abstract final class AlterRoutes {
   static const features = '/features';
   static const getStarted = '/get-started';
   static const login = '/login';
+  static const pinSetup = '/pin/setup';
+  static const pinUnlock = '/pin/unlock';
   static const permissions = '/permissions';
   static const languages = '/languages';
   static const about = '/about';
@@ -17,4 +19,27 @@ abstract final class AlterRoutes {
   static const nfc = '/nfc';
   static const openclaw = '/openclaw';
   static const agent = '/agent';
+  static const integrations = '/integrations';
+  static const dataManagement = '/data-management';
+  static const languageSettings = '/language-settings';
+  static const privacy = '/privacy';
+  static const mission = '/mission';
+  static const reputation = '/reputation';
+
+  // ContextOS ecosystem
+  static const contextHub = '/context';
+  static const twin = '/twin';
+  static const feed = '/feed';
+  static const shield = '/shield';
+  static const dayTwin = '/daytwin';
+  static const futureTwin = '/futuretwin';
+  static const decisionCouncil = '/decision-council';
+  static const dna = '/dna';
+  static const memory = '/memory';
+  static const edge = '/edge';
+  static const voice = '/voice';
+  static const profileEdit = '/profile/edit';
+  static const settings = '/settings';
+  static const performance = '/settings/performance';
+  static const offlineVoiceModels = '/settings/offline-voice';
 }

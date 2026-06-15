@@ -14,6 +14,15 @@ class Settings(BaseSettings):
     )
 
     gateway_env: str = Field(default="local", alias="ALTER_GATEWAY_ENV")
+    multilingual_provider: str = Field(default="sarvam", alias="ALTER_MULTILINGUAL_PROVIDER")
+    default_language_code: str = Field(default="en-IN", alias="ALTER_DEFAULT_LANGUAGE_CODE")
+    sarvam_api_key: str = Field(default="", alias="SARVAM_API_KEY")
+    sarvam_api_base_url: str = Field(
+        default="https://api.sarvam.ai",
+        alias="SARVAM_API_BASE_URL",
+    )
+    sarvam_tts_model: str = Field(default="bulbul:v2", alias="ALTER_SARVAM_TTS_MODEL")
+    sarvam_stt_model: str = Field(default="saarika:v2.5", alias="ALTER_SARVAM_STT_MODEL")
     voice_gateway_url: str = Field(default="http://localhost:8070", alias="ALTER_VOICE_GATEWAY_URL")
     clone_council_url: str = Field(default="http://localhost:8080", alias="ALTER_CLONE_COUNCIL_URL")
     future_simulation_url: str = Field(
@@ -32,6 +41,12 @@ class Settings(BaseSettings):
         alias="ALTER_REPUTATION_ENGINE_URL",
     )
     officekit_url: str = Field(default="http://localhost:8150", alias="ALTER_OFFICEKIT_URL")
+    firecrawl_api_key: str = Field(default="", alias="ALTER_FIRECRAWL_API_KEY")
+    firecrawl_base_url: str = Field(
+        default="https://api.firecrawl.dev/v1",
+        alias="ALTER_FIRECRAWL_BASE_URL",
+    )
+    web_research_timeout_seconds: float = Field(default=20.0, alias="ALTER_WEB_RESEARCH_TIMEOUT")
 
     def service_urls(self) -> dict[str, str]:
         return {

@@ -2,19 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../../app/app_state.dart';
+import '../../../ui/routes.dart';
+import '../../../core/config/alter_gateway_config.dart';
 import '../../../core/theme/alter_palette.dart';
 import '../../../core/utils/responsive.dart';
-import '../../../core/widgets/ambient_scaffold.dart';
-import '../../../core/widgets/glass_panel.dart';
-import '../../../core/widgets/gradient_text.dart';
 import '../../../core/widgets/metric_tile.dart';
 import '../../../core/widgets/premium_controls.dart';
+import '../../../data/gateway/alter_gateway_providers.dart';
+import '../../../app/app_state.dart';
+import '../../../ui/theme.dart';
+import '../../../ui/widgets.dart';
 import '../../auth/application/auth_provider.dart';
+import '../../memory/application/memory_review_controller.dart';
 import '../../profile/application/profile_provider.dart';
 import '../../profile/domain/user_profile.dart';
+import '../../actions/presentation/action_inbox_card.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -49,9 +52,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final appState = ref.watch(alterAppControllerProvider);
     final controller = ref.read(alterAppControllerProvider.notifier);
     final theme = Theme.of(context);
-    final user = Supabase.instance.client.auth.currentUser;
+    final userId = ref.watch(localUserIdProvider);
     final profile = ref.watch(userProfileProvider).asData?.value;
     final hasKey = profile?.openaiKey.isNotEmpty == true;
+    final gatewayHealth = ref.watch(gatewayHealthProvider);
+    final pendingAsync = ref.watch(memoryPendingCountProvider);
+    final pendingReview = pendingAsync.asData?.value ?? 0;
+    final gatewayIntegrations = ref.watch(gatewayIntegrationsProvider);
 
     // Sync key controller when profile loads
     ref.listen(userProfileProvider, (_, next) {
@@ -61,41 +68,33 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       }
     });
 
-    return AmbientScaffold(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return DeepScaffold(
+      title: 'SETTINGS',
+      subtitle:
+          'Tune theme, privacy, model stack, voice preferences, and connected systems.',
+      child: ListView(
         children: [
-          GradientText(
-            'Settings',
-            style: theme.textTheme.displaySmall?.copyWith(
-              fontWeight: FontWeight.w900,
-              height: 1.02,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Tune theme, privacy, model stack, voice preferences, and connected systems.',
-            style: theme.textTheme.bodyLarge?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.62),
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 20),
           ResponsiveGrid(
             mediumColumns: 2,
             expandedColumns: 3,
             children: [
               MetricTile(
                 label: 'Model routing',
-                value: hasKey ? 'Your key' : 'Shared',
+                value: hasKey ? 'Your key' : 'Not set up',
                 icon: LucideIcons.brain_circuit,
                 accent: AlterPalette.mint,
               ),
-              const MetricTile(
-                label: 'Memory vault',
-                value: 'Locked',
-                icon: LucideIcons.lock,
-                accent: AlterPalette.iris,
+              GestureDetector(
+                onTap: () => context.push(AlterRoutes.memory),
+                child: MetricTile(
+                  label: 'Memory review',
+                  value: pendingReview > 0
+                      ? '$pendingReview pending'
+                      : 'All clear',
+                  icon: LucideIcons.brain,
+                  accent: AlterPalette.aura,
+                  detail: 'Swipe to keep or forget what ALTER learned',
+                ),
               ),
               const MetricTile(
                 label: 'Latency target',
@@ -106,7 +105,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ],
           ),
           const SizedBox(height: 18),
-          GlassPanel(
+          GlassCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -115,42 +114,47 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   subtitle: 'Use system theme or force a precise mode.',
                 ),
                 const SizedBox(height: 16),
-                SegmentedButton<ThemeMode>(
-                  segments: const [
-                    ButtonSegment(
-                      value: ThemeMode.system,
-                      label: Text('System'),
-                      icon: Icon(LucideIcons.monitor),
-                    ),
-                    ButtonSegment(
-                      value: ThemeMode.light,
-                      label: Text('Light'),
-                      icon: Icon(LucideIcons.sun),
-                    ),
-                    ButtonSegment(
-                      value: ThemeMode.dark,
-                      label: Text('Dark'),
-                      icon: Icon(LucideIcons.moon),
-                    ),
-                  ],
-                  selected: {appState.themeMode},
-                  onSelectionChanged: (s) => controller.setThemeMode(s.first),
+                ValueListenableBuilder<bool>(
+                  valueListenable: AlterUiTheme.isLight,
+                  builder: (context, themeLight, _) {
+                    return SegmentedButton<ThemeMode>(
+                      segments: const [
+                        ButtonSegment(
+                          value: ThemeMode.light,
+                          label: Text('Light'),
+                          icon: Icon(LucideIcons.sun),
+                        ),
+                        ButtonSegment(
+                          value: ThemeMode.dark,
+                          label: Text('Dark'),
+                          icon: Icon(LucideIcons.moon),
+                        ),
+                      ],
+                      selected: {
+                        themeLight ? ThemeMode.light : ThemeMode.dark,
+                      },
+                      onSelectionChanged: (s) async {
+                        final mode = s.first;
+                        await AlterUiTheme.setLight(mode == ThemeMode.light);
+                      },
+                    );
+                  },
                 ),
               ],
             ),
           ),
           const SizedBox(height: 18),
-          GlassPanel(
+          GlassCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 SectionHeader(
                   title: 'AI Configuration',
                   subtitle: hasKey
-                      ? 'Using your own OpenAI key — unlimited, billed to your account.'
-                      : 'Running on the ALTER shared key (fair-use daily limit). Add your own key below for unlimited use.',
+                      ? 'Using your own OpenAI key — billed to your account.'
+                      : 'Add your OpenAI API key below to enable Cloud AI voice and chat.',
                   trailing: PremiumChip(
-                    label: hasKey ? 'Your key' : 'Shared key',
+                    label: hasKey ? 'Your key' : 'BYOK',
                     selected: true,
                     icon: LucideIcons.circle_check,
                   ),
@@ -206,7 +210,50 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
           const SizedBox(height: 18),
-          GlassPanel(
+          GlassCard(
+            child: SectionHeader(
+              title: 'Memory review',
+              subtitle:
+                  'Review facts ALTER inferred about you — keep what matters, '
+                  'forget the rest.',
+              trailing: PremiumButton(
+                label: pendingReview > 0 ? '$pendingReview pending' : 'Open',
+                compact: true,
+                icon: LucideIcons.brain,
+                onPressed: () => context.push(AlterRoutes.memory),
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
+          GlassCard(
+            child: SectionHeader(
+              title: 'Performance & offline models',
+              subtitle:
+                  'Device tier, RAM telemetry, edge pattern check, and offline voice packs.',
+              trailing: PremiumButton(
+                label: 'Open',
+                compact: true,
+                icon: LucideIcons.gauge,
+                onPressed: () => context.push(AlterRoutes.performance),
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
+          GlassCard(
+            child: SectionHeader(
+              title: 'Language & localization',
+              subtitle:
+                  'Choose spoken and written languages for voice, gateway, and translation.',
+              trailing: PremiumButton(
+                label: 'Open',
+                compact: true,
+                icon: LucideIcons.languages,
+                onPressed: () => context.push(AlterRoutes.languageSettings),
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
+          GlassCard(
             child: SectionHeader(
               title: 'Permissions',
               subtitle:
@@ -215,7 +262,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 label: 'Open hub',
                 compact: true,
                 icon: LucideIcons.shield_check,
-                onPressed: () => context.go('/permissions'),
+                onPressed: () => context.go(AlterRoutes.permissions),
               ),
             ),
           ),
@@ -224,7 +271,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             mediumColumns: 2,
             expandedColumns: 2,
             children: [
-              GlassPanel(
+              GlassCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -248,10 +295,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       value: appState.proactiveBriefs,
                       onChanged: controller.setProactiveBriefs,
                     ),
+                    const SizedBox(height: 16),
+                    const ActionAutonomySettings(),
                   ],
                 ),
               ),
-              GlassPanel(
+              GlassCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -260,14 +309,60 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       subtitle: 'Production adapters ready to replace mocks.',
                     ),
                     const SizedBox(height: 14),
+                    if (AlterGatewayConfig.isConfigured)
+                      gatewayHealth.when(
+                        data: (health) {
+                          final okCount = health.services
+                              .where((service) => service.status == 'ok')
+                              .length;
+                          return _SystemRow(
+                            'ALTER Gateway',
+                            '${health.status.toUpperCase()} · $okCount/${health.services.length} services healthy',
+                          );
+                        },
+                        loading: () => const _SystemRow(
+                          'ALTER Gateway',
+                          'Checking backend health…',
+                        ),
+                        error: (_, __) => const _SystemRow(
+                          'ALTER Gateway',
+                          'Offline',
+                        ),
+                      ),
                     const _SystemRow(
-                      'Supabase',
-                      'Auth, Postgres, Edge Functions',
+                      'Local vault',
+                      'SQLCipher on-device',
                     ),
                     _SystemRow(
                       'OpenAI',
-                      hasKey ? 'Your key (BYOK)' : 'Shared key via proxy',
+                      hasKey ? 'Your key (BYOK)' : 'Add key in Settings',
                     ),
+                    if (AlterGatewayConfig.isConfigured)
+                      gatewayIntegrations.when(
+                        data: (snapshot) {
+                          if (snapshot == null) {
+                            return const _SystemRow(
+                              'Integrations',
+                              'Sign in to load platform connections.',
+                            );
+                          }
+                          final connected = snapshot.platforms
+                              .where((platform) => platform.connected)
+                              .length;
+                          return _SystemRow(
+                            'Integrations',
+                            '$connected/${snapshot.platforms.length} platforms connected',
+                          );
+                        },
+                        loading: () => const _SystemRow(
+                          'Integrations',
+                          'Loading platform connections…',
+                        ),
+                        error: (_, __) => const _SystemRow(
+                          'Integrations',
+                          'Gateway integrations unavailable.',
+                        ),
+                      ),
                     const _SystemRow('Neo4j', 'Social graph (planned)'),
                     const _SystemRow('Qdrant', 'Semantic memory (planned)'),
                   ],
@@ -276,7 +371,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ],
           ),
           const SizedBox(height: 18),
-          GlassPanel(
+          GlassCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -318,7 +413,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               Text(
                                 profile.role.isNotEmpty
                                     ? profile.role
-                                    : user?.email ?? '—',
+                                    : 'Local profile',
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   color: theme.colorScheme.onSurface.withValues(
                                     alpha: 0.58,
@@ -331,12 +426,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         TextButton.icon(
                           icon: const Icon(LucideIcons.pencil, size: 16),
                           label: const Text('Edit'),
-                          onPressed: () => context.go('/profile'),
+                          onPressed: () => context.go(AlterRoutes.profileEdit),
                         ),
                       ],
                     ),
                   )
-                else if (user != null)
+                else if (userId != null)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: Row(
@@ -361,13 +456,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Signed in',
+                                'Vault unlocked',
                                 style: theme.textTheme.titleSmall?.copyWith(
                                   fontWeight: FontWeight.w900,
                                 ),
                               ),
                               Text(
-                                user.email ?? '—',
+                                'Local ID · ${userId.substring(0, 8)}…',
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   color: theme.colorScheme.onSurface.withValues(
                                     alpha: 0.58,
@@ -380,7 +475,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         TextButton.icon(
                           icon: const Icon(LucideIcons.user_cog, size: 16),
                           label: const Text('Set up profile'),
-                          onPressed: () => context.go('/profile'),
+                          onPressed: () => context.go(AlterRoutes.profileEdit),
                         ),
                       ],
                     ),
@@ -388,8 +483,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
-                    icon: const Icon(LucideIcons.log_out, size: 18),
-                    label: const Text('Sign out'),
+                    icon: const Icon(LucideIcons.lock, size: 18),
+                    label: const Text('Lock ALTER'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AlterPalette.danger,
                       side: BorderSide(
@@ -401,8 +496,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ),
                     ),
                     onPressed: () async {
-                      await ref.read(authServiceProvider).signOut();
-                      if (context.mounted) context.go('/login');
+                      await ref.read(authServiceProvider).lock();
+                      if (context.mounted) context.go(AlterRoutes.pinUnlock);
                     },
                   ),
                 ),
@@ -420,7 +515,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     final notifier = ref.read(userProfileProvider.notifier);
     final existing = ref.read(userProfileProvider).asData?.value;
-    final userId = Supabase.instance.client.auth.currentUser?.id ?? '';
+    final userId = ref.read(localUserIdProvider) ?? '';
 
     final toSave = existing != null
         ? existing.copyWith(openaiKey: key)
@@ -434,7 +529,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             skills: const [],
             goals: const [],
             interests: const [],
+            languages: const ['English'],
+            location: '',
+            availability: '',
             openaiKey: key,
+            sarvamKey: '',
             onboardingDone: false,
           );
 

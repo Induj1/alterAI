@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/theme/alter_palette.dart';
+import '../../auth/application/auth_provider.dart';
+import '../../../data/local/contextos_dao.dart';
+import '../../../data/local/dao_providers.dart';
 import 'openclaw_adapter.dart';
 
-/// The eight outcomes the OutcomeLearningEngine asks for after an action.
 enum OutcomeKind {
   correctWarning('correct_warning', 'Correct warning', true),
   verifiedSafe('verified_safe', 'Verified safe', true),
@@ -33,7 +34,7 @@ class DnaPattern {
 
   final String pattern;
   final String evidence;
-  final double weight; // 0..1
+  final double weight;
 }
 
 class DecisionDna {
@@ -46,7 +47,7 @@ class DecisionDna {
 
   final List<DnaPattern> patterns;
   final Map<OutcomeKind, int> outcomeCounts;
-  final double trustScore; // 0..1 follow-through quality
+  final double trustScore;
   final int totalOutcomes;
 
   static const empty = DecisionDna(
@@ -59,31 +60,42 @@ class DecisionDna {
 
 final decisionDnaProvider =
     AsyncNotifierProvider<DecisionDnaController, DecisionDna>(
-        DecisionDnaController.new);
+  DecisionDnaController.new,
+);
 
 class DecisionDnaController extends AsyncNotifier<DecisionDna> {
   @override
   Future<DecisionDna> build() => _load();
 
-  /// OutcomeLearningEngine entry point — record how an action turned out, then
-  /// recompute Decision DNA.
-  Future<void> recordOutcome(ClawAction action, OutcomeKind outcome,
-      {String note = ''}) async {
-    final userId = Supabase.instance.client.auth.currentUser?.id;
+  Future<void> recordOutcome(
+    ClawAction action,
+    OutcomeKind outcome, {
+    String note = '',
+  }) async {
+    final userId = ref.read(localUserIdProvider);
     if (userId != null) {
       try {
-        await Supabase.instance.client.from('action_outcomes').insert({
-          'user_id': userId,
-          if (action.dbId != null) 'action_id': action.dbId,
-          'outcome': outcome.id,
-          'note': note.isEmpty ? action.title : note,
-        });
-        await Supabase.instance.client.from('audit_events').insert({
-          'user_id': userId,
-          'kind': 'outcome',
-          'detail': '${action.title} → ${outcome.label}',
-          'edge_state': 'edge',
-        });
+        final dao = ref.read(contextOsDaoProvider);
+        await dao.insertActionOutcome(
+          ActionOutcomeRecord(
+            id: '',
+            actionId: action.dbId,
+            userId: userId,
+            outcome: outcome.id,
+            note: note.isEmpty ? action.title : note,
+            createdAt: DateTime.now(),
+          ),
+        );
+        await dao.insertAuditEvent(
+          AuditEventRecord(
+            id: '',
+            userId: userId,
+            kind: 'outcome',
+            detail: '${action.title} → ${outcome.label}',
+            edgeState: 'edge',
+            createdAt: DateTime.now(),
+          ),
+        );
       } catch (_) {}
     }
     state = const AsyncValue.loading();
@@ -91,17 +103,21 @@ class DecisionDnaController extends AsyncNotifier<DecisionDna> {
   }
 
   Future<DecisionDna> _load() async {
-    final userId = Supabase.instance.client.auth.currentUser?.id;
+    ref.watch(isDbUnlockedProvider);
+    final userId = ref.read(localUserIdProvider);
     List<Map<String, dynamic>> rows = const [];
     if (userId != null) {
       try {
-        final res = await Supabase.instance.client
-            .from('action_outcomes')
-            .select('outcome, note, created_at')
-            .eq('user_id', userId)
-            .order('created_at', ascending: false)
-            .limit(100);
-        rows = (res as List).cast<Map<String, dynamic>>();
+        final res =
+            await ref.read(contextOsDaoProvider).listActionOutcomes(userId);
+        rows = res
+            .take(100)
+            .map((r) => {
+                  'outcome': r.outcome,
+                  'note': r.note,
+                  'created_at': r.createdAt.toIso8601String(),
+                })
+            .toList();
       } catch (_) {}
     }
     return _compute(rows);
@@ -118,9 +134,11 @@ class DecisionDnaController extends AsyncNotifier<DecisionDna> {
     }
 
     final total = rows.length;
-    final positives =
-        counts.entries.where((e) => e.key.positive).fold<int>(0, (s, e) => s + e.value);
-    final trust = total == 0 ? 0.5 : (positives / total).clamp(0.0, 1.0).toDouble();
+    final positives = counts.entries
+        .where((e) => e.key.positive)
+        .fold<int>(0, (s, e) => s + e.value);
+    final trust =
+        total == 0 ? 0.5 : (positives / total).clamp(0.0, 1.0).toDouble();
 
     final patterns = <DnaPattern>[];
     if (total == 0) {

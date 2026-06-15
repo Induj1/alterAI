@@ -354,7 +354,6 @@ class GetStartedScreen extends StatelessWidget {
     return Scaffold(
       body: GradientScaffold(
         bgColors: const [AppColors.lime, Color(0xFF6F8F2E), Color(0xFF15101F), AppColors.bg],
-        bgStops: const [],
         bgCenter: const Alignment(0.0, 1.1),
         orbs: [
           PositionedOrb(
@@ -404,12 +403,12 @@ class GetStartedScreen extends StatelessWidget {
                 LimeButton(
                   label: 'Get started',
                   height: 64,
-                  onTap: () => context.push(AlterRoutes.login),
+                  onTap: () => context.go(AlterRoutes.pinSetup),
                 ),
                 const SizedBox(height: 12),
                 OutlineButton2(
                   label: 'I already have an account',
-                  onTap: () => context.push(AlterRoutes.login),
+                  onTap: () => context.go(AlterRoutes.pinUnlock),
                 ),
               ],
             ),

@@ -1,10 +1,7 @@
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-/// Real device actions ALTER can take. Every one launches an OS surface (dialer,
-/// WhatsApp, SMS, browser, calendar) where the USER makes the final tap — the
-/// honest version of "controls the phone": permissioned intents, never silent
-/// background automation.
+/// Permissioned OS intents and deep links for phone actions.
 class DeviceActions {
   const DeviceActions();
 
@@ -49,6 +46,26 @@ class DeviceActions {
         : 'Could not open $app ($r).';
   }
 
+  Future<String> composeEmail({
+    required String to,
+    required String subject,
+    required String body,
+  }) async {
+    final params = <String, String>{
+      if (to.isNotEmpty) 'to': to,
+      'subject': subject,
+      'body': body,
+    };
+    final uri = Uri(
+      scheme: 'mailto',
+      queryParameters: params,
+    );
+    final r = await _open(uri);
+    return r == 'ok'
+        ? 'Opened email composer to ${to.isEmpty ? 'draft' : to}.'
+        : 'Could not open email ($r).';
+  }
+
   Future<String> openUrl(String url) async {
     final fixed = url.startsWith('http') ? url : 'https://$url';
     final r = await _open(Uri.parse(fixed));
@@ -70,26 +87,46 @@ class DeviceActions {
     String details = '',
     String startIso = '',
   }) async {
+    return insertCalendarEvent(
+      title: title,
+      notes: details,
+      startIso: startIso,
+    );
+  }
+
+  Future<String> insertCalendarEvent({
+    required String title,
+    String startIso = '',
+    String endIso = '',
+    String location = '',
+    String notes = '',
+  }) async {
+    final start = DateTime.tryParse(startIso);
+    final end = DateTime.tryParse(endIso) ??
+        start?.add(const Duration(hours: 1));
     final params = <String, String>{
       'action': 'TEMPLATE',
       'text': title,
-      if (details.isNotEmpty) 'details': details,
+      if (notes.isNotEmpty) 'details': notes,
+      if (location.isNotEmpty) 'location': location,
     };
-    // Google Calendar wants UTC basic format yyyymmddThhmmssZ for dates.
-    final start = DateTime.tryParse(startIso);
-    if (start != null) {
-      final s = _gcalStamp(start.toUtc());
-      final e = _gcalStamp(start.toUtc().add(const Duration(hours: 1)));
-      params['dates'] = '$s/$e';
+    if (start != null && end != null) {
+      params['dates'] = '${_gcalStamp(start.toUtc())}/${_gcalStamp(end.toUtc())}';
     }
     final uri = Uri.https('calendar.google.com', '/calendar/render', params);
     final r = await _open(uri);
     return r == 'ok'
-        ? 'Opened Google Calendar with "$title" prefilled. The user saves it.'
-        : 'Could not open the calendar ($r).';
+        ? 'Opened calendar with "$title" prefilled.'
+        : 'Could not open calendar ($r).';
   }
 
-  /// Resolve a name to phone number(s) from the user's contacts.
+  /// Best-effort calendar read — returns guidance when native read unavailable.
+  Future<String> readUpcomingEvents({int daysAhead = 3}) async {
+    return 'Calendar read requires device calendar permission. '
+        'Open your calendar app or share your schedule. '
+        '(Looking ahead $daysAhead days.)';
+  }
+
   Future<String> findContact(String name) async {
     try {
       final permission = await FlutterContacts.permissions.request(

@@ -3,12 +3,16 @@ import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/config/alter_gateway_config.dart';
 import '../../../core/theme/alter_palette.dart';
+import '../../../data/gateway/alter_gateway_providers.dart';
+import '../../../ui/routes.dart';
 import '../../../core/widgets/ambient_scaffold.dart';
 import '../../../core/widgets/glass_panel.dart';
-import '../../../core/widgets/gradient_text.dart';
+import '../../../ui/widgets.dart';
 import '../application/memory_engine.dart';
 import '../application/preferences_controller.dart';
+import '../../auth/application/auth_provider.dart';
 import '../domain/contextos_models.dart';
 
 class PrivacyScreen extends ConsumerWidget {
@@ -44,28 +48,21 @@ class PrivacyScreen extends ConsumerWidget {
     final prefsAsync = ref.watch(preferencesProvider);
     final prefs = prefsAsync.asData?.value ?? const ContextOsPrefs();
     final notifier = ref.read(preferencesProvider.notifier);
+    final consentAsync = ref.watch(gatewayConsentLedgerProvider);
+    final consent = consentAsync.asData?.value;
 
     return AmbientScaffold(
+      header: ShellPageHeader(
+        title: 'PRIVACY',
+        subtitle:
+            'You control what ALTER senses and what leaves the phone. '
+            'Sensitive data is redacted on-device before any cloud call.',
+        onGear: () => context.push(AlterRoutes.settings),
+      ),
+      scrollable: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          GradientText(
-            'Privacy & Permissions',
-            style: theme.textTheme.displaySmall?.copyWith(
-              fontWeight: FontWeight.w900,
-              height: 1.02,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'You control what ALTER senses and what leaves the phone. '
-            'Sensitive data is redacted on-device before any cloud call.',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-              height: 1.35,
-            ),
-          ),
-          const SizedBox(height: 16),
           GlassPanel(
             child: Column(
               children: [
@@ -83,7 +80,10 @@ class PrivacyScreen extends ConsumerWidget {
                   subtitle:
                       'Escalate redacted moments for deeper proof — only with consent.',
                   value: prefs.cloudConsent,
-                  onChanged: notifier.setCloudConsent,
+                  onChanged: (value) async {
+                    await notifier.setCloudConsent(value);
+                    await _syncCloudConsent(ref, value);
+                  },
                 ),
               ],
             ),
@@ -129,9 +129,104 @@ class PrivacyScreen extends ConsumerWidget {
               ],
             ),
           ),
+          if (AlterGatewayConfig.isConfigured && consent != null) ...[
+            const SizedBox(height: 14),
+            GlassPanel(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Consent ledger',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    consent.auditNote.isNotEmpty
+                        ? consent.auditNote
+                        : 'Gateway-tracked consent grants for assistant features.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.58),
+                      height: 1.3,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  for (final grant in consent.grants.take(6))
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Row(
+                        children: [
+                          Icon(
+                            grant.granted
+                                ? LucideIcons.circle_check
+                                : LucideIcons.circle_off,
+                            size: 16,
+                            color: grant.granted
+                                ? AlterPalette.mint
+                                : AlterPalette.danger,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  grant.source,
+                                  style: theme.textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                Text(
+                                  '${grant.accessLevel} · ${grant.retentionDays}d retention',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurface
+                                        .withValues(alpha: 0.58),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 14),
           GlassPanel(
-            onTap: () => context.go('/mission'),
+            onTap: () => context.push(AlterRoutes.dataManagement),
+            child: Row(
+              children: [
+                Icon(LucideIcons.database, size: 18, color: AlterPalette.cyan),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Export & delete data',
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      Text(
+                        'Privacy export, consent ledger, and gateway delete.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.58),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(LucideIcons.chevron_right, size: 18),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          GlassPanel(
+            onTap: () => context.go(AlterRoutes.mission),
             child: Row(
               children: [
                 Icon(
@@ -202,6 +297,24 @@ class PrivacyScreen extends ConsumerWidget {
     );
   }
 
+  Future<void> _syncCloudConsent(WidgetRef ref, bool granted) async {
+    if (!AlterGatewayConfig.isConfigured) return;
+    final userId = ref.read(currentUserProvider)?.id;
+    if (userId == null) return;
+    try {
+      await ref.read(alterGatewayApiClientProvider).recordConsent(
+            userId: userId,
+            source: 'cloud_reasoning',
+            granted: granted,
+            accessLevel: granted ? 'redacted_cloud' : 'metadata',
+            reason: granted
+                ? 'User enabled cloud reasoning from privacy screen.'
+                : 'User disabled cloud reasoning.',
+          );
+      ref.invalidate(gatewayConsentLedgerProvider);
+    } catch (_) {}
+  }
+
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -224,6 +337,15 @@ class PrivacyScreen extends ConsumerWidget {
       ),
     );
     if (ok == true) {
+      final userId = ref.read(currentUserProvider)?.id;
+      if (userId != null && AlterGatewayConfig.isConfigured) {
+        try {
+          await ref.read(alterGatewayApiClientProvider).deletePrivacy(
+                userId: userId,
+                scopes: const <String>['memory'],
+              );
+        } catch (_) {}
+      }
       await ref.read(memoryProvider.notifier).clearAll();
       if (context.mounted) {
         ScaffoldMessenger.of(

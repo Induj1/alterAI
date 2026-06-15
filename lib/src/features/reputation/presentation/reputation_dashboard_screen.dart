@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../core/config/alter_gateway_config.dart';
 import '../../../core/theme/alter_palette.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../core/widgets/ambient_scaffold.dart';
@@ -10,8 +11,15 @@ import '../../../core/widgets/glass_panel.dart';
 import '../../../core/widgets/gradient_text.dart';
 import '../../../core/widgets/metric_tile.dart';
 import '../../../core/widgets/premium_controls.dart';
+import '../../../ui/routes.dart';
+import '../../../ui/widgets.dart';
+import '../../../domain/entities/alter_models.dart';
 import '../../../domain/entities/alter_models.dart';
 import '../../shared/application/alter_data_providers.dart';
+import '../../auth/application/auth_provider.dart';
+import '../../mission/application/mission_control_provider.dart';
+import '../../mission/data/mission_control_api_client.dart';
+import '../../reputation/application/reputation_score_provider.dart';
 
 class ReputationDashboardScreen extends ConsumerWidget {
   const ReputationDashboardScreen({super.key});
@@ -19,55 +27,40 @@ class ReputationDashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final events = ref.watch(reputationEventsProvider);
+    final gatewayScore = ref.watch(reputationScoreProvider);
     final theme = Theme.of(context);
 
-    final liveScore = events.asData?.value != null
-        ? 700 + events.value!.fold<int>(0, (sum, e) => sum + e.delta)
-        : null;
+    final liveScore = gatewayScore.asData?.value?.score ??
+        (events.asData?.value != null
+            ? 700 + events.value!.fold<int>(0, (sum, e) => sum + e.delta)
+            : null);
 
     final trend = events.asData?.value != null
         ? events.value!.take(5).fold<int>(0, (sum, e) => sum + e.delta)
         : null;
 
     return AmbientScaffold(
+      header: ShellPageHeader(
+        title: 'REPUTATION',
+        subtitle:
+            'Track trust, responsiveness, delivery, and relationship quality as durable assets.',
+        onGear: () => context.push(AlterRoutes.settings),
+      ),
+      scrollable: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    GradientText(
-                      'Reputation Dashboard',
-                      style: theme.textTheme.displaySmall?.copyWith(
-                        fontWeight: FontWeight.w900,
-                        height: 1.02,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Track trust, responsiveness, delivery, and relationship quality as durable assets.',
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.62),
-                        height: 1.4,
-                      ),
-                    ),
-                  ],
-                ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: IconButton.filled(
+              tooltip: 'Log reputation event',
+              style: IconButton.styleFrom(
+                backgroundColor: AlterPalette.iris,
+                foregroundColor: Colors.white,
               ),
-              const SizedBox(width: 12),
-              IconButton.filled(
-                tooltip: 'Log reputation event',
-                style: IconButton.styleFrom(
-                  backgroundColor: AlterPalette.iris,
-                  foregroundColor: Colors.white,
-                ),
-                icon: const Icon(LucideIcons.plus),
-                onPressed: () => _showLogEventDialog(context, ref),
-              ),
-            ],
+              icon: const Icon(LucideIcons.plus),
+              onPressed: () => _showLogEventDialog(context, ref),
+            ),
           ),
           const SizedBox(height: 20),
           ResponsiveGrid(
@@ -177,21 +170,41 @@ class ReputationDashboardScreen extends ConsumerWidget {
     );
     if (result == null) return;
 
-    final userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId == null) return;
-
     try {
+      if (AlterGatewayConfig.isConfigured) {
+        await ref.read(missionControlApiClientProvider).captureProof(
+              objective: result['title']?.toString() ?? 'Reputation event',
+              linkedGoal: 'Trust and follow-through',
+              linkedAction: result['description']?.toString() ?? '',
+              evidence: <ProofEvidenceInput>[
+                ProofEvidenceInput(
+                  evidenceType: 'reputation_event',
+                  title: result['title']?.toString() ?? 'Event',
+                  summary: result['description']?.toString() ?? '',
+                  source: 'reputation_dashboard',
+                  confidence: 0.8,
+                ),
+              ],
+            );
+        ref.invalidate(reputationScoreProvider);
+      }
+
       final now = DateTime.now();
-      final ts =
-          '${now.day}/${now.month}/${now.year}';
-      await Supabase.instance.client.from('reputation_events').insert({
-        'user_id': userId,
-        'title': result['title'],
-        'delta': result['delta'],
-        'description': result['description'],
-        'timestamp': ts,
-      });
+      final ts = '${now.day}/${now.month}/${now.year}';
+      await ref.read(lifeOsMutationsProvider).insertReputationEvent(
+            ReputationEvent(
+              title: result['title'] as String,
+              delta: result['delta'] as int,
+              description: result['description'] as String? ?? '',
+              timestamp: ts,
+            ),
+          );
       ref.invalidate(reputationEventsProvider);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Reputation event logged locally.')),
+        );
+      }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

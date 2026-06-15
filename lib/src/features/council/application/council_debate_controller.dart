@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/theme/alter_palette.dart';
+import '../../../domain/entities/alter_models.dart';
+import '../../auth/application/auth_provider.dart';
 import '../../profile/application/profile_provider.dart';
 import '../../profile/domain/user_profile.dart';
 import '../../shared/application/alter_data_providers.dart';
@@ -263,29 +264,22 @@ class CouncilDebateController extends Notifier<CouncilDebateState> {
     List<AgentDebateEntry> entries,
     String topic,
   ) async {
-    final userId = Supabase.instance.client.auth.currentUser?.id;
+    final userId = ref.read(localUserIdProvider);
     if (userId == null) return;
 
     try {
-      await Supabase.instance.client
-          .from('clone_agents')
-          .delete()
-          .eq('user_id', userId);
-
-      await Supabase.instance.client.from('clone_agents').insert([
+      final agents = [
         for (final e in entries.where((e) => e.status == AgentStatus.done))
-          {
-            'user_id': userId,
-            'name': e.name,
-            'role': e.role,
-            'state': 'Done',
-            'confidence': 0.80 + (e.name.length % 8) * 0.02,
-            'accent_hex':
-                '#${e.accent.toARGB32().toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}',
-            'summary': e.response,
-          },
-      ]);
-
+          CloneAgent(
+            name: e.name,
+            role: e.role,
+            state: 'Done',
+            confidence: 0.80 + (e.name.length % 8) * 0.02,
+            accent: e.accent,
+            summary: e.response,
+          ),
+      ];
+      await ref.read(lifeOsMutationsProvider).replaceCloneCouncil(agents);
       ref.invalidate(cloneCouncilProvider);
     } catch (_) {}
   }

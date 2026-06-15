@@ -1,15 +1,15 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/config/alter_gateway_config.dart';
 import '../../auth/application/auth_provider.dart';
 import '../../profile/application/profile_provider.dart';
+import '../../profile/application/profile_ready.dart';
 import '../../shared/application/alter_data_providers.dart';
 import '../data/life_feed_api_client.dart';
 import '../domain/life_feed_models.dart';
 
 final lifeFeedApiClientProvider = Provider<LifeFeedApiClient>((ref) {
-  const baseUrl = String.fromEnvironment('ALTER_API_GATEWAY_URL');
-  final client = LifeFeedApiClient(baseUrl: baseUrl);
+  final client = LifeFeedApiClient(baseUrl: AlterGatewayConfig.normalizedBaseUrl);
   ref.onDispose(client.close);
   return client;
 });
@@ -17,33 +17,45 @@ final lifeFeedApiClientProvider = Provider<LifeFeedApiClient>((ref) {
 final lifeFeedProvider = FutureProvider<LifeFeedSnapshot>((ref) async {
   final user = ref.watch(currentUserProvider);
   if (user == null) {
-    return LifeFeedSnapshot.fallback();
+    return LifeFeedSnapshot.empty();
   }
 
   final profile = ref.watch(userProfileProvider).asData?.value;
-  final firstName = _firstName(profile?.displayName ?? user.email ?? 'there');
+  final firstName = _firstName(profile?.displayName ?? 'there');
 
-  final api = ref.watch(lifeFeedApiClientProvider);
-  final remote = await api.fetch(userId: user.id);
-  if (remote != null) {
-    return remote;
+  if (!isProfileReady(profile)) {
+    return LifeFeedSnapshot.empty(firstName: firstName);
+  }
+
+  if (AlterGatewayConfig.isConfigured) {
+    final api = ref.watch(lifeFeedApiClientProvider);
+    final remote = await api.fetch(userId: user.id);
+    if (remote != null && remote.hasContent) {
+      return remote;
+    }
   }
 
   final brief = await ref.watch(assistantBriefProvider.future);
   final opportunities = await ref.watch(opportunitySignalsProvider.future);
+
+  final hasBrief = brief.greeting.isNotEmpty ||
+      brief.focus.isNotEmpty ||
+      brief.signals.isNotEmpty;
+  if (!hasBrief && opportunities.isEmpty) {
+    return LifeFeedSnapshot.empty(firstName: firstName);
+  }
 
   final now = DateTime.now();
   final weekday = _weekday(now.weekday);
   final month = _month(now.month);
 
   return LifeFeedSnapshot(
-    greeting: brief.greeting.isNotEmpty ? brief.greeting : 'Good morning, $firstName.',
-    dateSummary:
-        '$weekday, ${now.day} $month · ${brief.signals.length} things need you today',
-    focusTitle: brief.focus.isNotEmpty ? brief.focus : brief.nextAction,
-    focusRationale: brief.nextAction.isNotEmpty
-        ? brief.nextAction
-        : 'Doing it this morning cuts next week\'s overload by ~40%.',
+    greeting: brief.greeting.isNotEmpty ? brief.greeting : 'Still inferring, $firstName.',
+    dateSummary: brief.signals.isNotEmpty
+        ? '$weekday, ${now.day} $month · ${brief.signals.length} signals observed'
+        : '$weekday, ${now.day} $month',
+    focusTitle: brief.focus,
+    focusRationale: brief.nextAction,
     itemsNeedingAttention: brief.signals.length,
     opportunities: opportunities.take(3).map((o) {
       return LifeFeedOpportunity(
@@ -58,10 +70,9 @@ final lifeFeedProvider = FutureProvider<LifeFeedSnapshot>((ref) async {
       final signal = entry.value;
       return LifeFeedTask(
         title: signal,
-        meta: i == 0 ? 'Today · priority' : 'Pending',
-        badge: i == 0 ? 'Now' : '${i + 1}pm',
-        hot: i == 1,
-        done: i == 0 && brief.signals.length > 2,
+        meta: i == 0 ? 'Observed' : 'Pending',
+        badge: i == 0 ? 'Now' : '',
+        hot: i == 0,
       );
     }).toList(),
   );

@@ -17,6 +17,8 @@ class VoiceIntent(StrEnum):
     office_briefing = "office_briefing"
     social_graph = "social_graph"
     reputation = "reputation"
+    call_contact = "call_contact"
+    send_message = "send_message"
     unknown = "unknown"
 
 

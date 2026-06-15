@@ -57,8 +57,9 @@ class DayTwinController extends Notifier<DayTwinState> {
 
     final openai = ref.read(openAIServiceProvider);
     if (openai == null) {
-      // Honest local fallback so the view is never empty.
-      state = state.copyWith(result: DayTwinResult.sample(ctx), error: '');
+      state = state.copyWith(
+        error: 'Sign in and add an OpenAI key to simulate your day.',
+      );
       return;
     }
 
@@ -86,8 +87,7 @@ class DayTwinController extends Notifier<DayTwinState> {
     } catch (e) {
       state = state.copyWith(
         isSimulating: false,
-        result: DayTwinResult.sample(ctx),
-        error: 'Cloud simulation failed (${e.toString().replaceFirst('Exception: ', '')}). Showing on-device model.',
+        error: 'Simulation failed (${e.toString().replaceFirst('Exception: ', '')}).',
       );
     }
   }

@@ -42,6 +42,9 @@ class MemoryRepository(Protocol):
     def recent(self, user_id: UUID, limit: int) -> list[MemoryItem]:
         ...
 
+    def all_memories(self, user_id: UUID) -> list[MemoryItem]:
+        ...
+
     def create_short_term(self, memory: ShortTermMemory) -> ShortTermMemory:
         ...
 
@@ -73,6 +76,10 @@ class InMemoryMemoryRepository:
             content=payload.content,
             source=payload.source,
             privacy=payload.privacy,
+            retention=payload.retention,
+            sensitivity=payload.sensitivity,
+            lifecycle_stage=payload.lifecycle_stage,
+            requires_confirmation=payload.requires_confirmation,
             confidence=payload.confidence,
             importance=payload.importance,
             emotional_valence=payload.emotional_valence,
@@ -168,6 +175,13 @@ class InMemoryMemoryRepository:
             if memory.user_id == user_id and memory.status == MemoryStatus.active
         ]
         return sorted(memories, key=lambda memory: memory.updated_at, reverse=True)[:limit]
+
+    def all_memories(self, user_id: UUID) -> list[MemoryItem]:
+        return [
+            memory
+            for memory in self._memories.values()
+            if memory.user_id == user_id and memory.status != MemoryStatus.deleted
+        ]
 
     def create_short_term(self, memory: ShortTermMemory) -> ShortTermMemory:
         self._short_term[memory.id] = memory

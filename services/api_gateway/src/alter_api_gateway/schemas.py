@@ -430,3 +430,65 @@ class PlatformIntegration(BaseModel):
 class IntegrationsResponse(BaseModel):
     user_id: UUID
     platforms: list[PlatformIntegration]
+
+
+class WebResearchRequest(BaseModel):
+    query: str = Field(min_length=1, max_length=400)
+    limit: int = Field(default=5, ge=1, le=10)
+
+
+class WebResearchHit(BaseModel):
+    title: str
+    url: str
+    snippet: str
+
+
+class WebResearchResponse(BaseModel):
+    query: str
+    results: list[WebResearchHit]
+
+
+class WebFetchRequest(BaseModel):
+    url: str = Field(min_length=4, max_length=800)
+
+
+class WebFetchResponse(BaseModel):
+    title: str
+    url: str
+    excerpt: str
+
+
+class MarketplaceSearchRequest(BaseModel):
+    query: str = Field(min_length=1, max_length=400)
+    platform: str = Field(default="amazon", max_length=40)
+    limit: int = Field(default=5, ge=1, le=10)
+
+
+class MarketplaceListing(BaseModel):
+    title: str
+    price: str = ""
+    url: str
+    snippet: str = ""
+
+
+class MarketplaceSearchResponse(BaseModel):
+    query: str
+    platform: str
+    listings: list[MarketplaceListing]
+
+
+class OpportunityQueryRequest(BaseModel):
+    query: str = Field(min_length=1, max_length=400)
+    limit: int = Field(default=5, ge=1, le=10)
+
+
+class OpportunityHit(BaseModel):
+    title: str
+    organization: str = ""
+    url: str = ""
+    summary: str = ""
+
+
+class OpportunityQueryResponse(BaseModel):
+    query: str
+    opportunities: list[OpportunityHit]

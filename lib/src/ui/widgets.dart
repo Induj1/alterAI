@@ -1,8 +1,17 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:alter/src/core/widgets/alter_logo.dart';
 import 'package:alter/src/ui/theme.dart';
 
-/// The 4-point "star" mark used throughout Alter.
+/// Default radial gradient stops for all ALTER pages.
+const kAlterPageBg = [
+  Color(0xFF241A40),
+  Color(0xFF120E1C),
+  AppColors.bg,
+];
+
+/// ALTER icon mark used throughout the app.
 class StarMark extends StatelessWidget {
   final double size;
   final Color color;
@@ -10,34 +19,13 @@ class StarMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
+    return AlterLogo(
+      showWordmark: false,
       width: size,
       height: size,
-      child: CustomPaint(painter: _StarPainter(color)),
+      color: color,
     );
   }
-}
-
-class _StarPainter extends CustomPainter {
-  final Color color;
-  _StarPainter(this.color);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width, h = size.height;
-    final p = Path();
-    // A 4-point concave star (matches the CSS path 12 0 -> curves through midpoints).
-    p.moveTo(w * 0.5, 0);
-    p.cubicTo(w * 0.5, h * 0.25, w * 0.5, h * 0.25, w, h * 0.5);
-    p.cubicTo(w * 0.5, h * 0.75, w * 0.5, h * 0.75, w * 0.5, h);
-    p.cubicTo(w * 0.5, h * 0.75, w * 0.5, h * 0.75, 0, h * 0.5);
-    p.cubicTo(w * 0.5, h * 0.25, w * 0.5, h * 0.25, w * 0.5, 0);
-    p.close();
-    canvas.drawPath(p, Paint()..color = color);
-  }
-
-  @override
-  bool shouldRepaint(covariant _StarPainter old) => old.color != color;
 }
 
 /// A soft blurred gradient orb used in backgrounds.
@@ -84,7 +72,7 @@ class Orb extends StatelessWidget {
 /// Full-screen gradient background with optional positioned orbs.
 class GradientScaffold extends StatelessWidget {
   final List<Color> bgColors;
-  final List<Alignment>? bgStops;
+  final List<double>? bgStops;
   final Alignment bgCenter;
   final List<Widget> orbs;
   final Widget child;
@@ -102,33 +90,38 @@ class GradientScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // In light mode, keep each screen's hue (first stop, lightened) and swap the
-    // dark mid/base stops for light neutrals — auto-themes every screen.
-    final cols = AlterUiTheme.light
-        ? [
-            for (var i = 0; i < bgColors.length; i++)
-              i == 0
-                  ? Color.lerp(bgColors[i], Colors.white, 0.82)!
-                  : (i == bgColors.length - 1
-                      ? const Color(0xFFEAE3F4)
-                      : const Color(0xFFF2EEFB))
-          ]
-        : bgColors;
-    return Container(
-      decoration: BoxDecoration(
-        gradient: RadialGradient(
-          center: bgCenter,
-          radius: 1.2,
-          colors: cols,
-          stops: bgStops != null ? null : _evenStops(cols.length),
-        ),
-      ),
-      child: Stack(
-        children: [
-          ...orbs,
-          Positioned.fill(child: child),
-        ],
-      ),
+    return ValueListenableBuilder<bool>(
+      valueListenable: AlterUiTheme.isLight,
+      builder: (context, light, __) {
+        final cols = light
+            ? [
+                for (var i = 0; i < bgColors.length; i++)
+                  i == 0
+                      ? Color.lerp(bgColors[i], Colors.white, 0.82)!
+                      : (i == bgColors.length - 1
+                          ? const Color(0xFFEAE3F4)
+                          : const Color(0xFFF2EEFB))
+              ]
+            : bgColors;
+        return Container(
+          decoration: BoxDecoration(
+            gradient: RadialGradient(
+              center: bgCenter,
+              radius: 1.2,
+              colors: cols,
+              stops: (bgStops == null || bgStops!.isEmpty)
+                  ? _evenStops(cols.length)
+                  : bgStops,
+            ),
+          ),
+          child: Stack(
+            children: [
+              ...orbs,
+              Positioned.fill(child: child),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -194,7 +187,7 @@ class PillChip extends StatelessWidget {
           style: AppText.body(
             14.5,
             weight: FontWeight.w600,
-            color: selected ? AppColors.bg : Colors.white,
+            color: selected ? AppColors.bg : AppColors.white(0.92),
           ),
         ),
       ),
@@ -317,7 +310,7 @@ class GearButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: AppColors.white(0.12)),
         ),
-        child: const Icon(Icons.settings_outlined, size: 21, color: Colors.white),
+        child: Icon(Icons.settings_outlined, size: 21, color: AppColors.white(0.9)),
       ),
     );
   }
@@ -329,7 +322,14 @@ class BackPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap ?? () => Navigator.maybePop(context),
+      onTap: onTap ??
+          () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              Navigator.maybePop(context);
+            }
+          },
       child: Container(
         width: 42,
         height: 42,
@@ -338,7 +338,7 @@ class BackPill extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: AppColors.white(0.14)),
         ),
-        child: const Icon(Icons.arrow_back, size: 20, color: Colors.white),
+        child: Icon(Icons.arrow_back, size: 20, color: AppColors.white(0.9)),
       ),
     );
   }
@@ -438,6 +438,454 @@ class OutlineButton2 extends StatelessWidget {
         child: Text(label,
             style: AppText.body(15, weight: FontWeight.w600)),
       ),
+    );
+  }
+}
+
+/// Tab / shell-root page layout: gradient + optional header + scrollable body.
+class AlterPageLayout extends StatelessWidget {
+  final Widget child;
+  final Widget? header;
+  final List<Color> bgColors;
+  final Alignment bgCenter;
+  final double bottomInset;
+  final bool scrollable;
+  final List<Widget> orbs;
+  final EdgeInsetsGeometry? padding;
+
+  const AlterPageLayout({
+    super.key,
+    required this.child,
+    this.header,
+    this.bgColors = kAlterPageBg,
+    this.bgCenter = const Alignment(0.6, -1.0),
+    this.bottomInset = 104,
+    this.scrollable = true,
+    this.orbs = const [],
+    this.padding,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final pagePadding = padding ??
+        EdgeInsets.fromLTRB(22, 10, 22, bottomInset);
+
+    final body = scrollable
+        ? ListView(
+            padding: pagePadding,
+            children: [
+              if (header != null) ...[header!, const SizedBox(height: 18)],
+              child,
+            ],
+          )
+        : Padding(
+            padding: pagePadding,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (header != null) ...[header!, const SizedBox(height: 18)],
+                Expanded(child: child),
+              ],
+            ),
+          );
+
+    return GradientScaffold(
+      bgColors: bgColors,
+      bgCenter: bgCenter,
+      orbs: orbs,
+      child: SafeArea(
+        bottom: false,
+        child: body,
+      ),
+    );
+  }
+}
+
+/// Full-screen page with [Scaffold] — for standalone pushed routes.
+class AlterPageScaffold extends StatelessWidget {
+  final Widget child;
+  final Widget? header;
+  final List<Color> bgColors;
+  final double bottomInset;
+  final bool scrollable;
+
+  const AlterPageScaffold({
+    super.key,
+    required this.child,
+    this.header,
+    this.bgColors = kAlterPageBg,
+    this.bottomInset = 24,
+    this.scrollable = true,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: AlterPageLayout(
+        bgColors: bgColors,
+        bottomInset: bottomInset,
+        scrollable: scrollable,
+        header: header,
+        child: child,
+      ),
+    );
+  }
+}
+
+/// Shared deep-screen scaffold (back · title · optional subtitle).
+class DeepScaffold extends StatelessWidget {
+  final String title;
+  final String? subtitle;
+  final List<Color> bg;
+  final Alignment bgCenter;
+  final Widget child;
+  final EdgeInsetsGeometry contentPadding;
+  final double bottomInset;
+
+  const DeepScaffold({
+    super.key,
+    required this.title,
+    required this.child,
+    this.subtitle,
+    this.bg = kAlterPageBg,
+    this.bgCenter = const Alignment(0.0, -1.0),
+    this.contentPadding = const EdgeInsets.fromLTRB(22, 16, 22, 24),
+    this.bottomInset = 24,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: GradientScaffold(
+        bgColors: bg,
+        bgCenter: bgCenter,
+        child: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(22, 10, 22, 0),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const BackPill(),
+                        Text(title,
+                            style: AppText.display(13,
+                                weight: FontWeight.w600,
+                                letterSpacing: 2.0,
+                                color: AppColors.white(0.92))),
+                        const SizedBox(width: 42),
+                      ],
+                    ),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 10),
+                      Text(subtitle!,
+                          textAlign: TextAlign.center,
+                          style: AppText.body(14,
+                              color: AppColors.white(0.55), height: 1.4)),
+                    ],
+                  ],
+                ),
+              ),
+              Expanded(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    22,
+                    16,
+                    22,
+                    24 + bottomInset,
+                  ),
+                  child: child,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Shell-root page header: gear · uppercase title · avatar, optional subtitle.
+class ShellPageHeader extends StatelessWidget {
+  const ShellPageHeader({
+    required this.title,
+    this.subtitle,
+    this.onGear,
+    this.showAvatar = true,
+    super.key,
+  });
+
+  final String title;
+  final String? subtitle;
+  final VoidCallback? onGear;
+  final bool showAvatar;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        PrimaryHeader(
+          title: title.toUpperCase(),
+          showAvatar: showAvatar,
+          onGear: onGear,
+        ),
+        if (subtitle != null) ...[
+          const SizedBox(height: 8),
+          Text(subtitle!,
+              style: AppText.body(14,
+                  color: AppColors.white(0.55), height: 1.4)),
+        ],
+        const SizedBox(height: 20),
+      ],
+    );
+  }
+}
+
+/// Stat metric card — legacy replacement for MetricTile.
+class StatCard extends StatelessWidget {
+  const StatCard({
+    required this.label,
+    required this.value,
+    required this.icon,
+    this.detail,
+    this.accent = AppColors.purple,
+    super.key,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+  final String? detail;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(9),
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: accent.withValues(alpha: 0.18)),
+                ),
+                child: Icon(icon, color: accent, size: 18),
+              ),
+              const Spacer(),
+              Icon(Icons.auto_awesome, size: 16, color: accent.withValues(alpha: 0.76)),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Text(value, style: AppText.display(24, weight: FontWeight.w800)),
+          const SizedBox(height: 4),
+          Text(label,
+              style: AppText.body(13,
+                  weight: FontWeight.w700, color: AppColors.white(0.66))),
+          if (detail != null) ...[
+            const SizedBox(height: 10),
+            Text(detail!,
+                style: AppText.body(12, color: AppColors.white(0.55), height: 1.35)),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Section label row — legacy replacement for SectionHeader.
+class SectionKicker extends StatelessWidget {
+  const SectionKicker({
+    required this.title,
+    this.subtitle,
+    this.trailing,
+    super.key,
+  });
+
+  final String title;
+  final String? subtitle;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title.toUpperCase(),
+                  style: AppText.kicker(AppColors.white(0.72))),
+              if (subtitle != null) ...[
+                const SizedBox(height: 6),
+                Text(subtitle!,
+                    style: AppText.body(14,
+                        color: AppColors.white(0.55), height: 1.35)),
+              ],
+            ],
+          ),
+        ),
+        if (trailing != null) ...[
+          const SizedBox(width: 14),
+          trailing!,
+        ],
+      ],
+    );
+  }
+}
+
+/// Empty state when Alter has not inferred anything yet.
+class InferringEmptyState extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+
+  const InferringEmptyState({
+    super.key,
+    this.title = 'Still inferring…',
+    this.subtitle =
+        'Nothing observed yet — talk to Alter, scan with Lens, or connect contacts.',
+    this.icon = Icons.auto_awesome_outlined,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 28),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 32, color: AppColors.lime.withValues(alpha: 0.85)),
+          const SizedBox(height: 14),
+          Text(title,
+              textAlign: TextAlign.center,
+              style: AppText.display(20, weight: FontWeight.w500)),
+          const SizedBox(height: 8),
+          Text(subtitle,
+              textAlign: TextAlign.center,
+              style: AppText.body(14, color: AppColors.white(0.55), height: 1.5)),
+        ],
+      ),
+    );
+  }
+}
+
+enum VoiceEqualizerMode { idle, listening, speaking }
+
+/// Rainbow gradient audio equalizer — centered vertical bars with wave peaks.
+class RainbowEqualizer extends StatelessWidget {
+  final VoiceEqualizerMode mode;
+  final Animation<double> animation;
+  final int barCount;
+
+  const RainbowEqualizer({
+    super.key,
+    required this.mode,
+    required this.animation,
+    this.barCount = 35,
+  });
+
+  static Color _rainbowAt(double t) {
+    final stops = <(double, Color)>[
+      (0.00, AppColors.lime),
+      (0.16, AppColors.green),
+      (0.34, AppColors.cyan),
+      (0.52, AppColors.cyanDeep),
+      (0.68, AppColors.purple),
+      (0.84, AppColors.purpleLight),
+      (1.00, AppColors.pink),
+    ];
+    t = t.clamp(0.0, 1.0);
+    for (var i = 0; i < stops.length - 1; i++) {
+      final a = stops[i];
+      final b = stops[i + 1];
+      if (t >= a.$1 && t <= b.$1) {
+        final f = (t - a.$1) / (b.$1 - a.$1);
+        return Color.lerp(a.$2, b.$2, f)!;
+      }
+    }
+    return AppColors.pink;
+  }
+
+  /// Static wave envelope — three peaks (tall · medium · tall) like a spectrum.
+  static double _envelope(int i, int n) {
+    if (n <= 1) return 1;
+    final x = i / (n - 1);
+    double peak(double center, double width, double height) {
+      final d = (x - center) / width;
+      return height * (1 / (1 + d * d * 12));
+    }
+    return (0.10 +
+            peak(0.14, 0.11, 1.0) +
+            peak(0.48, 0.10, 0.72) +
+            peak(0.84, 0.11, 0.95))
+        .clamp(0.12, 1.0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (_, __) {
+        const maxBarHeight = 72.0;
+        const barWidth = 4.0;
+        const gap = 3.0;
+        final t = animation.value;
+
+        return SizedBox(
+          height: maxBarHeight + 8,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: List.generate(barCount, (i) {
+              final phase = (i % 7) / 7;
+              final ripple = (0.5 +
+                  0.5 *
+                      (1 - 2 * ((t + phase) % 1.0 - 0.5).abs()));
+              final env = _envelope(i, barCount);
+              final amp = switch (mode) {
+                VoiceEqualizerMode.idle => env * (0.22 + ripple * 0.10),
+                VoiceEqualizerMode.listening => env * (0.45 + ripple * 0.50),
+                VoiceEqualizerMode.speaking => env * (0.50 + ripple * 0.50),
+              };
+              final h = maxBarHeight * amp;
+              final color = _rainbowAt(i / (barCount - 1));
+              return Container(
+                width: barWidth,
+                height: h,
+                margin: const EdgeInsets.symmetric(horizontal: gap / 2),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(barWidth),
+                  gradient: LinearGradient(
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
+                    colors: [
+                      color.withValues(alpha: 0.95),
+                      color.withValues(alpha: 0.55),
+                    ],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: color.withValues(alpha: 0.45),
+                      blurRadius: 8,
+                      spreadRadius: 0.5,
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ),
+        );
+      },
     );
   }
 }

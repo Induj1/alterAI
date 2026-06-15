@@ -3,12 +3,8 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 import '../domain/contextos_models.dart';
 import 'local_gemma_engine.dart';
 
-/// Real on-device edge engine. Redaction + signal extraction stay deterministic
-/// and local (reused from [HeuristicGemmaEngine]); the risk *verdict* and its
-/// plain-language reason come from Gemma running on the phone via MediaPipe.
-///
-/// Any inference failure degrades silently to the heuristic verdict, so the
-/// pipeline never blocks on the model.
+/// On-device Gemma 4 edge engine. Redaction + signals stay heuristic;
+/// risk verdict and reason come from Gemma via LiteRT-LM.
 class GemmaEdgeEngine extends HeuristicGemmaEngine {
   GemmaEdgeEngine(this._model);
 
@@ -16,7 +12,7 @@ class GemmaEdgeEngine extends HeuristicGemmaEngine {
 
   @override
   Future<EdgeTriage> analyzeAsync(String input) async {
-    final base = analyze(input); // heuristic: redaction + signals + fallback
+    final base = analyze(input);
     try {
       final session = await _model.createSession(temperature: 0.1, topK: 1);
       await session.addQueryChunk(
@@ -36,7 +32,7 @@ class GemmaEdgeEngine extends HeuristicGemmaEngine {
         signals: base.signals,
         shouldEscalate: verdict != RiskVerdict.safe || input.length > 280,
         summary: reason.isNotEmpty
-            ? 'Gemma on-device: $reason'
+            ? 'Gemma 4 on-device: $reason'
             : base.summary,
       );
     } catch (_) {
@@ -52,23 +48,18 @@ class GemmaEdgeEngine extends HeuristicGemmaEngine {
 
   RiskVerdict? _parseVerdict(String raw) {
     final u = raw.toUpperCase();
-    // Order matters: check the most severe first.
-    if (u.contains('DANGEROUS') || u.contains('DANGER')) {
-      return RiskVerdict.dangerous;
-    }
-    if (u.contains('VERIFY') || u.contains('NEEDS VERIF')) {
-      return RiskVerdict.needsVerification;
-    }
+    if (u.contains('DANGEROUS')) return RiskVerdict.dangerous;
+    if (u.contains('VERIFY')) return RiskVerdict.needsVerification;
     if (u.contains('CAUTION')) return RiskVerdict.caution;
     if (u.contains('SAFE')) return RiskVerdict.safe;
     return null;
   }
 
   String _parseReason(String raw) {
-    final idx = raw.indexOf('-');
-    if (idx >= 0 && idx + 1 < raw.length) {
-      return raw.substring(idx + 1).trim().replaceAll(RegExp(r'\s+'), ' ');
+    final dash = raw.indexOf(' - ');
+    if (dash >= 0 && dash + 3 < raw.length) {
+      return raw.substring(dash + 3).trim();
     }
-    return '';
+    return raw.trim();
   }
 }

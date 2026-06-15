@@ -16,7 +16,9 @@ class AlterApp extends ConsumerWidget {
       builder: (_, light, __) => MaterialApp.router(
         title: 'Alter',
         debugShowCheckedModeBanner: false,
-        theme: buildAlterTheme(light),
+        theme: buildAlterTheme(true),
+        darkTheme: buildAlterTheme(false),
+        themeMode: light ? ThemeMode.light : ThemeMode.dark,
         routerConfig: router,
       ),
     );

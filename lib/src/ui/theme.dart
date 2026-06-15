@@ -1,12 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Global light/dark theme switch. Flip [isLight] and the whole app rebuilds
 /// (see the ValueListenableBuilder in main.dart).
 class AlterUiTheme {
   static final ValueNotifier<bool> isLight = ValueNotifier<bool>(false);
   static bool get light => isLight.value;
-  static void setLight(bool v) => isLight.value = v;
+
+  static Future<void> setLight(bool v) async {
+    if (isLight.value == v) return;
+    isLight.value = v;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('alter_theme_light', v);
+  }
+
+  static Future<void> toggle() => setLight(!isLight.value);
 }
 
 /// Alter design tokens — colors and typography.
@@ -30,6 +39,19 @@ class AppColors {
       AlterUiTheme.light ? const Color(0xFF18131F) : Colors.white;
   static Color get pillInk =>
       AlterUiTheme.light ? const Color(0xFFF5F2FB) : const Color(0xFF0A0810);
+
+  /// Theme-aware screen gradient stops (dark palette in, light palette out).
+  static List<Color> screenGradient(List<Color> darkStops) {
+    if (!AlterUiTheme.light) return darkStops;
+    return [
+      for (var i = 0; i < darkStops.length; i++)
+        i == 0
+            ? Color.lerp(darkStops[i], Colors.white, 0.82)!
+            : (i == darkStops.length - 1
+                ? const Color(0xFFEAE3F4)
+                : const Color(0xFFF2EEFB)),
+    ];
+  }
 
   // Accents
   static const lime = Color(0xFFCDF74D);
@@ -61,7 +83,7 @@ class AppText {
   static TextStyle display(
     double size, {
     FontWeight weight = FontWeight.w400,
-    Color color = Colors.white,
+    Color? color,
     double height = 1.08,
     double letterSpacing = -0.4,
     FontStyle? fontStyle,
@@ -69,7 +91,7 @@ class AppText {
       GoogleFonts.spaceGrotesk(
         fontSize: size,
         fontWeight: weight,
-        color: color,
+        color: color ?? AppColors.white(0.92),
         height: height,
         letterSpacing: letterSpacing,
         fontStyle: fontStyle,
@@ -79,14 +101,14 @@ class AppText {
   static TextStyle body(
     double size, {
     FontWeight weight = FontWeight.w500,
-    Color color = Colors.white,
+    Color? color,
     double height = 1.4,
     double letterSpacing = 0,
   }) =>
       GoogleFonts.manrope(
         fontSize: size,
         fontWeight: weight,
-        color: color,
+        color: color ?? AppColors.white(0.88),
         height: height,
         letterSpacing: letterSpacing,
       );
@@ -107,12 +129,15 @@ ThemeData buildAlterTheme(bool light) {
     brightness: light ? Brightness.light : Brightness.dark,
   );
   final fg = light ? const Color(0xFF18131F) : Colors.white;
+  final screenBase = light ? const Color(0xFFEAE3F4) : AppColors.bg;
+  final surface = light ? const Color(0xFFFFFFFF) : const Color(0xFF0D0A16);
   return base.copyWith(
-    scaffoldBackgroundColor: AppColors.screenBase,
+    scaffoldBackgroundColor: screenBase,
     colorScheme: base.colorScheme.copyWith(
       primary: AppColors.lime,
       secondary: AppColors.purpleLight,
-      surface: AppColors.screenBase,
+      surface: surface,
+      onSurface: fg,
     ),
     textTheme: GoogleFonts.manropeTextTheme(base.textTheme).apply(
       bodyColor: fg,
@@ -120,4 +145,19 @@ ThemeData buildAlterTheme(bool light) {
     ),
     splashFactory: InkRipple.splashFactory,
   );
+}
+
+/// Rebuilds [child] whenever light/dark mode changes.
+class AlterThemeBuilder extends StatelessWidget {
+  const AlterThemeBuilder({required this.builder, super.key});
+
+  final Widget Function(BuildContext context, bool light) builder;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<bool>(
+      valueListenable: AlterUiTheme.isLight,
+      builder: (context, light, _) => builder(context, light),
+    );
+  }
 }

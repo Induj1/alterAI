@@ -1,281 +1,123 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:alter/src/core/config/alter_gateway_config.dart';
+import 'package:alter/src/core/errors/user_facing_error.dart';
+import 'package:alter/src/core/utils/responsive.dart';
+import 'package:alter/src/data/gateway/alter_gateway_providers.dart';
 import 'package:alter/src/features/auth/application/auth_provider.dart';
+import 'package:alter/src/features/identity/application/identity_engine.dart';
+import 'package:alter/src/features/memory/application/memory_encode_pipeline.dart';
+import 'package:alter/src/features/onboarding/application/onboarding_draft_provider.dart';
+import 'package:alter/src/features/settings/domain/supported_languages.dart';
 import 'package:alter/src/features/profile/application/profile_provider.dart';
-import 'package:alter/src/features/profile/domain/user_profile.dart';
 import 'package:alter/src/ui/theme.dart';
 import 'package:alter/src/ui/widgets.dart';
 import 'package:alter/src/ui/routes.dart';
 
-// ============================================================
-// Login
-// ============================================================
-class LoginScreen extends ConsumerStatefulWidget {
-  const LoginScreen({super.key});
-
-  @override
-  ConsumerState<LoginScreen> createState() => _LoginScreenState();
-}
-
-class _LoginScreenState extends ConsumerState<LoginScreen> {
-  final _email = TextEditingController();
-  final _password = TextEditingController();
-  bool _loading = false;
-  bool _isSignUp = false;
-  String? _error;
-
-  @override
-  void dispose() {
-    _email.dispose();
-    _password.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submit() async {
-    final email = _email.text.trim();
-    final password = _password.text;
-    if (email.isEmpty || password.isEmpty) {
-      setState(() => _error = 'Enter email and password.');
-      return;
-    }
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      final auth = ref.read(authServiceProvider);
-      if (_isSignUp) {
-        await auth.signUp(email, password);
-      } else {
-        await auth.signIn(email, password);
-      }
-      if (mounted) context.go(AlterRoutes.permissions);
-    } catch (e) {
-      if (mounted) {
-        setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
-      }
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: GradientScaffold(
-        bgColors: const [Color(0xFF2A1F4A), Color(0xFF15101F), AppColors.bg],
-        bgCenter: const Alignment(0.0, -1.0),
-        orbs: [
-          PositionedOrb(
-            top: -40,
-            left: 0,
-            right: 0,
-            orb: Orb(size: 280, blur: 20, colors: [
-              AppColors.purple.withValues(alpha: 0.6),
-            ]),
-          ),
-        ],
-        child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(30, 40, 30, 40),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 54,
-                  height: 54,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: AppColors.white(0.08),
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: AppColors.white(0.14)),
-                  ),
-                  child: const StarMark(size: 26),
-                ),
-                const SizedBox(height: 26),
-                Text('Welcome to your\nfuture.',
-                    style: AppText.display(34, weight: FontWeight.w500)),
-                const SizedBox(height: 10),
-                Text('Sign in and Alter starts learning your context.',
-                    style: AppText.body(15, color: AppColors.white(0.55))),
-                const SizedBox(height: 34),
-                _field(Icons.mail_outline, 'Email', controller: _email),
-                const SizedBox(height: 12),
-                _field(Icons.lock_outline, 'Password',
-                    controller: _password, obscure: true),
-                if (_error != null) ...[
-                  const SizedBox(height: 12),
-                  Text(_error!,
-                      style: AppText.body(13, color: AppColors.danger)),
-                ],
-                const SizedBox(height: 18),
-                LimeButton(
-                  label: _loading
-                      ? 'Please wait…'
-                      : (_isSignUp ? 'Create account' : 'Continue'),
-                  trailing: null,
-                  onTap: _loading ? null : _submit,
-                ),
-                const SizedBox(height: 12),
-                GestureDetector(
-                  onTap: () => setState(() {
-                    _isSignUp = !_isSignUp;
-                    _error = null;
-                  }),
-                  child: Text(
-                    _isSignUp
-                        ? 'Already have an account? Sign in'
-                        : "Don't have an account? Sign up",
-                    style: AppText.body(13,
-                        weight: FontWeight.w600, color: AppColors.lime),
-                  ),
-                ),
-                const SizedBox(height: 26),
-                Row(children: [
-                  Expanded(child: Container(height: 1, color: AppColors.white(0.12))),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Text('or',
-                        style: AppText.body(12, color: AppColors.white(0.3))),
-                  ),
-                  Expanded(child: Container(height: 1, color: AppColors.white(0.12))),
-                ]),
-                const SizedBox(height: 26),
-                Row(children: [
-                  Expanded(
-                      child: _social('Google', _submit)),
-                  const SizedBox(width: 12),
-                  Expanded(
-                      child: _social('Apple', _submit)),
-                ]),
-                const SizedBox(height: 30),
-                Center(
-                  child: Text('Privacy-first · on-device by default',
-                      style: AppText.body(12, color: AppColors.white(0.4))),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _field(
-    IconData icon,
-    String hint, {
-    required TextEditingController controller,
-    bool obscure = false,
-  }) {
-    return Container(
-      height: 58,
-      padding: const EdgeInsets.symmetric(horizontal: 18),
-      decoration: BoxDecoration(
-        color: AppColors.white(0.06),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.white(0.12)),
-      ),
-      child: Row(children: [
-        Icon(icon, size: 18, color: AppColors.white(0.4)),
-        const SizedBox(width: 12),
-        Expanded(
-          child: TextField(
-            controller: controller,
-            obscureText: obscure,
-            style: AppText.body(15, color: Colors.white),
-            decoration: InputDecoration(
-              hintText: hint,
-              hintStyle: AppText.body(15, color: AppColors.white(0.45)),
-              border: InputBorder.none,
-              isDense: true,
-            ),
-          ),
-        ),
-      ]),
-    );
-  }
-
-  Widget _social(String label, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 54,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: AppColors.white(0.06),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.white(0.12)),
-        ),
-        child: Text(label, style: AppText.body(14, weight: FontWeight.w600)),
-      ),
-    );
-  }
-}
+// Legacy alias — language settings still imports this.
+final onboardingLanguagesProvider = Provider<Set<String>>((ref) {
+  return ref.watch(onboardingDraftProvider).languages;
+});
 
 // ============================================================
 // Languages
 // ============================================================
-class LanguagesScreen extends StatefulWidget {
+class LanguagesScreen extends ConsumerStatefulWidget {
   const LanguagesScreen({super.key});
   @override
-  State<LanguagesScreen> createState() => _LanguagesScreenState();
+  ConsumerState<LanguagesScreen> createState() => _LanguagesScreenState();
 }
 
-class _LanguagesScreenState extends State<LanguagesScreen> {
-  static const all = [
-    'English', 'Hindi', 'Kannada', 'Tamil',
-    'Telugu', 'Malayalam', 'Marathi', 'Bengali',
-  ];
-  final selected = <String>{'English', 'Hindi'};
+class _LanguagesScreenState extends ConsumerState<LanguagesScreen> {
+  static const _fallbackLanguages = kSupportedLanguageNames;
+
+  String? _error;
 
   @override
   Widget build(BuildContext context) {
+    final gutter = context.pageGutter;
+    final draft = ref.watch(onboardingDraftProvider);
+    final selected = draft.languages;
+    final catalogAsync = ref.watch(gatewayLanguagesProvider);
+    final apiLanguages = catalogAsync.asData?.value.allLanguages
+            .map((language) => language.name)
+            .where((name) => name.isNotEmpty)
+            .toList(growable: false) ??
+        const <String>[];
+    final languages =
+        apiLanguages.isNotEmpty ? apiLanguages : _fallbackLanguages;
+
     return Scaffold(
       body: GradientScaffold(
         bgColors: const [Color(0xFF2C2150), Color(0xFF15101F), AppColors.bg],
         bgCenter: const Alignment(0.6, -1.0),
         child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(30, 30, 30, 40),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('STEP 1 OF 2', style: AppText.kicker(AppColors.lime)),
-                const SizedBox(height: 14),
-                Text('What languages\ndo you speak?',
-                    style: AppText.display(32, weight: FontWeight.w500, height: 1.1)),
-                const SizedBox(height: 10),
-                Text(
-                  'Alter thinks natively in each — switch mid-sentence and it '
-                  'keeps up.',
-                  style: AppText.body(14.5, color: AppColors.white(0.55)),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(gutter, 30, gutter, 40),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight - 70),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('STEP 1 OF 2', style: AppText.kicker(AppColors.lime)),
+                      const SizedBox(height: 14),
+                      Text('What languages\ndo you speak?',
+                          style: AppText.display(32,
+                              weight: FontWeight.w500, height: 1.1)),
+                      const SizedBox(height: 10),
+                      Text(
+                        'Alter thinks natively in each — switch mid-sentence and it keeps up.',
+                        style: AppText.body(14.5, color: AppColors.white(0.55)),
+                      ),
+                      const SizedBox(height: 26),
+                      Wrap(
+                        spacing: 11,
+                        runSpacing: 11,
+                        children: languages
+                            .map((l) => PillChip(
+                                  label: l,
+                                  selected: selected.contains(l),
+                                  onTap: () {
+                                    final next = Set<String>.from(selected);
+                                    if (next.contains(l)) {
+                                      if (next.length > 1) next.remove(l);
+                                    } else {
+                                      next.add(l);
+                                    }
+                                    ref
+                                        .read(onboardingDraftProvider.notifier)
+                                        .setLanguages(next);
+                                    setState(() => _error = null);
+                                  },
+                                ))
+                            .toList(),
+                      ),
+                      if (_error != null) ...[
+                        const SizedBox(height: 12),
+                        Text(_error!,
+                            style: AppText.body(13, color: AppColors.danger)),
+                      ],
+                      const SizedBox(height: 40),
+                      LimeButton(
+                        label: 'Continue',
+                        onTap: () {
+                          if (selected.isEmpty) {
+                            setState(() =>
+                                _error = 'Select at least one language.');
+                            return;
+                          }
+                          context.push(AlterRoutes.about);
+                        },
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 26),
-                Wrap(
-                  spacing: 11,
-                  runSpacing: 11,
-                  children: all
-                      .map((l) => PillChip(
-                            label: l,
-                            selected: selected.contains(l),
-                            onTap: () => setState(() {
-                              selected.contains(l)
-                                  ? selected.remove(l)
-                                  : selected.add(l);
-                            }),
-                          ))
-                      .toList(),
-                ),
-                const Spacer(),
-                LimeButton(
-                  label: 'Continue',
-                  onTap: () => context.push(AlterRoutes.about),
-                ),
-              ],
-            ),
+              );
+            },
           ),
         ),
       ),
@@ -297,30 +139,138 @@ class _AboutYouScreenState extends ConsumerState<AboutYouScreen> {
     'Student', 'Working', 'Job seeker',
     'Founder', 'Career switcher', 'Researcher',
   ];
-  String role = 'Student';
+
+  late final TextEditingController _nameCtrl;
+  late final TextEditingController _educationCtrl;
+  late final TextEditingController _locationCtrl;
+  late final TextEditingController _availabilityCtrl;
+  late final TextEditingController _goalCtrl;
+  late final TextEditingController _skillInputCtrl;
+
   bool _saving = false;
+  String? _error;
+  late String _role;
+  final _skills = <String>[];
+
+  @override
+  void initState() {
+    super.initState();
+    final draft = ref.read(onboardingDraftProvider);
+    _nameCtrl = TextEditingController(text: draft.displayName);
+    _educationCtrl = TextEditingController(text: draft.education);
+    _locationCtrl = TextEditingController(text: draft.location);
+    _availabilityCtrl = TextEditingController(text: draft.availability);
+    _goalCtrl = TextEditingController(text: draft.goal);
+    _skillInputCtrl = TextEditingController();
+    _role = draft.role;
+    _skills.addAll(draft.skills);
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _educationCtrl.dispose();
+    _locationCtrl.dispose();
+    _availabilityCtrl.dispose();
+    _goalCtrl.dispose();
+    _skillInputCtrl.dispose();
+    super.dispose();
+  }
+
+  void _syncDraft() {
+    ref.read(onboardingDraftProvider.notifier).update(
+          ref.read(onboardingDraftProvider).copyWith(
+                displayName: _nameCtrl.text,
+                role: _role,
+                education: _educationCtrl.text,
+                skills: List<String>.from(_skills),
+                location: _locationCtrl.text,
+                availability: _availabilityCtrl.text,
+                goal: _goalCtrl.text,
+              ),
+        );
+  }
+
+  void _addSkill() {
+    final skill = _skillInputCtrl.text.trim();
+    if (skill.isEmpty || _skills.contains(skill)) return;
+    setState(() => _skills.add(skill));
+    _skillInputCtrl.clear();
+    _syncDraft();
+  }
 
   Future<void> _enterAlter() async {
-    setState(() => _saving = true);
+    _syncDraft();
+    final draft = ref.read(onboardingDraftProvider);
+    if (draft.displayName.trim().isEmpty) {
+      setState(() => _error = 'Enter your name.');
+      return;
+    }
+    if (_goalCtrl.text.trim().isEmpty) {
+      setState(() => _error = 'Describe your future goal.');
+      return;
+    }
+
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
     try {
-      final user = Supabase.instance.client.auth.currentUser;
-      if (user != null) {
-        final profile = UserProfile(
-          id: user.id,
-          displayName: user.email?.split('@').first ?? 'Alter user',
-          role: role,
-          careerStage: role,
-          industry: '',
-          bio: 'Aspiring AI Engineer',
-          skills: const ['Python', 'React', 'ML'],
-          goals: const ['Become an AI Engineer'],
-          interests: const [],
-          openaiKey: '',
-          onboardingDone: true,
+      final userId = ref.read(localUserIdProvider);
+      if (userId == null) throw Exception('Vault locked — unlock with your PIN.');
+
+      final existing = ref.read(userProfileProvider).asData?.value;
+      final profile = draft.toProfile(
+        id: userId,
+        openaiKey: existing?.openaiKey ?? '',
+        onboardingDone: true,
+      );
+      await ref.read(userProfileProvider.notifier).save(profile);
+
+      final pipeline = ref.read(memoryEncodePipelineProvider);
+      if (draft.goal.trim().isNotEmpty) {
+        await pipeline.process(
+          rawContent: draft.goal.trim(),
+          provenance: 'onboarding_confirmed',
+          title: 'Future goal',
         );
-        await ref.read(userProfileProvider.notifier).save(profile);
       }
+      for (final skill in draft.skills) {
+        await pipeline.process(
+          rawContent: skill,
+          provenance: 'onboarding_confirmed',
+          title: 'Skill',
+        );
+      }
+      await ref.read(identityEngineProvider.notifier).refreshFromMemories();
+
+      if (AlterGatewayConfig.isConfigured) {
+        try {
+          await ref.read(alterGatewayApiClientProvider).patchUserSettings(
+                userId: userId,
+                languages: draft.languages.toList(),
+                role: _role,
+              );
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Profile saved. Cloud sync is offline — you can retry from Settings.',
+                ),
+              ),
+            );
+          }
+        }
+      }
+
+      ref.read(onboardingDraftProvider.notifier).clear();
       if (mounted) context.go(AlterRoutes.home);
+    } catch (e) {
+      if (mounted) {
+        setState(() =>
+            _error = UserFacingError.from(e).message);
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -328,83 +278,123 @@ class _AboutYouScreenState extends ConsumerState<AboutYouScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final gutter = context.pageGutter;
     return Scaffold(
       body: GradientScaffold(
         bgColors: const [Color(0xFF3A2566), Color(0xFF15101F), AppColors.bg],
         bgCenter: const Alignment(-0.6, -1.0),
         child: SafeArea(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(30, 30, 30, 40),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('STEP 2 OF 2', style: AppText.kicker(AppColors.lime)),
-                const SizedBox(height: 14),
-                Text('Tell us more\nabout yourself.',
-                    style: AppText.display(32, weight: FontWeight.w500, height: 1.1)),
-                const SizedBox(height: 24),
-                Text('WHERE ARE YOU RIGHT NOW?',
-                    style: AppText.kicker(AppColors.white(0.45), size: 12)),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: roles
-                      .map((r) => PillChip(
-                            label: r,
-                            selected: role == r,
-                            onTap: () => setState(() => role = r),
-                          ))
-                      .toList(),
-                ),
-                const SizedBox(height: 26),
-                Text('YOUR CURRENT STATE',
-                    style: AppText.kicker(AppColors.white(0.45), size: 12)),
-                const SizedBox(height: 12),
-                _stateRow('B.Tech · CSE, Year 3', 'Python · React · some ML'),
-                const SizedBox(height: 10),
-                _stateRow('Tier-2 city · Open to remote', '~15 focus hours / week'),
-                const SizedBox(height: 26),
-                Text('FUTURE PLANS',
-                    style: AppText.kicker(AppColors.white(0.45), size: 12)),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        AppColors.lime.withValues(alpha: 0.14),
-                        AppColors.purple.withValues(alpha: 0.12),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
+            padding: EdgeInsets.fromLTRB(gutter, 30, gutter, 40),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: context.maxContentWidth),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('STEP 2 OF 2', style: AppText.kicker(AppColors.lime)),
+                    const SizedBox(height: 14),
+                    Text('Tell us more\nabout yourself.',
+                        style: AppText.display(32,
+                            weight: FontWeight.w500, height: 1.1)),
+                    const SizedBox(height: 24),
+                    Text('WHERE ARE YOU RIGHT NOW?',
+                        style: AppText.kicker(AppColors.white(0.45), size: 12)),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: roles
+                          .map((r) => PillChip(
+                                label: r,
+                                selected: _role == r,
+                                onTap: () {
+                                  setState(() => _role = r);
+                                  _syncDraft();
+                                },
+                              ))
+                          .toList(),
                     ),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.lime.withValues(alpha: 0.25)),
-                  ),
-                  child: RichText(
-                    text: TextSpan(
-                      style: AppText.body(15, color: AppColors.white(0.85), height: 1.5),
-                      children: const [
-                        TextSpan(text: '"I want to become an '),
-                        TextSpan(
-                            text: 'AI Engineer',
-                            style: TextStyle(
-                                color: AppColors.lime, fontWeight: FontWeight.w700)),
-                        TextSpan(
-                            text:
-                                ' and ship something of my own within 3 years."'),
+                    const SizedBox(height: 24),
+                    _textField('Your name', _nameCtrl, onChanged: (_) => _syncDraft()),
+                    const SizedBox(height: 12),
+                    _textField('Education / background', _educationCtrl,
+                        hint: 'e.g. B.Tech CSE, Year 3',
+                        onChanged: (_) => _syncDraft()),
+                    const SizedBox(height: 12),
+                    _textField('Location & work preference', _locationCtrl,
+                        hint: 'e.g. Tier-2 city · Open to remote',
+                        onChanged: (_) => _syncDraft()),
+                    const SizedBox(height: 12),
+                    _textField('Focus hours / availability', _availabilityCtrl,
+                        hint: 'e.g. ~15 focus hours / week',
+                        onChanged: (_) => _syncDraft()),
+                    const SizedBox(height: 20),
+                    Text('SKILLS',
+                        style: AppText.kicker(AppColors.white(0.45), size: 12)),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        ..._skills.map(
+                          (s) => InputChip(
+                            label: Text(s, style: AppText.body(13)),
+                            deleteIcon: const Icon(Icons.close, size: 16),
+                            onDeleted: () {
+                              setState(() => _skills.remove(s));
+                              _syncDraft();
+                            },
+                            backgroundColor: AppColors.white(0.08),
+                            side: BorderSide(color: AppColors.white(0.14)),
+                          ),
+                        ),
+                        SizedBox(
+                          width: 160,
+                          child: TextField(
+                            controller: _skillInputCtrl,
+                            style: AppText.body(14, color: Colors.white),
+                            decoration: InputDecoration(
+                              hintText: 'Add skill',
+                              hintStyle:
+                                  AppText.body(14, color: AppColors.white(0.4)),
+                              isDense: true,
+                              contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 12),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide:
+                                    BorderSide(color: AppColors.white(0.14)),
+                              ),
+                            ),
+                            onSubmitted: (_) => _addSkill(),
+                          ),
+                        ),
                       ],
                     ),
-                  ),
+                    const SizedBox(height: 20),
+                    Text('FUTURE GOAL',
+                        style: AppText.kicker(AppColors.white(0.45), size: 12)),
+                    const SizedBox(height: 10),
+                    _textField('', _goalCtrl,
+                        hint:
+                            'I want to become an AI Engineer and ship something of my own within 3 years.',
+                        maxLines: 3,
+                        onChanged: (_) => _syncDraft()),
+                    if (_error != null) ...[
+                      const SizedBox(height: 12),
+                      Text(_error!,
+                          style: AppText.body(13, color: AppColors.danger)),
+                    ],
+                    const SizedBox(height: 30),
+                    LimeButton(
+                      label: _saving ? 'Entering…' : 'Enter Alter',
+                      height: 62,
+                      onTap: _saving ? null : _enterAlter,
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 30),
-                LimeButton(
-                  label: _saving ? 'Entering…' : 'Enter Alter',
-                  height: 62,
-                  onTap: _saving ? null : _enterAlter,
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -412,29 +402,43 @@ class _AboutYouScreenState extends ConsumerState<AboutYouScreen> {
     );
   }
 
-  Widget _stateRow(String title, String sub) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-      decoration: BoxDecoration(
-        color: AppColors.white(0.06),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.white(0.12)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: AppText.body(15, weight: FontWeight.w600)),
-                const SizedBox(height: 2),
-                Text(sub, style: AppText.body(12.5, color: AppColors.white(0.5))),
-              ],
+  Widget _textField(
+    String label,
+    TextEditingController controller, {
+    String? hint,
+    int maxLines = 1,
+    ValueChanged<String>? onChanged,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (label.isNotEmpty) ...[
+          Text(label, style: AppText.body(13, color: AppColors.white(0.55))),
+          const SizedBox(height: 8),
+        ],
+        TextField(
+          controller: controller,
+          maxLines: maxLines,
+          onChanged: onChanged,
+          style: AppText.body(15, color: Colors.white),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: AppText.body(14, color: AppColors.white(0.35)),
+            filled: true,
+            fillColor: AppColors.white(0.06),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(color: AppColors.white(0.12)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(color: AppColors.white(0.12)),
             ),
           ),
-          const Icon(Icons.edit_outlined, size: 18, color: AppColors.lime),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

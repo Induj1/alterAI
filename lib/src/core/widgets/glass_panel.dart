@@ -1,14 +1,15 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 
+import '../../ui/theme.dart';
+import '../../ui/widgets.dart';
 import '../theme/alter_palette.dart';
 
+/// @deprecated Use [GlassCard] from `ui/widgets.dart` directly.
 class GlassPanel extends StatelessWidget {
   const GlassPanel({
     required this.child,
-    this.padding = const EdgeInsets.all(18),
-    this.radius = 8,
+    this.padding = const EdgeInsets.all(16),
+    this.radius = 18,
     this.onTap,
     this.borderOpacity = 0.34,
     super.key,
@@ -22,47 +23,12 @@ class GlassPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final background = isDark
-        ? Colors.white.withValues(alpha: 0.065)
-        : Colors.white.withValues(alpha: 0.64);
-    final border = isDark
-        ? Colors.white.withValues(alpha: borderOpacity * 0.42)
-        : Colors.white.withValues(alpha: borderOpacity);
-
-    final panel = ClipRRect(
-      borderRadius: BorderRadius.circular(radius),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: background,
-            borderRadius: BorderRadius.circular(radius),
-            border: Border.all(color: border),
-            boxShadow: [
-              BoxShadow(
-                color: AlterPalette.iris.withValues(alpha: isDark ? 0.18 : 0.09),
-                blurRadius: 36,
-                offset: const Offset(0, 24),
-              ),
-            ],
-          ),
-          child: Padding(padding: padding, child: child),
-        ),
-      ),
-    );
-
-    if (onTap == null) {
-      return panel;
-    }
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(radius),
-        onTap: onTap,
-        child: panel,
-      ),
+    return GlassCard(
+      padding: padding,
+      radius: radius,
+      onTap: onTap,
+      borderColor: AppColors.white(borderOpacity * 0.3),
+      child: child,
     );
   }
 }
@@ -71,7 +37,7 @@ class GradientBorderPanel extends StatelessWidget {
   const GradientBorderPanel({
     required this.child,
     this.padding = const EdgeInsets.all(1),
-    this.radius = 8,
+    this.radius = 18,
     super.key,
   });
 
@@ -88,12 +54,12 @@ class GradientBorderPanel extends StatelessWidget {
       ),
       child: Padding(
         padding: padding,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(radius - 1),
+        child: GlassCard(
+          radius: radius - 1,
+          padding: EdgeInsets.zero,
           child: child,
         ),
       ),
     );
   }
 }
-

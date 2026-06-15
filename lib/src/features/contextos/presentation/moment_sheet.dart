@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../ui/routes.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/theme/alter_palette.dart';
+import '../../../ui/theme.dart';
+import '../../../ui/widgets.dart';
 import '../application/lifeshield_controller.dart';
 import '../domain/contextos_models.dart';
 
@@ -39,7 +41,6 @@ class _MomentSheetState extends ConsumerState<_MomentSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
     final state = ref.watch(lifeShieldControllerProvider);
     final notifier = ref.read(lifeShieldControllerProvider.notifier);
     final analysis = state.analysis;
@@ -48,12 +49,11 @@ class _MomentSheetState extends ConsumerState<_MomentSheet> {
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
       child: Container(
         decoration: BoxDecoration(
-          color: (isDark ? AlterPalette.graphite : AlterPalette.white)
-              .withValues(alpha: 0.98),
+          color: AppColors.bgRaised.withValues(alpha: 0.98),
           borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
           border: Border(
             top: BorderSide(
-                color: AlterPalette.iris.withValues(alpha: 0.25), width: 1.3),
+                color: AppColors.lime.withValues(alpha: 0.35), width: 1.3),
           ),
         ),
         padding: EdgeInsets.fromLTRB(
@@ -77,7 +77,11 @@ class _MomentSheetState extends ConsumerState<_MomentSheet> {
               children: [
                 DecoratedBox(
                   decoration: BoxDecoration(
-                    gradient: AlterPalette.premiumGradient,
+                    gradient: const LinearGradient(
+                      colors: [AppColors.lime, AppColors.limeDeep],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Padding(
@@ -121,7 +125,11 @@ class _MomentSheetState extends ConsumerState<_MomentSheet> {
                 Expanded(
                   child: DecoratedBox(
                     decoration: BoxDecoration(
-                      gradient: AlterPalette.premiumGradient,
+                      gradient: const LinearGradient(
+                      colors: [AppColors.lime, AppColors.limeDeep],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: FilledButton.icon(
@@ -151,7 +159,7 @@ class _MomentSheetState extends ConsumerState<_MomentSheet> {
                   OutlinedButton(
                     onPressed: () {
                       Navigator.of(context).pop();
-                      context.go('/shield');
+                      context.go(AlterRoutes.shield);
                     },
                     child: const Text('Open'),
                   ),

@@ -2,10 +2,8 @@ import '../domain/contextos_models.dart';
 
 /// First-pass edge model contract. Runs on-device, before any cloud call.
 ///
-/// The current implementation is [HeuristicGemmaEngine] — real local logic
-/// (regex redaction + signal heuristics) with no network. A future
-/// `FlutterGemmaEngine` backed by Gemma 3n E4B via flutter_gemma drops in
-/// behind this same interface with zero changes to callers.
+/// [HeuristicGemmaEngine] uses regex + heuristics. [GemmaEdgeEngine] (when Gemma 4
+/// is loaded) adds LLM verdict on redacted text.
 abstract class LocalGemmaEngine {
   /// Strip sensitive tokens locally. Returns redacted text + which field
   /// kinds were removed (e.g. "OTP", "card number"). Never hits the network.
@@ -26,8 +24,7 @@ abstract class LocalGemmaEngine {
   /// Convenience: full edge pass (redact → classify → escalate decision).
   EdgeTriage analyze(String input);
 
-  /// Async edge pass. The heuristic engine just wraps [analyze]; the real
-  /// on-device Gemma engine overrides this to run model inference.
+  /// Async edge pass. The heuristic engine wraps [analyze].
   Future<EdgeTriage> analyzeAsync(String input);
 }
 
@@ -151,6 +148,6 @@ class HeuristicGemmaEngine implements LocalGemmaEngine {
   @override
   Future<EdgeTriage> analyzeAsync(String input) async => analyze(input);
 
-  /// Exposed so the Gemma engine can reuse local signal extraction.
+  /// Exposed for signal extraction reuse.
   List<String> signalsOf(String input) => _signals(input);
 }

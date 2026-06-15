@@ -1,46 +1,30 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../auth/application/auth_provider.dart';
+import '../../profile/application/profile_provider.dart';
 import '../data/nfc_networking_gateway.dart';
 import '../domain/nfc_match.dart';
 import '../domain/nfc_match_engine.dart';
 import '../domain/nfc_profile.dart';
 
 final localNfcProfileProvider = Provider<NfcProfile>((ref) {
+  final profile = ref.watch(userProfileProvider).asData?.value;
+  final userId = ref.watch(localUserIdProvider) ?? 'local';
   return NfcProfile(
-    userId: 'alter-user-aria',
-    displayName: 'Aria Shah',
-    role: 'Founder',
-    portfolioUrl: 'https://alter.ai/aria',
-    resumeUrl: 'https://alter.ai/aria/resume',
-    linkedinUrl: 'https://linkedin.com/in/ariashah',
-    skills: const [
-      'AI Product',
-      'Flutter',
-      'Growth',
-      'Pitching',
-      'Graph Systems',
-    ],
-    interests: const [
-      'Future of work',
-      'Agentic tools',
-      'Founder communities',
-      'NFC networking',
-    ],
-    goals: const [
-      'Find design partners',
-      'Build premium AI OS',
-      'Launch founder beta',
-    ],
-    lookingFor: const [
-      'Co-founder',
-      'Pilot customers',
-      'Hackathon team',
-      'Investor intros',
-    ],
-    startupStage: 'Prototype',
-    preferredHackathons: const ['AI Agents', 'Future of Work', 'DevTools'],
-    location: 'Bengaluru',
-    updatedAt: DateTime.utc(2026, 6, 11),
+    userId: userId,
+    displayName: profile?.displayName ?? '',
+    role: profile?.role ?? '',
+    portfolioUrl: '',
+    resumeUrl: '',
+    linkedinUrl: '',
+    skills: profile?.skills ?? const [],
+    interests: profile?.interests ?? const [],
+    goals: profile?.goals ?? const [],
+    lookingFor: const [],
+    startupStage: profile?.careerStage ?? '',
+    preferredHackathons: const [],
+    location: profile?.location ?? '',
+    updatedAt: DateTime.now().toUtc(),
   );
 });
 
@@ -130,18 +114,6 @@ class NfcNetworkingController extends Notifier<NfcNetworkingState> {
     }
   }
 
-  void previewMatch() {
-    final result = ref.read(nfcMatchEngineProvider).evaluate(
-          localProfile: state.localProfile,
-          peerProfile: _previewPeer,
-        );
-    state = state.copyWith(
-      phase: NfcNetworkingPhase.matched,
-      lastResult: result,
-      errorMessage: '',
-    );
-  }
-
   Future<void> stop() async {
     await ref.read(nfcNetworkingGatewayProvider).stop();
     state = state.copyWith(phase: NfcNetworkingPhase.idle);
@@ -195,38 +167,3 @@ enum NfcNetworkingPhase {
   error,
 }
 
-final _previewPeer = NfcProfile(
-  userId: 'alter-peer-maya',
-  displayName: 'Maya Chen',
-  role: 'Investor',
-  portfolioUrl: 'https://maya.vc',
-  resumeUrl: 'https://maya.vc/bio',
-  linkedinUrl: 'https://linkedin.com/in/mayachen',
-  skills: const [
-    'AI Product',
-    'Fundraising',
-    'Founder Coaching',
-    'Marketplaces',
-    'Growth',
-  ],
-  interests: const [
-    'Agentic tools',
-    'Founder communities',
-    'Future of work',
-    'DevTools',
-  ],
-  goals: const [
-    'Meet AI founders',
-    'Source design partners',
-    'Invest in future of work',
-  ],
-  lookingFor: const [
-    'Investor intros',
-    'Pilot customers',
-    'Startup demos',
-  ],
-  startupStage: 'Prototype',
-  preferredHackathons: const ['AI Agents', 'DevTools'],
-  location: 'Bengaluru',
-  updatedAt: DateTime.utc(2026, 6, 11),
-);

@@ -2,6 +2,10 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/config/alter_gateway_config.dart';
+import '../../../data/gateway/gateway_intelligence_bridge.dart';
+import '../../../data/gateway/gateway_profile_context.dart';
+import '../../mission/application/mission_control_provider.dart';
 import '../../profile/application/profile_provider.dart';
 import '../domain/simulations.dart';
 
@@ -54,9 +58,33 @@ class FutureTwinController extends Notifier<FutureTwinState> {
       return;
     }
 
+    if (AlterGatewayConfig.isConfigured) {
+      state = state.copyWith(isSimulating: true, error: '');
+      try {
+        final profile = ref.read(userProfileProvider).asData?.value;
+        final report = await ref.read(missionControlApiClientProvider).decide(
+              question: q,
+              userProfile: GatewayProfileContext.userProfile(profile),
+              skills: GatewayProfileContext.skills(profile),
+              goals: GatewayProfileContext.goals(profile),
+              interests: GatewayProfileContext.interests(profile),
+            );
+        state = state.copyWith(
+          isSimulating: false,
+          result: futureTwinFromDecision(report, question: q),
+        );
+        return;
+      } catch (_) {
+        // Fall through to OpenAI below.
+      }
+    }
+
     final openai = ref.read(openAIServiceProvider);
     if (openai == null) {
-      state = state.copyWith(result: FutureTwinResult.sample(q), error: '');
+      state = state.copyWith(
+        isSimulating: false,
+        error: 'Sign in and add an OpenAI key to simulate futures.',
+      );
       return;
     }
 
@@ -85,8 +113,7 @@ class FutureTwinController extends Notifier<FutureTwinState> {
     } catch (e) {
       state = state.copyWith(
         isSimulating: false,
-        result: FutureTwinResult.sample(q),
-        error: 'Cloud simulation failed (${e.toString().replaceFirst('Exception: ', '')}). Showing on-device model.',
+        error: 'Simulation failed (${e.toString().replaceFirst('Exception: ', '')}).',
       );
     }
   }

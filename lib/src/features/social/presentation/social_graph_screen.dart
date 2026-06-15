@@ -4,15 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../ui/routes.dart';
 import '../../../core/theme/alter_palette.dart';
 import '../../../core/utils/responsive.dart';
-import '../../../core/widgets/ambient_scaffold.dart';
 import '../../../core/widgets/glass_panel.dart';
-import '../../../core/widgets/gradient_text.dart';
 import '../../../core/widgets/metric_tile.dart';
 import '../../../core/widgets/premium_controls.dart';
+import '../../../ui/theme.dart';
+import '../../../ui/widgets.dart';
 import '../../../domain/entities/alter_models.dart';
 import '../../shared/application/alter_data_providers.dart';
 
@@ -24,35 +24,17 @@ class SocialGraphScreen extends ConsumerWidget {
     final contacts = ref.watch(socialGraphProvider);
     final theme = Theme.of(context);
 
-    return AmbientScaffold(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return DeepScaffold(
+      title: 'SOCIAL GRAPH',
+      subtitle:
+          'Relationship intelligence for warm paths, NFC exchanges, and network compounding.',
+      bg: const [Color(0xFF3A1D52), Color(0xFF160F28), AppColors.bg],
+      bgCenter: const Alignment(0.0, -0.4),
+      child: ListView(
         children: [
           Row(
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    GradientText(
-                      'Social Graph',
-                      style: theme.textTheme.displaySmall?.copyWith(
-                        fontWeight: FontWeight.w900,
-                        height: 1.02,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Relationship intelligence for warm paths, NFC exchanges, and network compounding.',
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.62),
-                        height: 1.4,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
+              const Spacer(),
               IconButton.filled(
                 tooltip: 'Add contact',
                 style: IconButton.styleFrom(
@@ -89,7 +71,7 @@ class SocialGraphScreen extends ConsumerWidget {
                 accent: AlterPalette.cyan,
               ),
               GlassPanel(
-                onTap: () => context.go('/nfc'),
+                onTap: () => context.push(AlterRoutes.nfc),
                 child: Row(
                   children: [
                     DecoratedBox(
@@ -198,17 +180,15 @@ class SocialGraphScreen extends ConsumerWidget {
     );
     if (result == null) return;
 
-    final userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId == null) return;
-
     try {
-      await Supabase.instance.client.from('social_contacts').insert({
-        'user_id': userId,
-        'name': result['name'],
-        'context': result['context'],
-        'strength': result['strength'],
-        'tags': result['tags'],
-      });
+      await ref.read(lifeOsMutationsProvider).appendSocialContact(
+            SocialContact(
+              name: result['name'] as String,
+              context: result['context'] as String? ?? '',
+              strength: (result['strength'] as num?)?.toDouble() ?? 0.5,
+              tags: (result['tags'] as List<dynamic>?)?.cast<String>() ?? const [],
+            ),
+          );
       ref.invalidate(socialGraphProvider);
     } catch (e) {
       if (context.mounted) {
@@ -224,14 +204,7 @@ class SocialGraphScreen extends ConsumerWidget {
     WidgetRef ref,
     String name,
   ) async {
-    final userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId == null) return;
-
-    await Supabase.instance.client
-        .from('social_contacts')
-        .delete()
-        .eq('user_id', userId)
-        .eq('name', name);
+    await ref.read(lifeOsMutationsProvider).deleteSocialContactByName(name);
     ref.invalidate(socialGraphProvider);
   }
 }

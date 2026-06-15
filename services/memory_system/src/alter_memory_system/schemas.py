@@ -34,6 +34,28 @@ class MemoryPrivacy(StrEnum):
     shareable = "shareable"
 
 
+class MemoryRetention(StrEnum):
+    ephemeral = "ephemeral"
+    session = "session"
+    expiring = "expiring"
+    durable = "durable"
+
+
+class MemorySensitivity(StrEnum):
+    normal = "normal"
+    sensitive = "sensitive"
+    restricted = "restricted"
+
+
+class MemoryLifecycleStage(StrEnum):
+    encoded = "encoded"
+    stabilized = "stabilized"
+    stored = "stored"
+    retrieved = "retrieved"
+    updated = "updated"
+    forgotten = "forgotten"
+
+
 class RelationshipType(StrEnum):
     supports = "supports"
     contradicts = "contradicts"
@@ -52,6 +74,10 @@ class MemoryItemCreate(BaseModel):
     content: str = Field(min_length=2, max_length=12000)
     source: str = Field(default="manual", min_length=2, max_length=120)
     privacy: MemoryPrivacy = MemoryPrivacy.agent_visible
+    retention: MemoryRetention = MemoryRetention.durable
+    sensitivity: MemorySensitivity = MemorySensitivity.normal
+    lifecycle_stage: MemoryLifecycleStage = MemoryLifecycleStage.stored
+    requires_confirmation: bool = False
     confidence: float = Field(default=0.75, ge=0.0, le=1.0)
     importance: float = Field(default=0.5, ge=0.0, le=1.0)
     emotional_valence: float | None = Field(default=None, ge=-1.0, le=1.0)
@@ -76,6 +102,10 @@ class MemoryItemUpdate(BaseModel):
     content: str | None = Field(default=None, min_length=2, max_length=12000)
     status: MemoryStatus | None = None
     privacy: MemoryPrivacy | None = None
+    retention: MemoryRetention | None = None
+    sensitivity: MemorySensitivity | None = None
+    lifecycle_stage: MemoryLifecycleStage | None = None
+    requires_confirmation: bool | None = None
     confidence: float | None = Field(default=None, ge=0.0, le=1.0)
     importance: float | None = Field(default=None, ge=0.0, le=1.0)
     metadata: dict[str, Any] | None = None
@@ -95,6 +125,10 @@ class MemoryItem(BaseModel):
     source: str
     status: MemoryStatus = MemoryStatus.active
     privacy: MemoryPrivacy = MemoryPrivacy.agent_visible
+    retention: MemoryRetention = MemoryRetention.durable
+    sensitivity: MemorySensitivity = MemorySensitivity.normal
+    lifecycle_stage: MemoryLifecycleStage = MemoryLifecycleStage.stored
+    requires_confirmation: bool = False
     confidence: float
     importance: float
     emotional_valence: float | None = None
@@ -153,6 +187,7 @@ class MemoryRetrieveRequest(BaseModel):
     memory_types: list[MemoryType] = Field(default_factory=list)
     limit: int = Field(default=12, ge=1, le=50)
     include_private: bool = False
+    max_context_chars: int = Field(default=6000, ge=500, le=30000)
 
 
 class MemoryContextBlock(BaseModel):
@@ -170,6 +205,75 @@ class MemoryRetrieveResponse(BaseModel):
     task: str
     context: list[MemoryContextBlock]
     retrieval_notes: list[str]
+    context_chars: int = 0
+
+
+class MemoryIngestRequest(BaseModel):
+    user_id: UUID
+    content: str = Field(min_length=1, max_length=12000)
+    source: str = Field(default="conversation", min_length=2, max_length=120)
+    session_id: UUID | None = None
+    user_confirmed: bool = False
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class MemoryClassification(BaseModel):
+    should_store: bool
+    retention: MemoryRetention
+    sensitivity: MemorySensitivity
+    memory_type: MemoryType
+    importance: float = Field(ge=0.0, le=1.0)
+    confidence: float = Field(ge=0.0, le=1.0)
+    requires_confirmation: bool
+    rationale: list[str]
+    expires_in_minutes: int | None = None
+
+
+class MemoryIngestResponse(BaseModel):
+    classification: MemoryClassification
+    stored_memory: MemoryItem | None = None
+    short_term_memory: ShortTermMemory | None = None
+    raw_content_deleted: bool = True
+
+
+class MemoryPolicy(BaseModel):
+    default_retention: MemoryRetention = MemoryRetention.ephemeral
+    durable_requires_confirmation: bool = True
+    sensitive_requires_confirmation: bool = True
+    restricted_storage_allowed: bool = False
+    max_retrieval_chars: int = Field(default=6000, ge=500, le=30000)
+    portable_export_enabled: bool = True
+
+
+class MemoryGovernanceResponse(BaseModel):
+    user_id: UUID
+    policy: MemoryPolicy
+    memory_counts: dict[str, int]
+    lifecycle: list[str]
+    user_controls: list[str]
+
+
+class IdentitySignal(BaseModel):
+    label: str
+    evidence_count: int
+    confidence: float = Field(ge=0.0, le=1.0)
+    evidence_memory_ids: list[UUID]
+
+
+class IdentitySnapshotResponse(BaseModel):
+    user_id: UUID
+    signals: list[IdentitySignal]
+    evidence_based: bool = True
+    generated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class PortableMemoryExport(BaseModel):
+    format_version: str = "alter-memory-v1"
+    user_id: UUID
+    exported_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    memories: list[MemoryItem]
+    identity: IdentitySnapshotResponse
+    policy: MemoryPolicy
 
 
 class ShortTermMemoryCreate(BaseModel):

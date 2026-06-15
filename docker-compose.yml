@@ -6,7 +6,7 @@ services:
       args:
         SERVICE_DIR: services/api_gateway
     command: python -m uvicorn alter_api_gateway.api:app --host 0.0.0.0 --port 8060
-    env_file: .env.example
+    env_file: .env
     environment:
       ALTER_VOICE_GATEWAY_URL: http://voice_gateway:8070
       ALTER_CLONE_COUNCIL_URL: http://clone_council:8080
@@ -37,7 +37,7 @@ services:
       args:
         SERVICE_DIR: services/voice_gateway
     command: python -m uvicorn alter_voice_gateway.api:app --host 0.0.0.0 --port 8070
-    env_file: .env.example
+    env_file: .env
     ports:
       - "8070:8070"
 
@@ -48,7 +48,7 @@ services:
       args:
         SERVICE_DIR: services/clone_council
     command: python -m uvicorn alter_clone_council.api:app --host 0.0.0.0 --port 8080
-    env_file: .env.example
+    env_file: .env
     environment:
       ALTER_CLONE_COUNCIL_ENV: ${ALTER_CLONE_COUNCIL_ENV:-local}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
@@ -63,7 +63,7 @@ services:
       args:
         SERVICE_DIR: services/future_simulation
     command: python -m uvicorn alter_future_simulation.api:app --host 0.0.0.0 --port 8090
-    env_file: .env.example
+    env_file: .env
     ports:
       - "8090:8090"
 
@@ -74,7 +74,7 @@ services:
       args:
         SERVICE_DIR: services/memory_system
     command: python -m uvicorn alter_memory_system.api:app --host 0.0.0.0 --port 8100
-    env_file: .env.example
+    env_file: .env
     environment:
       ALTER_DATABASE_URL: postgresql://alter:alter@postgres:5432/alter
     ports:
@@ -89,7 +89,7 @@ services:
       args:
         SERVICE_DIR: services/opportunity_engine
     command: python -m uvicorn alter_opportunity_engine.api:app --host 0.0.0.0 --port 8110
-    env_file: .env.example
+    env_file: .env
     ports:
       - "8110:8110"
 
@@ -100,7 +100,7 @@ services:
       args:
         SERVICE_DIR: services/social_graph
     command: python -m uvicorn alter_social_graph.api:app --host 0.0.0.0 --port 8120
-    env_file: .env.example
+    env_file: .env
     environment:
       ALTER_NEO4J_URI: neo4j://neo4j:7687
     ports:
@@ -115,7 +115,7 @@ services:
       args:
         SERVICE_DIR: services/alter_lens
     command: python -m uvicorn alter_lens.api:app --host 0.0.0.0 --port 8130
-    env_file: .env.example
+    env_file: .env
     environment:
       ALTER_LENS_ENV: ${ALTER_LENS_ENV:-local}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
@@ -130,7 +130,7 @@ services:
       args:
         SERVICE_DIR: services/reputation_engine
     command: python -m uvicorn alter_reputation_engine.api:app --host 0.0.0.0 --port 8140
-    env_file: .env.example
+    env_file: .env
     ports:
       - "8140:8140"
 
@@ -141,7 +141,7 @@ services:
       args:
         SERVICE_DIR: services/officekit
     command: python -m uvicorn alter_officekit.api:app --host 0.0.0.0 --port 8150
-    env_file: .env.example
+    env_file: .env
     ports:
       - "8150:8150"
 

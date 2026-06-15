@@ -1,9 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../auth/application/auth_provider.dart';
+import '../../../data/local/dao_providers.dart';
 import '../domain/contextos_models.dart';
 
-/// One entry in the proof ledger / live-moments feed.
 class LedgerEntry {
   const LedgerEntry({
     required this.headline,
@@ -47,9 +47,6 @@ class DashboardData {
   final Map<RiskVerdict, int> riskMap;
   final List<AuditEntry> audit;
   final int momentCount;
-
-  /// False when Supabase returned nothing (migration not applied / no session) —
-  /// the dashboard then honestly shows it is running on live in-memory state only.
   final bool persisted;
 
   static const empty = DashboardData(
@@ -63,7 +60,8 @@ class DashboardData {
 
 final contextDashboardProvider =
     AsyncNotifierProvider<ContextDashboardController, DashboardData>(
-        ContextDashboardController.new);
+  ContextDashboardController.new,
+);
 
 class ContextDashboardController extends AsyncNotifier<DashboardData> {
   @override
@@ -75,8 +73,8 @@ class ContextDashboardController extends AsyncNotifier<DashboardData> {
   }
 
   Future<DashboardData> _load() async {
-    final client = Supabase.instance.client;
-    final userId = client.auth.currentUser?.id;
+    ref.watch(isDbUnlockedProvider);
+    final userId = ref.read(localUserIdProvider);
     if (userId == null) return DashboardData.empty;
 
     var persisted = false;
@@ -85,53 +83,39 @@ class ContextDashboardController extends AsyncNotifier<DashboardData> {
     final audit = <AuditEntry>[];
     var momentCount = 0;
 
+    final dao = ref.read(contextOsDaoProvider);
+
     try {
-      final rows = (await client
-              .from('risk_analyses')
-              .select('verdict, headline, confidence, cloud_used, created_at')
-              .eq('user_id', userId)
-              .order('created_at', ascending: false)
-              .limit(40) as List)
-          .cast<Map<String, dynamic>>();
+      final rows = await dao.listRiskAnalyses(userId);
       persisted = true;
-      for (final r in rows) {
-        final v = RiskVerdict.fromId((r['verdict'] ?? '').toString());
+      for (final r in rows.take(40)) {
+        final v = RiskVerdict.fromId(r.verdict);
         riskMap[v] = (riskMap[v] ?? 0) + 1;
         ledger.add(LedgerEntry(
-          headline: (r['headline'] ?? 'Moment').toString(),
+          headline: r.headline.isEmpty ? 'Moment' : r.headline,
           verdict: v,
-          confidence: _d(r['confidence']),
-          cloudUsed: r['cloud_used'] == true,
-          timeLabel: _time(r['created_at']),
+          confidence: r.confidence,
+          cloudUsed: r.cloudUsed,
+          timeLabel: _time(r.createdAt.toIso8601String()),
         ));
       }
     } catch (_) {}
 
     try {
-      final rows = (await client
-              .from('audit_events')
-              .select('kind, detail, edge_state, created_at')
-              .eq('user_id', userId)
-              .order('created_at', ascending: false)
-              .limit(30) as List)
-          .cast<Map<String, dynamic>>();
+      final rows = await dao.listAuditEvents(userId);
       persisted = true;
-      for (final r in rows) {
+      for (final r in rows.take(30)) {
         audit.add(AuditEntry(
-          kind: (r['kind'] ?? '').toString(),
-          detail: (r['detail'] ?? '').toString(),
-          edgeState: (r['edge_state'] ?? 'edge').toString(),
-          timeLabel: _time(r['created_at']),
+          kind: r.kind,
+          detail: r.detail,
+          edgeState: r.edgeState,
+          timeLabel: _time(r.createdAt.toIso8601String()),
         ));
       }
     } catch (_) {}
 
     try {
-      final rows = (await client
-              .from('captured_moments')
-              .select('id')
-              .eq('user_id', userId) as List);
-      momentCount = rows.length;
+      momentCount = (await dao.listCapturedMoments(userId)).length;
       persisted = true;
     } catch (_) {}
 
@@ -144,11 +128,8 @@ class ContextDashboardController extends AsyncNotifier<DashboardData> {
     );
   }
 
-  double _d(Object? v) =>
-      v is num ? v.toDouble() : double.tryParse('${v ?? ''}') ?? 0;
-
-  String _time(Object? iso) {
-    final dt = DateTime.tryParse('${iso ?? ''}')?.toLocal();
+  String _time(String iso) {
+    final dt = DateTime.tryParse(iso)?.toLocal();
     if (dt == null) return '';
     final h = dt.hour.toString().padLeft(2, '0');
     final m = dt.minute.toString().padLeft(2, '0');

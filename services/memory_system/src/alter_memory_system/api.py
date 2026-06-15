@@ -9,6 +9,10 @@ from .config import get_settings
 from .schemas import (
     ArchitectureResponse,
     HealthResponse,
+    IdentitySnapshotResponse,
+    MemoryGovernanceResponse,
+    MemoryIngestRequest,
+    MemoryIngestResponse,
     MemoryItem,
     MemoryItemCreate,
     MemoryItemUpdate,
@@ -17,6 +21,7 @@ from .schemas import (
     MemorySearchRequest,
     MemorySearchResponse,
     PromoteShortTermRequest,
+    PortableMemoryExport,
     ShortTermMemory,
     ShortTermMemoryCreate,
     TimelineResponse,
@@ -56,6 +61,8 @@ async def architecture() -> ArchitectureResponse:
             "typed detail tables for lifelong memory domains",
         ],
         capabilities=[
+            "classifier-first ingestion",
+            "encode, stabilize, store, retrieve, update, forget lifecycle",
             "long-term memory",
             "short-term memory",
             "semantic search",
@@ -63,13 +70,17 @@ async def architecture() -> ArchitectureResponse:
             "memory updating",
             "short-term promotion",
             "relationship graph inside Postgres",
+            "evidence-based identity snapshots",
+            "governance and portable export",
         ],
         api_groups=[
+            "classified ingestion",
             "memory item CRUD",
             "semantic search",
             "agent context retrieval",
             "short-term memory",
             "timeline",
+            "governance, identity, and export",
         ],
     )
 
@@ -77,6 +88,11 @@ async def architecture() -> ArchitectureResponse:
 @app.post("/v1/memory/items", response_model=MemoryItem)
 async def create_memory(payload: MemoryItemCreate) -> MemoryItem:
     return get_service().create_memory(payload)
+
+
+@app.post("/v1/memory/ingest", response_model=MemoryIngestResponse)
+async def ingest_memory(payload: MemoryIngestRequest) -> MemoryIngestResponse:
+    return get_service().ingest(payload)
 
 
 @app.get("/v1/memory/items/{memory_id}", response_model=MemoryItem)
@@ -136,3 +152,18 @@ async def memory_timeline(
     limit: int = Query(default=25, ge=1, le=100),
 ) -> TimelineResponse:
     return get_service().timeline(user_id, limit)
+
+
+@app.get("/v1/memory/users/{user_id}/governance", response_model=MemoryGovernanceResponse)
+async def memory_governance(user_id: UUID) -> MemoryGovernanceResponse:
+    return get_service().governance(user_id)
+
+
+@app.get("/v1/memory/users/{user_id}/identity", response_model=IdentitySnapshotResponse)
+async def memory_identity(user_id: UUID) -> IdentitySnapshotResponse:
+    return get_service().identity_snapshot(user_id)
+
+
+@app.get("/v1/memory/users/{user_id}/export", response_model=PortableMemoryExport)
+async def memory_export(user_id: UUID) -> PortableMemoryExport:
+    return get_service().portable_export(user_id)

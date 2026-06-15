@@ -5,10 +5,9 @@ import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/alter_palette.dart';
-import '../../../core/widgets/ambient_scaffold.dart';
 import '../../../core/widgets/glass_panel.dart';
-import '../../../core/widgets/gradient_text.dart';
 import '../../../core/widgets/premium_controls.dart';
+import '../../../ui/widgets.dart';
 import '../../device_control/application/phone_control_controller.dart';
 import '../application/decision_dna_controller.dart';
 import '../application/openclaw_adapter.dart';
@@ -24,27 +23,13 @@ class OpenClawQueueScreen extends ConsumerWidget {
     final pending = queue.where((a) => a.stage == ClawStage.queued).toList();
     final resolved = queue.where((a) => a.stage != ClawStage.queued).toList();
 
-    return AmbientScaffold(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return DeepScaffold(
+      title: 'OPENCLAW',
+      subtitle:
+          'The action gateway, not the brain. Draft → Explain → Confirm → Execute. '
+          'ALTER never sends, pays, or installs without your explicit approval.',
+      child: ListView(
         children: [
-          GradientText(
-            'OpenClaw',
-            style: theme.textTheme.displaySmall?.copyWith(
-              fontWeight: FontWeight.w900,
-              height: 1.02,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'The action gateway, not the brain. Draft → Explain → Confirm → Execute. '
-            'ALTER never sends, pays, or installs without your explicit approval.',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-              height: 1.35,
-            ),
-          ),
-          const SizedBox(height: 16),
           Row(
             children: [
               _StatChip(
@@ -326,7 +311,33 @@ class _ClawCard extends ConsumerWidget {
                 _MiniBadge(text: 'Irreversible', color: AlterPalette.danger),
             ],
           ),
-          if (action.detail.isNotEmpty) ...[
+          if (action.isCompose) ...[
+            const SizedBox(height: 10),
+            if (action.channel.isNotEmpty)
+              Text(
+                '${action.channel.toUpperCase()} → ${action.recipient}',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: AlterPalette.amber,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            if (action.composeSubject.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(
+                'Subject: ${action.composeSubject}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+            if (action.composeBody.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(
+                action.composeBody,
+                style: theme.textTheme.bodySmall?.copyWith(height: 1.35),
+              ),
+            ],
+          ] else if (action.detail.isNotEmpty) ...[
             const SizedBox(height: 10),
             Text(
               action.detail,

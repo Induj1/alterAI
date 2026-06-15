@@ -9,7 +9,11 @@ class UserProfile {
     required this.skills,
     required this.goals,
     required this.interests,
+    required this.languages,
+    required this.location,
+    required this.availability,
     required this.openaiKey,
+    required this.sarvamKey,
     required this.onboardingDone,
   });
 
@@ -23,8 +27,14 @@ class UserProfile {
       bio: json['bio'] as String? ?? '',
       skills: (json['skills'] as List<dynamic>?)?.cast<String>() ?? const [],
       goals: (json['goals'] as List<dynamic>?)?.cast<String>() ?? const [],
-      interests: (json['interests'] as List<dynamic>?)?.cast<String>() ?? const [],
+      interests:
+          (json['interests'] as List<dynamic>?)?.cast<String>() ?? const [],
+      languages:
+          (json['languages'] as List<dynamic>?)?.cast<String>() ?? const ['English'],
+      location: json['location'] as String? ?? '',
+      availability: json['availability'] as String? ?? '',
       openaiKey: json['openai_key'] as String? ?? '',
+      sarvamKey: json['sarvam_key'] as String? ?? '',
       onboardingDone: json['onboarding_done'] as bool? ?? false,
     );
   }
@@ -38,7 +48,11 @@ class UserProfile {
   final List<String> skills;
   final List<String> goals;
   final List<String> interests;
+  final List<String> languages;
+  final String location;
+  final String availability;
   final String openaiKey;
+  final String sarvamKey;
   final bool onboardingDone;
 
   Map<String, dynamic> toJson() => {
@@ -50,7 +64,11 @@ class UserProfile {
         'skills': skills,
         'goals': goals,
         'interests': interests,
+        'languages': languages,
+        'location': location,
+        'availability': availability,
         'openai_key': openaiKey,
+        'sarvam_key': sarvamKey,
         'onboarding_done': onboardingDone,
       };
 
@@ -63,7 +81,11 @@ class UserProfile {
     List<String>? skills,
     List<String>? goals,
     List<String>? interests,
+    List<String>? languages,
+    String? location,
+    String? availability,
     String? openaiKey,
+    String? sarvamKey,
     bool? onboardingDone,
   }) {
     return UserProfile(
@@ -76,7 +98,11 @@ class UserProfile {
       skills: skills ?? this.skills,
       goals: goals ?? this.goals,
       interests: interests ?? this.interests,
+      languages: languages ?? this.languages,
+      location: location ?? this.location,
+      availability: availability ?? this.availability,
       openaiKey: openaiKey ?? this.openaiKey,
+      sarvamKey: sarvamKey ?? this.sarvamKey,
       onboardingDone: onboardingDone ?? this.onboardingDone,
     );
   }

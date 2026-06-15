@@ -1,107 +1,225 @@
 # ALTER
 
+
+
 ALTER is a mobile-first Flutter application for a voice-first AI Future Operating System.
+
+
 
 ## Stack
 
+
+
 - Flutter with Material 3
+
 - Riverpod for application state
+
 - go_router for route orchestration
-- Clean Architecture boundaries: domain, data, application, presentation
-- Glassmorphism UI inspired by Apple Vision Pro, Linear, Anthropic, and Arc Browser
 
-## Screens
+- **SQLCipher** (`sqflite_sqlcipher`) — encrypted on-device database (`alter.db`)
 
-- FTUE & onboarding (What is Alter, feature tour, login, languages, about you)
-- Life Feed (home tab)
-- Future hub (Council, Simulator, Radar)
-- Voice assistant with Alter Lens
-- Stats / Reputation
-- Profile with Social Graph & NFC
-- Settings drawer (theme, permissions, sign out)
-- Deep screens: Clone Council, Future Simulator, Opportunity Radar, Social Graph, Deep Analysis
+- **Local PIN + optional biometrics** — no Supabase auth
+
+- **On-device Gemma 4** (flutter_gemma) + **sherpa-onnx** offline STT/TTS
+
+- Clean Architecture: domain, data/local DAOs, application, presentation
+
+
+
+## Local-first data & auth
+
+
+
+| Concern | Implementation |
+
+|---------|----------------|
+
+| Database | `{documents}/alter.db` encrypted with PIN-derived key |
+
+| Auth | PIN setup → PIN unlock; Settings → **Lock ALTER** |
+
+| Memories & RAG | `MemoryDao` + `EmbeddingDao` (hash embeddings in SQLCipher) |
+
+| Profile & BYOK keys | `ProfileDao` — OpenAI/Sarvam keys stored locally |
+
+| Legacy Supabase data | Optional JSON import: Settings → Data management |
+
+
+
+Fresh install flow: FTUE → Login → PIN setup → Permissions → Languages → About You → Home.
+
+
 
 ## Run
 
+
+
 ```bash
+
 flutter pub get
+
 flutter run
+
 ```
 
-If this repository was not created with `flutter create`, run `flutter create .`
-once to generate native platform folders, then keep the existing `lib`, `test`,
-`pubspec.yaml`, and `analysis_options.yaml` files.
+
+
+### Gateway URL (optional hybrid cloud)
+
+
+
+The app is **offline-first**. Cloud paths are optional fallbacks in Settings → Performance.
+
+
+
+- Default voice backend: **Cloud AI** (OpenAI BYOK) when online
+
+- Default voice I/O: **Offline first** (sherpa-onnx when downloaded, else OS STT/TTS)
+
+- Offline inference cascade: **Cloud/Gateway → on-device Gemma → memory-aware heuristic**
+
+- OpenAI: direct BYOK API when Cloud AI is enabled
+
+- Sarvam TTS: direct REST API when Cloud voice is enabled
+
+- Gateway: `--dart-define=ALTER_API_GATEWAY_URL=...` or Settings override
+
+
+
+## On-device models
+
+
+
+| Model | Default | Settings |
+
+|-------|---------|----------|
+
+| Gemma 4 E4B/E2B (LiteRT-LM) | Optional (~3 GB) | Settings → Performance → On-device Gemma 4 |
+
+| SenseVoice ASR + VAD | Mid+ phones | Settings → Performance → Offline voice models |
+
+| Moonshine Tiny ASR | Low tier | Same screen |
+
+| Piper TTS (en-IN / hi) | All tiers | Download per locale |
+
+
+
+Release APK is **~80–120 MB** (no LLM bundled). Download Gemma 4 from Settings → EDGE.
+
+
+
+**Resource governor:** never loads ASR + LLM + TTS simultaneously. Voice turn: listen (ASR) → infer (cascade) → speak (TTS).
+
+
+
+## Screens
+
+
+
+- FTUE & onboarding (local profile, no email auth)
+
+- PIN setup / unlock
+
+- Life Feed, ContextOS, Voice, Memory
+
+- Settings → Performance, Offline voice models, Lock ALTER
+
+- Data management → export + **Import from cloud export** (JSON)
+
+
 
 ## Architecture
 
-```text
-lib/
-  src/
-    app/                  App composition, router, global state, theme
-    core/                 Shared theme, utilities, reusable UI primitives
-    data/                 Repository implementations and adapters
-    domain/               Entities and repository contracts
-    features/             Feature presentation and application providers
-```
 
-## Backend Services
 
 ```text
-  services/
-  api_gateway/            Client-facing gateway and mission edge service
-  voice_gateway/          Wake phrase and voice intent routing service
-  clone_council/          LangGraph Clone Council debate service
-  future_simulation/      Structured Future Simulation Engine
-  memory_system/          PostgreSQL and pgvector lifelong memory service
-  opportunity_engine/     Crawl, rank, and recommend opportunity service
-  social_graph/           Neo4j relationship intelligence service
-  alter_lens/             OpenAI vision camera intelligence service
-  reputation_engine/      Trust ledger and reputation scoring service
-  officekit/              Office artifact briefing and action extraction
+
+lib/src/
+
+  core/database/     AlterDatabase, DatabaseKeyService, migrations, import
+
+  core/performance/  Device tier, OnDeviceResourceGovernor
+
+  data/local/        DAOs (never import sqflite in controllers)
+
+  features/voice/data/offline/  sherpa-onnx ASR/TTS
+
+  features/voice/application/   VoicePipeline, VoiceTurnOrchestrator, cascade runtime
+
 ```
 
-The Clone Council service exposes a FastAPI endpoint at
-`POST /v1/clone-council/debate` and uses OpenAI structured outputs in production.
 
-The Future Simulation service exposes `POST /v1/future-simulation/simulate`
-and returns strict JSON for Future A, Future B, and Future C.
 
-The Memory System exposes `POST /v1/memory/items`, `/search`, `/retrieve`,
-and short-term memory promotion APIs backed by PostgreSQL and pgvector schema.
+## Acceptance checklist (manual)
 
-The Opportunity Engine exposes `POST /v1/opportunities/pipeline` for
-crawl -> normalize -> categorize -> rank -> recommend workflows.
 
-The Social Graph Engine exposes Neo4j-backed APIs for mutual connections,
-career paths, recruiter discovery, mentor discovery, and team formation.
 
-The Alter Lens service exposes `POST /v1/alter-lens/analyze` for camera
-intelligence over resumes, startup decks, event posters, research papers, and
-products.
+**Auth / DB**
 
-The Voice Gateway exposes `POST /v1/voice/session` for wake phrase and
-transcript intent routing.
+- [ ] Fresh install → PIN setup → `alter.db` not readable without PIN
 
-The Reputation Engine exposes `POST /v1/reputation/events` and
-`GET /v1/reputation/users/{user_id}/score` for trust scoring.
+- [ ] Lock from Settings → data inaccessible until re-unlock
 
-OfficeKit exposes `POST /v1/officekit/briefing` for meeting, email, document,
-and slide mission briefings.
 
-The API Gateway exposes `/v1/gateway/routes`, `/v1/system/health`, and
-`POST /v1/mission/briefing`.
 
-## Local Backend
+**RAG**
+
+- [ ] Voice turn stores memory; retrieve works in airplane mode
+
+- [ ] Legacy `alter_memory_vectors.db` imported on upgrade (migration v2)
+
+
+
+**Voice offline**
+
+- [ ] Download ASR + TTS from Settings → Offline voice models
+
+- [ ] Download/load Gemma 4 from Settings → EDGE (optional)
+
+- [ ] Airplane mode: speak → Gemma or heuristic answer → offline TTS (not network error)
+
+- [ ] Offline-only mode skips cloud voice and cloud inference
+
+
+
+**Hybrid cloud**
+
+- [ ] OpenAI BYOK works without Supabase when online
+
+- [ ] Disable Cloud AI → falls to Gemma/heuristic without crash
+
+
+
+## Backend services (optional)
+
+
+
+Docker microservices under `services/` remain available for gateway/hybrid deployments. The phone app no longer requires Supabase.
+
+
 
 ```bash
+
 docker compose up --build
+
 ```
 
-Gateway URL: `http://localhost:8060`
+
+
+## Data policy
+
+
+
+ALTER does not seed demo data. Empty surfaces show **Still inferring…** until real user actions populate memories.
+
+
 
 ## Launch Blueprint
 
+
+
 - [ALTER Unicorn Launch Blueprint](docs/alter_unicorn_launch_blueprint.md)
+
 - [Mission Control Frontend Architecture](docs/mission_control_frontend.md)
-- [Alter Lens Flow](docs/alter_lens.md)
-- [NFC Networking](docs/nfc_networking.md)
+
+

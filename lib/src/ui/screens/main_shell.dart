@@ -30,23 +30,45 @@ class MainShellState extends State<MainShell> {
 
   @override
   Widget build(BuildContext context) {
-    final pages = const [
-      DashboardScreen(),
-      FutureScreen(),
-      VoiceScreen(),
-      StatsScreen(),
-      ProfileScreen(),
-    ];
+    return ValueListenableBuilder<bool>(
+      valueListenable: AlterUiTheme.isLight,
+      builder: (context, light, __) {
+        final pages = [
+          DashboardScreen(),
+          FutureScreen(),
+          VoiceScreen(),
+          StatsScreen(),
+          ProfileScreen(),
+        ];
 
-    return Scaffold(
-      key: _scaffoldKey,
-      extendBody: true,
-      endDrawer: const SettingsDrawer(),
-      body: IndexedStack(index: _index, children: pages),
-      bottomNavigationBar: GlassNavBar(
-        index: _index,
-        onTap: goTab,
-      ),
+        return Scaffold(
+          key: _scaffoldKey,
+          extendBody: true,
+          endDrawer: SettingsDrawer(key: ValueKey('settings-drawer-$light')),
+          body: Stack(
+            children: [
+              Positioned.fill(
+                child: IndexedStack(
+                  key: ValueKey('home-tabs-$light'),
+                  index: _index,
+                  children: pages,
+                ),
+              ),
+              Positioned(
+                left: 24,
+                right: 24,
+                bottom: 26 + MediaQuery.paddingOf(context).bottom,
+                child: Center(
+                  child: GlassNavBar(
+                    index: _index,
+                    onTap: goTab,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -59,38 +81,35 @@ class GlassNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 26, left: 24, right: 24),
-      child: Center(
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(40),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 26, sigmaY: 26),
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppColors.navBg.withValues(alpha: 0.66),
-                borderRadius: BorderRadius.circular(40),
-                border: Border.all(color: AppColors.white(0.12)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.5),
-                    blurRadius: 50,
-                    offset: const Offset(0, 18),
-                  ),
-                ],
+    final light = AlterUiTheme.light;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(40),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 26, sigmaY: 26),
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: AppColors.navBg.withValues(alpha: 0.66),
+            borderRadius: BorderRadius.circular(40),
+            border: Border.all(color: AppColors.white(0.12)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: light ? 0.12 : 0.5),
+                blurRadius: 50,
+                offset: const Offset(0, 18),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _navIcon(0, _home),
-                  _navIcon(1, _tree),
-                  _centerIcon(),
-                  _navIcon(3, _chart),
-                  _navIcon(4, _user),
-                ],
-              ),
-            ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _navIcon(0, _home),
+              _navIcon(1, _tree),
+              _centerIcon(),
+              _navIcon(3, _chart),
+              _navIcon(4, _user),
+            ],
           ),
         ),
       ),

@@ -1,11 +1,12 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/theme/alter_palette.dart';
 import '../../../core/utils/responsive.dart';
-import '../../../core/widgets/glass_panel.dart';
-import '../../../core/widgets/gradient_text.dart';
+import '../../../ui/theme.dart';
+import '../../../ui/widgets.dart';
 import '../../contextos/presentation/moment_sheet.dart';
 
 class MainShell extends StatelessWidget {
@@ -25,7 +26,6 @@ class MainShell extends StatelessWidget {
     _NavItem('/openclaw', 'OpenClaw', LucideIcons.wand_sparkles),
     _NavItem('/decision-council', 'Council', LucideIcons.users),
     _NavItem('/dna', 'DNA', LucideIcons.dna),
-    _NavItem('/memory', 'Memory', LucideIcons.brain),
     _NavItem('/edge', 'Edge', LucideIcons.cpu),
     _NavItem('/privacy', 'Privacy', LucideIcons.lock),
     _NavItem('/mission', 'Control', LucideIcons.command),
@@ -69,7 +69,6 @@ class MainShell extends StatelessWidget {
                     ],
                   ),
           ),
-          // Context Bubble — the system-like entry point, present everywhere.
           Positioned(right: 18, bottom: bubbleBottom, child: _ContextBubble()),
         ],
       ),
@@ -88,19 +87,23 @@ class _ContextBubble extends StatelessWidget {
           width: 56,
           height: 56,
           decoration: BoxDecoration(
-            gradient: AlterPalette.premiumGradient,
+            gradient: const LinearGradient(
+              colors: [AppColors.lime, AppColors.limeDeep],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: AlterPalette.iris.withValues(alpha: 0.45),
-                blurRadius: 22,
+                color: AppColors.lime.withValues(alpha: 0.55),
+                blurRadius: 24,
                 offset: const Offset(0, 10),
               ),
             ],
           ),
           child: const Icon(
             LucideIcons.scan_eye,
-            color: Colors.white,
+            color: AppColors.bg,
             size: 26,
           ),
         ),
@@ -116,7 +119,6 @@ class _DesktopRail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Container(
       width: 108,
       padding: EdgeInsets.fromLTRB(
@@ -125,21 +127,16 @@ class _DesktopRail extends StatelessWidget {
         14,
         18,
       ),
-      child: GlassPanel(
+      child: GlassCard(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 16),
         child: Column(
           children: [
-            GradientText(
-              'A',
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w900,
-              ),
-            ),
+            const StarMark(size: 22),
             const SizedBox(height: 22),
             for (final item in MainShell.items)
               _RailButton(item: item, selected: location == item.path),
             const Spacer(),
-            Icon(LucideIcons.shield_check, color: AlterPalette.mint, size: 22),
+            Icon(LucideIcons.shield_check, color: AppColors.lime, size: 22),
           ],
         ),
       ),
@@ -155,34 +152,27 @@ class _RailButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Tooltip(
       message: item.label,
       child: Padding(
         padding: const EdgeInsets.only(bottom: 8),
         child: InkWell(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(14),
           onTap: () => context.go(item.path),
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 220),
+            duration: const Duration(milliseconds: 150),
             curve: Curves.easeOutCubic,
             height: 48,
             decoration: BoxDecoration(
-              color: selected
-                  ? AlterPalette.iris.withValues(alpha: 0.18)
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(8),
+              color: selected ? AppColors.white(0.14) : Colors.transparent,
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: selected
-                    ? AlterPalette.iris.withValues(alpha: 0.26)
-                    : Colors.transparent,
+                color: selected ? AppColors.lime.withValues(alpha: 0.35) : Colors.transparent,
               ),
             ),
             child: Icon(
               item.icon,
-              color: selected
-                  ? AlterPalette.iris
-                  : theme.colorScheme.onSurface.withValues(alpha: 0.62),
+              color: selected ? AppColors.lime : AppColors.white(0.55),
             ),
           ),
         ),
@@ -198,17 +188,35 @@ class _MobileNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GlassPanel(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-      radius: 8,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        child: Row(
-          children: [
-            for (final item in MainShell.items)
-              _MobileNavButton(item: item, selected: location == item.path),
-          ],
+    final light = AlterUiTheme.light;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(40),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 26, sigmaY: 26),
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: AppColors.navBg.withValues(alpha: 0.66),
+            borderRadius: BorderRadius.circular(40),
+            border: Border.all(color: AppColors.white(0.12)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: light ? 0.12 : 0.5),
+                blurRadius: 50,
+                offset: const Offset(0, 18),
+              ),
+            ],
+          ),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            child: Row(
+              children: [
+                for (final item in MainShell.items)
+                  _MobileNavButton(item: item, selected: location == item.path),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -223,41 +231,28 @@ class _MobileNavButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final color = selected ? AppColors.lime : AppColors.white(0.5);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 3),
       child: InkWell(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(26),
         onTap: () => context.go(item.path),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 220),
+          duration: const Duration(milliseconds: 150),
           constraints: const BoxConstraints(minWidth: 58),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
-            color: selected
-                ? AlterPalette.iris.withValues(alpha: 0.18)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
+            color: selected ? AppColors.white(0.14) : Colors.transparent,
+            borderRadius: BorderRadius.circular(26),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                item.icon,
-                size: 20,
-                color: selected
-                    ? AlterPalette.iris
-                    : theme.colorScheme.onSurface.withValues(alpha: 0.62),
-              ),
+              Icon(item.icon, size: 20, color: color),
               const SizedBox(height: 4),
               Text(
                 item.label,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: selected
-                      ? AlterPalette.iris
-                      : theme.colorScheme.onSurface.withValues(alpha: 0.62),
-                  fontWeight: FontWeight.w800,
-                ),
+                style: AppText.body(10, weight: FontWeight.w800, color: color),
               ),
             ],
           ),

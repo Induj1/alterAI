@@ -9,11 +9,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/alter_palette.dart';
 import '../../../core/utils/responsive.dart';
-import '../../../core/widgets/ambient_scaffold.dart';
 import '../../../core/widgets/glass_panel.dart';
-import '../../../core/widgets/gradient_text.dart';
 import '../../../core/widgets/metric_tile.dart';
 import '../../../core/widgets/premium_controls.dart';
+import '../../../ui/widgets.dart';
 import '../application/alter_lens_controller.dart';
 import '../domain/alter_lens_models.dart';
 
@@ -27,26 +26,12 @@ class AlterLensScreen extends ConsumerWidget {
     final theme = Theme.of(context);
     final result = state.result;
 
-    return AmbientScaffold(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return DeepScaffold(
+      title: 'ALTER LENS',
+      subtitle:
+          'Camera intelligence for resumes, decks, posters, papers, and products.',
+      child: ListView(
         children: [
-          GradientText(
-            'Alter Lens',
-            style: theme.textTheme.displaySmall?.copyWith(
-              fontWeight: FontWeight.w900,
-              height: 1.02,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Camera intelligence for resumes, decks, posters, papers, and products.',
-            style: theme.textTheme.bodyLarge?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.62),
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 18),
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -74,7 +59,6 @@ class AlterLensScreen extends ConsumerWidget {
                   child: _LensCameraPanel(
                     scanType: state.scanType,
                     isAnalyzing: state.isAnalyzing,
-                    onPreview: controller.previewAnalysis,
                     onCaptured: (capture) {
                       controller.analyzeCapture(
                         imageBytes: capture.bytes,
@@ -148,13 +132,11 @@ class _LensCameraPanel extends StatefulWidget {
     required this.scanType,
     required this.isAnalyzing,
     required this.onCaptured,
-    required this.onPreview,
   });
 
   final LensScanType scanType;
   final bool isAnalyzing;
   final ValueChanged<_CapturedLensImage> onCaptured;
-  final VoidCallback onPreview;
 
   @override
   State<_LensCameraPanel> createState() => _LensCameraPanelState();
@@ -208,7 +190,7 @@ class _LensCameraPanelState extends State<_LensCameraPanel>
       );
       final controller = CameraController(
         camera,
-        ResolutionPreset.high,
+        ResolutionPreset.medium,
         enableAudio: false,
       );
       await controller.initialize();
@@ -281,12 +263,6 @@ class _LensCameraPanelState extends State<_LensCameraPanel>
                     label: widget.scanType.label,
                     selected: true,
                     icon: _scanIcon(widget.scanType),
-                  ),
-                  const Spacer(),
-                  IconButton.filled(
-                    tooltip: 'Preview result',
-                    onPressed: widget.isAnalyzing ? null : widget.onPreview,
-                    icon: const Icon(LucideIcons.sparkles),
                   ),
                 ],
               ),

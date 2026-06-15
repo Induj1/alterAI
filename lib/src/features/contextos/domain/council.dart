@@ -23,10 +23,21 @@ enum CouncilAgent {
   final Color color;
   final IconData icon;
 
-  static CouncilAgent fromId(String v) => CouncilAgent.values.firstWhere(
-        (a) => a.id == v.toLowerCase(),
-        orElse: () => CouncilAgent.practical,
-      );
+  static CouncilAgent fromId(String v) {
+    final id = v.toLowerCase();
+    const aliases = {
+      'present': CouncilAgent.practical,
+      'future': CouncilAgent.future,
+      'realist': CouncilAgent.skeptic,
+      'strategist': CouncilAgent.action,
+      'values': CouncilAgent.risk,
+    };
+    if (aliases.containsKey(id)) return aliases[id]!;
+    return CouncilAgent.values.firstWhere(
+      (a) => a.id == id,
+      orElse: () => CouncilAgent.practical,
+    );
+  }
 }
 
 class CouncilVoice {

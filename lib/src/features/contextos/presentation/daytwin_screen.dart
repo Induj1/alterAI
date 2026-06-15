@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/alter_palette.dart';
 import '../../../core/widgets/ambient_scaffold.dart';
 import '../../../core/widgets/glass_panel.dart';
-import '../../../core/widgets/gradient_text.dart';
 import '../../../core/widgets/premium_controls.dart';
+import '../../../ui/routes.dart';
+import '../../../ui/widgets.dart';
 import '../application/daytwin_controller.dart';
 import '../domain/simulations.dart';
 import 'sim_widgets.dart';
@@ -49,25 +51,16 @@ class _DayTwinScreenState extends ConsumerState<DayTwinScreen> {
     final theme = Theme.of(context);
 
     return AmbientScaffold(
+      header: ShellPageHeader(
+        title: 'DAY',
+        subtitle:
+            'A living model of today — Default, Risk, and Optimized paths, with the next best move.',
+        onGear: () => context.push(AlterRoutes.settings),
+      ),
+      scrollable: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          GradientText(
-            'DayTwin',
-            style: theme.textTheme.displaySmall?.copyWith(
-              fontWeight: FontWeight.w900,
-              height: 1.02,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'A living model of today — Default, Risk, and Optimized paths, with the next best move.',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-              height: 1.35,
-            ),
-          ),
-          const SizedBox(height: 16),
           GlassPanel(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -155,7 +148,7 @@ class _DayResult extends StatelessWidget {
         const SizedBox(height: 6),
         if (!result.cloudUsed)
           SimTag(
-            label: 'On-device model (demo)',
+            label: 'Sample simulation',
             color: AlterPalette.mint,
             icon: LucideIcons.cpu,
           ),

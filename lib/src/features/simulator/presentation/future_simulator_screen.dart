@@ -3,17 +3,16 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/theme/alter_palette.dart';
 import '../../../core/utils/responsive.dart';
-import '../../../core/widgets/ambient_scaffold.dart';
 import '../../../core/widgets/glass_panel.dart';
-import '../../../core/widgets/gradient_text.dart';
 import '../../../core/widgets/metric_tile.dart';
 import '../../../core/widgets/premium_controls.dart';
+import '../../../ui/widgets.dart';
 import '../../../domain/entities/alter_models.dart';
 import '../../profile/application/profile_provider.dart';
+import '../../../domain/entities/alter_models.dart';
 import '../../shared/application/alter_data_providers.dart';
 
 class FutureSimulatorScreen extends ConsumerStatefulWidget {
@@ -35,26 +34,12 @@ class _FutureSimulatorScreenState extends ConsumerState<FutureSimulatorScreen> {
     final scenarios = ref.watch(futureScenariosProvider);
     final theme = Theme.of(context);
 
-    return AmbientScaffold(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return DeepScaffold(
+      title: 'FUTURE SIMULATOR',
+      subtitle:
+          'Model alternate paths using memory, social graph, opportunities, and council assumptions.',
+      child: ListView(
         children: [
-          GradientText(
-            'Future Simulator',
-            style: theme.textTheme.displaySmall?.copyWith(
-              fontWeight: FontWeight.w900,
-              height: 1.02,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Model alternate paths using memory, social graph, opportunities, and council assumptions.',
-            style: theme.textTheme.bodyLarge?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.62),
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 20),
           ResponsiveGrid(
             mediumColumns: 2,
             expandedColumns: 4,
@@ -204,26 +189,19 @@ class _FutureSimulatorScreenState extends ConsumerState<FutureSimulatorScreen> {
       final list = (json['scenarios'] as List<dynamic>)
           .cast<Map<String, dynamic>>();
 
-      final userId = Supabase.instance.client.auth.currentUser?.id;
-      if (userId == null) throw Exception('Not authenticated');
+      final scenarios = [
+        for (final s in list)
+          FutureScenario(
+            title: s['title']?.toString() ?? '',
+            horizon: s['horizon']?.toString() ?? '${horizonMo} months',
+            probability: (s['probability'] as num?)?.toDouble() ?? 0.5,
+            upside: s['upside']?.toString() ?? '',
+            risk: s['risk']?.toString() ?? '',
+            levers: (s['levers'] as List<dynamic>?)?.cast<String>() ?? const [],
+          ),
+      ];
 
-      await Supabase.instance.client
-          .from('future_scenarios')
-          .delete()
-          .eq('user_id', userId);
-
-      for (final s in list) {
-        await Supabase.instance.client.from('future_scenarios').insert({
-          'user_id': userId,
-          'title': s['title'] ?? '',
-          'horizon': s['horizon'] ?? '${horizonMo} months',
-          'probability': (s['probability'] as num?)?.toDouble() ?? 0.5,
-          'upside': s['upside'] ?? '',
-          'risk': s['risk'] ?? '',
-          'levers': (s['levers'] as List<dynamic>?)?.cast<String>() ?? [],
-        });
-      }
-
+      await ref.read(lifeOsMutationsProvider).replaceFutureScenarios(scenarios);
       ref.invalidate(futureScenariosProvider);
     } catch (e) {
       setState(() => _simError = e.toString().replaceFirst('Exception: ', ''));

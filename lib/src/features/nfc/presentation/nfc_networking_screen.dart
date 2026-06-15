@@ -7,11 +7,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/alter_palette.dart';
 import '../../../core/utils/responsive.dart';
-import '../../../core/widgets/ambient_scaffold.dart';
 import '../../../core/widgets/glass_panel.dart';
-import '../../../core/widgets/gradient_text.dart';
 import '../../../core/widgets/metric_tile.dart';
 import '../../../core/widgets/premium_controls.dart';
+import '../../../ui/theme.dart';
+import '../../../ui/widgets.dart';
 import '../application/nfc_networking_controller.dart';
 import '../domain/nfc_match.dart';
 import '../domain/nfc_profile.dart';
@@ -26,46 +26,26 @@ class NfcNetworkingScreen extends ConsumerWidget {
     final theme = Theme.of(context);
     final result = state.lastResult;
 
-    return AmbientScaffold(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return DeepScaffold(
+      title: 'NFC CARD',
+      subtitle:
+          'Tap phones. Exchange context. Leave with a ranked reason to follow up.',
+      bg: const [Color(0xFF1A3050), Color(0xFF0D1520), AppColors.bg],
+      child: ListView(
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    GradientText(
-                      'NFC Networking',
-                      style: theme.textTheme.displaySmall?.copyWith(
-                        fontWeight: FontWeight.w900,
-                        height: 1.02,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Tap phones. Exchange context. Leave with a ranked reason to follow up.',
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.62),
-                        height: 1.4,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (!context.isCompact) ...[
-                const SizedBox(width: 14),
+          if (!context.isCompact) ...[
+            Row(
+              children: [
+                const Spacer(),
                 PremiumChip(
                   label: state.availability?.name ?? 'ready',
                   selected: state.phase != NfcNetworkingPhase.error,
                   icon: LucideIcons.shield_check,
                 ),
               ],
-            ],
-          ),
-          const SizedBox(height: 20),
+            ),
+            const SizedBox(height: 8),
+          ],
           ResponsiveGrid(
             mediumColumns: 2,
             expandedColumns: 3,
@@ -74,7 +54,6 @@ class NfcNetworkingScreen extends ConsumerWidget {
                 state: state,
                 onScan: controller.scanAndMatch,
                 onShare: controller.shareProfile,
-                onPreview: controller.previewMatch,
                 onCheck: controller.refreshAvailability,
               ),
               _ExchangeBundle(profile: state.localProfile),
@@ -106,14 +85,12 @@ class _TapPanel extends StatelessWidget {
     required this.state,
     required this.onScan,
     required this.onShare,
-    required this.onPreview,
     required this.onCheck,
   });
 
   final NfcNetworkingState state;
   final VoidCallback onScan;
   final VoidCallback onShare;
-  final VoidCallback onPreview;
   final VoidCallback onCheck;
 
   @override
@@ -179,11 +156,6 @@ class _TapPanel extends StatelessWidget {
                 icon: LucideIcons.network,
                 compact: true,
                 onPressed: state.isBusy ? null : onShare,
-              ),
-              PremiumChip(
-                label: 'Preview',
-                icon: LucideIcons.user,
-                onTap: state.isBusy ? null : onPreview,
               ),
             ],
           ),

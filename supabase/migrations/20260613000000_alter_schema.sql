@@ -93,10 +93,17 @@ alter table public.lens_insights       enable row level security;
 
 -- Users can only see and manage their own data.
 
+drop policy if exists "own_briefs" on public.assistant_briefs;
 create policy "own_briefs"   on public.assistant_briefs    for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+drop policy if exists "own_agents" on public.clone_agents;
 create policy "own_agents"   on public.clone_agents        for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+drop policy if exists "own_scenarios" on public.future_scenarios;
 create policy "own_scenarios" on public.future_scenarios   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+drop policy if exists "own_signals" on public.opportunity_signals;
 create policy "own_signals"  on public.opportunity_signals for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+drop policy if exists "own_contacts" on public.social_contacts;
 create policy "own_contacts" on public.social_contacts     for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+drop policy if exists "own_repevents" on public.reputation_events;
 create policy "own_repevents" on public.reputation_events  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+drop policy if exists "own_insights" on public.lens_insights;
 create policy "own_insights" on public.lens_insights       for all using (auth.uid() = user_id) with check (auth.uid() = user_id);

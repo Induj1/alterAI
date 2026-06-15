@@ -7,7 +7,8 @@ import '../../../core/theme/alter_palette.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../core/widgets/ambient_scaffold.dart';
 import '../../../core/widgets/glass_panel.dart';
-import '../../../core/widgets/gradient_text.dart';
+import '../../../ui/routes.dart';
+import '../../../ui/widgets.dart';
 import '../../profile/application/profile_provider.dart';
 import '../application/gemma_model_manager.dart';
 import 'moment_sheet.dart';
@@ -33,107 +34,97 @@ class ContextOsHomeScreen extends ConsumerWidget {
       'Your Life OS model',
       LucideIcons.brain,
       AlterPalette.aura,
-      '/twin',
+      AlterRoutes.twin,
     ),
     _Mode(
       'LifeShield',
       'Protect before you act',
       LucideIcons.shield_check,
       AlterPalette.mint,
-      '/shield',
+      AlterRoutes.shield,
     ),
     _Mode(
       'DayTwin',
       'Model today’s pressure',
       LucideIcons.calendar_clock,
       AlterPalette.cyan,
-      '/daytwin',
+      AlterRoutes.dayTwin,
     ),
     _Mode(
       'FutureTwin',
       'Simulate big decisions',
       LucideIcons.git_fork,
       AlterPalette.violet,
-      '/futuretwin',
+      AlterRoutes.futureTwin,
     ),
     _Mode(
       'Council',
       'Five inner voices',
       LucideIcons.users,
       AlterPalette.iris,
-      '/decision-council',
+      AlterRoutes.decisionCouncil,
     ),
     _Mode(
       'OpenClaw',
       'Action gateway',
       LucideIcons.wand_sparkles,
       AlterPalette.amber,
-      '/openclaw',
+      AlterRoutes.openclaw,
     ),
     _Mode(
       'Decision DNA',
       'What ALTER learned',
       LucideIcons.dna,
       AlterPalette.mint,
-      '/dna',
+      AlterRoutes.dna,
     ),
     _Mode(
-      'Memory',
-      'Trusted sources',
+      'Memory review',
+      'In Settings → Memory',
       LucideIcons.brain,
       AlterPalette.aura,
-      '/memory',
+      AlterRoutes.settings,
     ),
     _Mode(
-      'Edge Model',
-      'Gemma on-device',
-      LucideIcons.cpu,
+      'Edge analysis',
+      'Pattern check on-device',
+      LucideIcons.shield_check,
       AlterPalette.cyan,
-      '/edge',
+      AlterRoutes.edge,
     ),
     _Mode(
       'Mission Control',
       'The whole loop',
       LucideIcons.command,
       AlterPalette.iris,
-      '/mission',
+      AlterRoutes.mission,
     ),
     _Mode(
       'Privacy',
       'What leaves the phone',
       LucideIcons.lock,
       AlterPalette.danger,
-      '/privacy',
+      AlterRoutes.privacy,
     ),
   ];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final cloudOn = ref.watch(openAIServiceProvider) != null;
-    final realGemma = ref.watch(edgeIsRealGemmaProvider);
+    final profile = ref.watch(userProfileProvider).asData?.value;
+    final cloudOn = profile?.openaiKey.isNotEmpty == true;
+    final gemma = ref.watch(gemmaModelProvider);
 
     return AmbientScaffold(
+      header: ShellPageHeader(
+        title: 'CONTEXT',
+        subtitle: 'Understands the moment before you act.',
+        onGear: () => context.push(AlterRoutes.settings),
+      ),
+      scrollable: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'ALTER ContextOS',
-            style: theme.textTheme.labelLarge?.copyWith(
-              color: AlterPalette.iris,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1,
-            ),
-          ),
-          const SizedBox(height: 4),
-          GradientText(
-            'Understands the moment\nbefore you act.',
-            style: theme.textTheme.displaySmall?.copyWith(
-              fontWeight: FontWeight.w900,
-              height: 1.05,
-            ),
-          ),
-          const SizedBox(height: 14),
           // Status row.
           Wrap(
             spacing: 8,
@@ -141,12 +132,12 @@ class ContextOsHomeScreen extends ConsumerWidget {
             children: [
               _Status(
                 icon: LucideIcons.cpu,
-                label: realGemma ? 'Gemma on-device' : 'Edge heuristics',
-                color: realGemma ? AlterPalette.cyan : AlterPalette.mint,
+                label: gemma.edgePillLabel,
+                color: AlterPalette.mint,
               ),
               _Status(
                 icon: cloudOn ? LucideIcons.cloud : LucideIcons.cloud_off,
-                label: cloudOn ? 'Cloud ready' : 'Cloud off',
+                label: cloudOn ? 'Cloud AI ready' : 'Cloud AI off',
                 color: cloudOn ? AlterPalette.cyan : AlterPalette.slate,
               ),
               _Status(

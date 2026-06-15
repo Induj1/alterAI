@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../theme/alter_palette.dart';
+import '../../ui/theme.dart';
+import '../../ui/widgets.dart';
 
+/// @deprecated Use [LimeButton], [PillChip], [SectionKicker] from `ui/widgets.dart`.
 class PremiumButton extends StatelessWidget {
   const PremiumButton({
     required this.label,
@@ -18,38 +20,19 @@ class PremiumButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: AlterPalette.premiumGradient,
-        borderRadius: BorderRadius.circular(8),
-        boxShadow: [
-          BoxShadow(
-            color: AlterPalette.iris.withValues(alpha: 0.28),
-            blurRadius: 24,
-            offset: const Offset(0, 14),
-          ),
-        ],
-      ),
-      child: FilledButton.icon(
-        style: FilledButton.styleFrom(
-          backgroundColor: Colors.transparent,
-          shadowColor: Colors.transparent,
-          foregroundColor: Colors.white,
-          minimumSize: Size(compact ? 0 : 160, compact ? 44 : 54),
-          padding: EdgeInsets.symmetric(
-            horizontal: compact ? 14 : 20,
-            vertical: compact ? 10 : 14,
-          ),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        ),
-        onPressed: onPressed,
-        icon: icon == null ? const SizedBox.shrink() : Icon(icon, size: 18),
-        label: Text(
-          label,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontWeight: FontWeight.w800),
-        ),
-      ),
+    if (icon != null) {
+      return LimeButton(
+        label: label,
+        onTap: onPressed,
+        height: compact ? 48 : 60,
+        trailing: icon,
+      );
+    }
+    return LimeButton(
+      label: label,
+      onTap: onPressed,
+      height: compact ? 48 : 60,
+      trailing: null,
     );
   }
 }
@@ -70,44 +53,7 @@ class PremiumChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final color = selected ? AlterPalette.iris : theme.colorScheme.onSurface;
-    return InkWell(
-      borderRadius: BorderRadius.circular(999),
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOutCubic,
-        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
-        decoration: BoxDecoration(
-          color: selected
-              ? AlterPalette.iris.withValues(alpha: 0.16)
-              : theme.colorScheme.surface.withValues(alpha: 0.46),
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(
-            color: selected
-                ? AlterPalette.iris.withValues(alpha: 0.34)
-                : theme.colorScheme.onSurface.withValues(alpha: 0.1),
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (icon != null) ...[
-              Icon(icon, size: 15, color: color),
-              const SizedBox(width: 7),
-            ],
-            Text(
-              label,
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: color,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    return PillChip(label: label, selected: selected, onTap: onTap);
   }
 }
 
@@ -125,39 +71,10 @@ class SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 0,
-                ),
-              ),
-              if (subtitle != null) ...[
-                const SizedBox(height: 5),
-                Text(
-                  subtitle!,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.58),
-                    height: 1.35,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-        if (trailing != null) ...[
-          const SizedBox(width: 14),
-          trailing!,
-        ],
-      ],
+    return SectionKicker(
+      title: title,
+      subtitle: subtitle,
+      trailing: trailing,
     );
   }
 }

@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/alter_palette.dart';
 import '../../../core/widgets/ambient_scaffold.dart';
 import '../../../core/widgets/glass_panel.dart';
 import '../../../core/widgets/gradient_text.dart';
+import '../../../ui/routes.dart';
+import '../../../ui/widgets.dart';
 import '../application/decision_dna_controller.dart';
 
 class DecisionDnaScreen extends ConsumerWidget {
@@ -17,25 +20,16 @@ class DecisionDnaScreen extends ConsumerWidget {
     final theme = Theme.of(context);
 
     return AmbientScaffold(
+      header: ShellPageHeader(
+        title: 'DNA',
+        subtitle:
+            'What ALTER has learned about how you decide — from real outcomes, not guesses.',
+        onGear: () => context.push(AlterRoutes.settings),
+      ),
+      scrollable: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          GradientText(
-            'Decision DNA',
-            style: theme.textTheme.displaySmall?.copyWith(
-              fontWeight: FontWeight.w900,
-              height: 1.02,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'What ALTER has learned about how you decide — from real outcomes, not guesses.',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-              height: 1.35,
-            ),
-          ),
-          const SizedBox(height: 16),
           dnaAsync.when(
             loading: () => const GlassPanel(
               child: SizedBox(

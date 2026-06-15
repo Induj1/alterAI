@@ -1,10 +1,9 @@
-import 'dart:convert';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
-import '../../profile/application/profile_provider.dart';
+import '../../../core/errors/user_facing_error.dart';
+import '../../actions/action_runtime.dart';
 import 'agent_tools.dart';
 
 enum AgentRole { user, assistant, tool }
@@ -56,9 +55,14 @@ class AgentController extends Notifier<AgentState> {
   final SpeechToText _stt = SpeechToText();
   bool _sttReady = false;
 
+  /// When true, the controller does not speak replies itself — the caller
+  /// (e.g. the Voice screen) handles TTS, typically with a multilingual voice.
+  bool _muteSpeech = false;
+  void setMuteSpeech(bool value) => _muteSpeech = value;
+
   @override
   AgentState build() {
-    _api.add({'role': 'system', 'content': _systemPrompt()});
+    _api.addAll(ActionRuntime.freshApiMessages(ref));
     ref.onDispose(() {
       _tts.stop();
       _stt.cancel();
@@ -116,85 +120,50 @@ class AgentController extends Notifier<AgentState> {
   }
 
   // --- The conversational tool-calling loop ---
-  Future<void> send(String text) async {
+  Future<void> send(String text, {bool deep = false}) async {
     final input = text.trim();
     if (input.isEmpty || state.isThinking) return;
 
-    final openai = ref.read(openAIServiceProvider);
-    if (openai == null) {
-      _push(AgentRole.user, input);
-      _push(
-        AgentRole.assistant,
-        'I need to be signed in with AI access to help. Open Settings to add a key.',
-      );
-      return;
-    }
-
     _push(AgentRole.user, input);
-    _api.add({'role': 'user', 'content': input});
     state = state.copyWith(isThinking: true, error: '');
 
     try {
-      for (var i = 0; i < 6; i++) {
-        final resp = await openai.chatWithTools(
-          messages: List<Map<String, dynamic>>.from(_api),
-          tools: kAgentTools,
-        );
-        final content = (resp['content'] ?? '').toString();
-        final toolCalls = resp['tool_calls'];
-
-        if (toolCalls is List && toolCalls.isNotEmpty) {
-          _api.add({
-            'role': 'assistant',
-            'content': content.isEmpty ? null : content,
-            'tool_calls': toolCalls,
-          });
-          for (final tc in toolCalls) {
-            final m = Map<String, dynamic>.from(tc as Map);
-            final id = m['id']?.toString() ?? '';
-            final fn = Map<String, dynamic>.from(m['function'] as Map);
-            final name = fn['name']?.toString() ?? '';
-            Map<String, dynamic> args;
-            try {
-              args =
-                  jsonDecode((fn['arguments'] ?? '{}').toString())
-                      as Map<String, dynamic>;
-            } catch (_) {
-              args = {};
+      final result = await ActionRuntime.runTurn(
+        ref: ref,
+        apiMessages: _api,
+        userInput: input,
+        deep: deep,
+        onToolStart: (name) {
+          final toolMsg = AgentMessage(
+            AgentRole.tool,
+            agentToolLabel(name),
+            pending: true,
+          );
+          _appendMessage(toolMsg);
+        },
+        onToolComplete: (name, toolResult) {
+          for (final m in state.messages.reversed) {
+            if (m.role == AgentRole.tool && m.pending) {
+              m.text = toolResult;
+              m.pending = false;
+              break;
             }
-            final toolMsg = AgentMessage(
-              AgentRole.tool,
-              agentToolLabel(name),
-              pending: true,
-            );
-            _appendMessage(toolMsg);
-            final result = await executeAgentTool(ref, name, args);
-            toolMsg.text = result;
-            toolMsg.pending = false;
-            _bump();
-            _api.add({'role': 'tool', 'tool_call_id': id, 'content': result});
           }
-          continue; // let the model react to the tool results
-        }
-
-        // Final spoken answer.
-        _api.add({'role': 'assistant', 'content': content});
-        _push(AgentRole.assistant, content);
-        state = state.copyWith(isThinking: false);
-        await _speak(content);
-        return;
-      }
-      state = state.copyWith(isThinking: false);
-    } catch (e) {
-      state = state.copyWith(
-        isThinking: false,
-        error: e.toString().replaceFirst('Exception: ', ''),
+          _bump();
+        },
       );
-      _push(AgentRole.assistant, 'Something went wrong: ${state.error}');
+      _push(AgentRole.assistant, result.reply);
+      state = state.copyWith(isThinking: false);
+      await _speak(result.reply);
+    } catch (e) {
+      final msg = UserFacingError.from(e).message;
+      state = state.copyWith(isThinking: false, error: msg);
+      _push(AgentRole.assistant, msg);
     }
   }
 
   Future<void> _speak(String text) async {
+    if (_muteSpeech) return;
     if (text.trim().isEmpty) return;
     try {
       await _tts.setLanguage('en-US');
@@ -214,31 +183,4 @@ class AgentController extends Notifier<AgentState> {
 
   // Force a state emit after mutating a message in place.
   void _bump() => state = state.copyWith(messages: [...state.messages]);
-
-  String _systemPrompt() {
-    final profile = ref.read(userProfileProvider).asData?.value;
-    final who = profile == null || profile.displayName.isEmpty
-        ? ''
-        : 'You are speaking with ${profile.displayName}'
-              '${profile.role.isNotEmpty ? ', a ${profile.role}' : ''}. ';
-    return 'You are ALTER, a proactive voice assistant living on the user\'s '
-        'iQOO phone. ${who}You converse naturally and briefly — your replies are '
-        'spoken aloud, so keep them short, warm, and clear. '
-        'When the user asks you to DO something, USE A TOOL rather than just '
-        'describing it. You can: check safety of a message/link/payment, plan '
-        'the day, weigh a decision, convene a 5-voice council, call a number, '
-        'send a WhatsApp/SMS, open a link, search the web, add a calendar '
-        'event, open apps/settings, read visible screen text, click visible '
-        'non-sensitive UI text, type into focused fields, scroll, and press '
-        'Back/Home/Recents/Notifications. Before clicking in another app, read '
-        'the screen first and choose visible labels rather than guessing. Device '
-        'actions open or control only permissioned Android surfaces — after '
-        'calling one, tell them what happened and what still needs their final tap. '
-        'Never claim you actually sent, paid, called, or installed anything; you '
-        'prepare it and the user confirms. Never directly click Send, Pay, '
-        'Confirm, Install, Approve, Delete, or Allow; route that through OpenClaw '
-        'with queue_openclaw_action or ask the user to tap it. If you need a phone number or detail '
-        'you don\'t have, ask for it. After a tool returns, summarize the result '
-        'in one or two spoken sentences.';
-  }
 }

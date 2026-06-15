@@ -22,6 +22,14 @@ class LifeFeedTask {
   final String badge;
   final bool done;
   final bool hot;
+
+  LifeFeedTask copyWith({bool? done}) => LifeFeedTask(
+        title: title,
+        meta: meta,
+        badge: badge,
+        done: done ?? this.done,
+        hot: hot,
+      );
 }
 
 class LifeFeedOpportunity {
@@ -74,45 +82,26 @@ class LifeFeedSnapshot {
     );
   }
 
-  static LifeFeedSnapshot fallback({
-    String firstName = 'there',
-  }) {
+  /// Empty snapshot — nothing inferred yet from user activity.
+  static LifeFeedSnapshot empty({String firstName = 'there'}) {
     return LifeFeedSnapshot(
-      greeting: 'Good morning, $firstName.',
-      dateSummary: 'Your day is loading…',
-      focusTitle: 'Review your priorities with Alter',
-      focusRationale: 'Ask Alter how to sequence today for the lowest overload.',
-      itemsNeedingAttention: 3,
-      opportunities: const [
-        LifeFeedOpportunity(
-          tag: 'HACKATHON',
-          matchScore: 94,
-          title: 'GenAI Hack · Bengaluru',
-          meta: 'Deadline in 6 days · 3 sponsors on your list',
-        ),
-        LifeFeedOpportunity(
-          tag: 'INTERNSHIP',
-          matchScore: 88,
-          title: 'ML Engineer Intern · Sarvam AI',
-          meta: 'Matches React + Python · Remote',
-        ),
-      ],
-      tasks: const [
-        LifeFeedTask(
-          done: true,
-          title: 'Finish ML assignment A',
-          meta: 'Done · 2.5h',
-          badge: '2.5h',
-        ),
-        LifeFeedTask(
-          hot: true,
-          title: 'Start literature review · Project B',
-          meta: 'Today · cuts next-week load 40%',
-          badge: 'Now',
-        ),
-      ],
+      greeting: firstName == 'there'
+          ? 'Still inferring…'
+          : 'Still inferring, $firstName.',
+      dateSummary: 'Nothing observed yet',
+      focusTitle: '',
+      focusRationale: '',
+      itemsNeedingAttention: 0,
+      opportunities: const [],
+      tasks: const [],
     );
   }
+
+  bool get hasContent =>
+      tasks.isNotEmpty ||
+      opportunities.isNotEmpty ||
+      focusTitle.isNotEmpty ||
+      itemsNeedingAttention > 0;
 
   final String greeting;
   final String dateSummary;

@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../auth/application/auth_provider.dart';
+import '../../../data/local/contextos_dao.dart';
+import '../../../data/local/dao_providers.dart';
 import '../../agent/data/device_actions.dart';
 import '../../device_control/application/phone_control_controller.dart';
 import '../../device_control/domain/phone_action_policy.dart';
@@ -32,6 +34,10 @@ class ClawAction {
     ClawCommand? command,
     this.stage = ClawStage.queued,
     this.dbId,
+    this.channel = '',
+    this.recipient = '',
+    this.composeBody = '',
+    this.composeSubject = '',
   }) : command =
            command ??
            ClawCommand.fromParts(type: type, title: title, detail: detail);
@@ -40,7 +46,7 @@ class ClawAction {
   final String type;
   final String title;
   final String detail;
-  final String why; // the "Explain" step
+  final String why;
   final bool requiresConfirmation;
   final bool irreversible;
   final String momentExcerpt;
@@ -48,6 +54,13 @@ class ClawAction {
   final ClawCommand command;
   ClawStage stage;
   String? dbId;
+  final String channel;
+  final String recipient;
+  final String composeBody;
+  final String composeSubject;
+
+  bool get isCompose =>
+      channel.isNotEmpty || composeBody.isNotEmpty || composeSubject.isNotEmpty;
 
   ClawAction copyWith({ClawStage? stage, String? dbId}) => ClawAction(
     id: id,
@@ -62,6 +75,10 @@ class ClawAction {
     command: command,
     stage: stage ?? this.stage,
     dbId: dbId ?? this.dbId,
+    channel: channel,
+    recipient: recipient,
+    composeBody: composeBody,
+    composeSubject: composeSubject,
   );
 }
 
@@ -71,6 +88,24 @@ class ClawCommand {
     required this.args,
     required this.policy,
   });
+
+  factory ClawCommand.fromCompose({
+    required String kind,
+    required Map<String, String> args,
+  }) {
+    final target = args['body'] ?? args['subject'] ?? args['number'] ?? '';
+    return ClawCommand(
+      kind: kind,
+      args: args,
+      policy: PhoneActionPolicy.classify(
+        kind: kind,
+        target: target,
+        requiresAccessibility: _requiresAccessibility(kind) ||
+            kind.startsWith('send_') ||
+            kind == 'save_calendar',
+      ),
+    );
+  }
 
   factory ClawCommand.fromParts({
     required String type,
@@ -110,6 +145,10 @@ class ClawCommand {
     }
     if (type.contains('setting')) return 'open_settings';
     if (type.contains('open_app')) return 'open_app';
+    if (type.contains('email')) return 'send_email';
+    if (type == 'send_whatsapp') return 'send_whatsapp';
+    if (type == 'send_sms') return 'send_sms';
+    if (type == 'save_calendar') return 'save_calendar';
     if (type.contains('whatsapp') || haystack.contains('whatsapp')) {
       return 'open_app';
     }
@@ -249,13 +288,86 @@ class OpenClawAdapter extends Notifier<List<ClawAction>> {
     return 'Queued "$title" in OpenClaw for review.';
   }
 
+  Future<String> enqueueCompose({
+    required String kind,
+    required String title,
+    required String channel,
+    required String recipient,
+    required String number,
+    required String body,
+    String subject = '',
+    Map<String, String> extra = const {},
+  }) async {
+    final now = DateTime.now();
+    final args = <String, String>{
+      'channel': channel,
+      'recipient': recipient,
+      'number': number,
+      'body': body,
+      'subject': subject,
+      ...extra,
+    };
+    final command = ClawCommand.fromCompose(kind: kind, args: args);
+    final claw = ClawAction(
+      id: 'claw_${now.microsecondsSinceEpoch}',
+      type: kind,
+      title: title,
+      detail: body,
+      why: 'Review this draft before ALTER sends or saves it.',
+      requiresConfirmation: true,
+      irreversible: true,
+      momentExcerpt: 'Composed outbound action',
+      createdAt: now,
+      command: command,
+      channel: channel,
+      recipient: recipient,
+      composeBody: body,
+      composeSubject: subject,
+    );
+    state = [claw, ...state];
+    final dbId = await _persist(claw, 'confirmed');
+    if (dbId != null) {
+      state = [
+        for (final a in state) a.id == claw.id ? a.copyWith(dbId: dbId) : a,
+      ];
+    }
+    await _audit('action_confirm', 'Queued compose: ${claw.title}');
+    return 'Draft ready for "$recipient". Tap Confirm in OpenClaw to send.';
+  }
+
+  Future<String> enqueueComposeAndExecute({
+    required String kind,
+    required String title,
+    required String channel,
+    required String recipient,
+    required String number,
+    required String body,
+    String subject = '',
+    Map<String, String> extra = const {},
+  }) async {
+    await enqueueCompose(
+      kind: kind,
+      title: title,
+      channel: channel,
+      recipient: recipient,
+      number: number,
+      body: body,
+      subject: subject,
+      extra: extra,
+    );
+    final pending = state.firstWhere(
+      (a) => a.stage == ClawStage.queued && a.title == title,
+    );
+    return execute(pending.id);
+  }
+
   /// Execute (only call after explicit confirmation in the UI).
   Future<String> execute(String id) async {
     final a = state.firstWhere((x) => x.id == id);
     final result = await _executeBridge(a);
     _update(id, ClawStage.executed);
     await _updateStatus(a.dbId, 'executed', result: result);
-    await _audit('action_execute', 'Executed: ${a.title}. $result');
+    await _audit('phone_control', 'Executed: ${a.title}. $result');
     return result;
   }
 
@@ -333,9 +445,86 @@ class OpenClawAdapter extends Notifier<List<ClawAction>> {
           args['button'] ?? 'back',
           surface: PhoneActionSurface.openClawConfirmed,
         );
+      case 'send_whatsapp':
+        return _sendMessageFlow(
+          phone,
+          device,
+          app: 'whatsapp',
+          number: args['number'] ?? '',
+          text: args['body'] ?? a.composeBody,
+        );
+      case 'send_sms':
+        return _sendMessageFlow(
+          phone,
+          device,
+          app: 'sms',
+          number: args['number'] ?? '',
+          text: args['body'] ?? a.composeBody,
+        );
+      case 'send_email':
+        return _sendEmailFlow(
+          phone,
+          device,
+          to: args['recipient'] ?? a.recipient,
+          subject: args['subject'] ?? a.composeSubject,
+          body: args['body'] ?? a.composeBody,
+        );
+      case 'save_calendar':
+        await device.insertCalendarEvent(
+          title: args['recipient'] ?? a.recipient,
+          startIso: args['subject'] ?? a.composeSubject,
+          endIso: args['end_iso'] ?? '',
+          location: args['location'] ?? '',
+          notes: args['body'] ?? a.composeBody,
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 900));
+        return phone.clickText(
+          'Save',
+          surface: PhoneActionSurface.openClawConfirmed,
+        );
       default:
         return 'No native executor mapping yet; action was confirmed and audited.';
     }
+  }
+
+  Future<String> _sendMessageFlow(
+    PhoneControlController phone,
+    DeviceActions device, {
+    required String app,
+    required String number,
+    required String text,
+  }) async {
+    final opened = await device.sendMessage(
+      app: app,
+      number: number,
+      text: text,
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 900));
+    final tap = await phone.clickText(
+      'Send',
+      surface: PhoneActionSurface.openClawConfirmed,
+    );
+    return '$opened $tap';
+  }
+
+  Future<String> _sendEmailFlow(
+    PhoneControlController phone,
+    DeviceActions device, {
+    required String to,
+    required String subject,
+    required String body,
+  }) async {
+    final opened = await device.composeEmail(
+      to: to.contains('@') ? to : '',
+      subject: subject,
+      body: body,
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 900));
+    final tap = await phone.clickText(
+      'Send',
+      surface: PhoneActionSurface.openClawConfirmed,
+    );
+    return '$opened $tap';
   }
 
   // --- best-effort persistence ---
@@ -344,27 +533,26 @@ class OpenClawAdapter extends Notifier<List<ClawAction>> {
     String status, {
     String? momentId,
   }) async {
-    final userId = Supabase.instance.client.auth.currentUser?.id;
+    final userId = ref.read(localUserIdProvider);
     if (userId == null) return null;
     try {
-      final payload = <String, dynamic>{
-        'user_id': userId,
-        'action_type': a.type,
-        'title': a.title,
-        'detail': a.detail,
-        'requires_confirmation': a.requiresConfirmation,
-        'irreversible': a.irreversible,
-        'status': status,
-        'action_payload': a.command.toJson(),
-        'policy_tier': a.command.policy.label,
-      };
-      if (momentId != null) payload['moment_id'] = momentId;
-      final row = await Supabase.instance.client
-          .from('alter_actions')
-          .insert(payload)
-          .select('id')
-          .maybeSingle();
-      return row?['id']?.toString();
+      final saved = await ref.read(contextOsDaoProvider).insertAlterAction(
+            AlterActionRecord(
+              id: '',
+              momentId: momentId,
+              userId: userId,
+              actionType: a.type,
+              title: a.title,
+              detail: a.detail,
+              requiresConfirmation: a.requiresConfirmation,
+              irreversible: a.irreversible,
+              status: status,
+              actionPayload: a.command.toJson(),
+              policyTier: a.command.policy.label,
+              createdAt: DateTime.now(),
+            ),
+          );
+      return saved.id;
     } catch (_) {
       return null;
     }
@@ -377,26 +565,43 @@ class OpenClawAdapter extends Notifier<List<ClawAction>> {
   }) async {
     if (dbId == null) return;
     try {
-      await Supabase.instance.client
-          .from('alter_actions')
-          .update({
-            'status': status,
-            if (result.isNotEmpty) 'executed_result': result,
-          })
-          .eq('id', dbId);
+      final existing =
+          await ref.read(contextOsDaoProvider).getAlterAction(dbId);
+      if (existing == null) return;
+      await ref.read(contextOsDaoProvider).updateAlterAction(
+            AlterActionRecord(
+              id: existing.id,
+              momentId: existing.momentId,
+              userId: existing.userId,
+              actionType: existing.actionType,
+              title: existing.title,
+              detail: existing.detail,
+              requiresConfirmation: existing.requiresConfirmation,
+              irreversible: existing.irreversible,
+              status: status,
+              actionPayload: existing.actionPayload,
+              policyTier: existing.policyTier,
+              executedResult: result.isNotEmpty ? result : existing.executedResult,
+              createdAt: existing.createdAt,
+            ),
+          );
     } catch (_) {}
   }
 
   Future<void> _audit(String kind, String detail) async {
-    final userId = Supabase.instance.client.auth.currentUser?.id;
+    final userId = ref.read(localUserIdProvider);
     if (userId == null) return;
     try {
-      await Supabase.instance.client.from('audit_events').insert({
-        'user_id': userId,
-        'kind': kind,
-        'detail': detail,
-        'edge_state': 'cloud',
-      });
+      await ref.read(contextOsDaoProvider).insertAuditEvent(
+            AuditEventRecord(
+              id: '',
+              userId: userId,
+              kind: kind,
+              detail: detail,
+              edgeState: 'cloud',
+              createdAt: DateTime.now(),
+            ),
+          );
     } catch (_) {}
   }
 }

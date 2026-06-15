@@ -37,6 +37,16 @@ def create_voice_gateway_service(settings: Settings | None = None) -> VoiceGatew
 def _infer_intent(text: str) -> tuple[VoiceIntent, float]:
     rules: list[tuple[VoiceIntent, float, tuple[str, ...]]] = [
         (
+            VoiceIntent.call_contact,
+            0.94,
+            ("call my", "call dad", "call mom", "dial", "phone my", "ring my", "call "),
+        ),
+        (
+            VoiceIntent.send_message,
+            0.93,
+            ("text my", "message my", "send a text", "send a message", "sms ", "whatsapp "),
+        ),
+        (
             VoiceIntent.future_decision,
             0.92,
             (
@@ -162,6 +172,22 @@ def _actions_for_intent(intent: VoiceIntent) -> list[VoiceAction]:
                 route="/v1/reputation/users/{user_id}/score",
                 reason="The user is asking about trust or follow-through.",
                 priority=4,
+            )
+        ],
+        VoiceIntent.call_contact: [
+            VoiceAction(
+                label="Find contact and open dialer",
+                route="/v1/agent/plan",
+                reason="The user asked to call someone.",
+                priority=5,
+            )
+        ],
+        VoiceIntent.send_message: [
+            VoiceAction(
+                label="Find contact and open message",
+                route="/v1/agent/plan",
+                reason="The user asked to text or message someone.",
+                priority=5,
             )
         ],
         VoiceIntent.unknown: [

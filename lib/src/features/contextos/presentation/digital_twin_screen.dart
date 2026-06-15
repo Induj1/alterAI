@@ -4,12 +4,14 @@ import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../ui/routes.dart';
 import '../../../core/theme/alter_palette.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../core/widgets/ambient_scaffold.dart';
 import '../../../core/widgets/glass_panel.dart';
-import '../../../core/widgets/gradient_text.dart';
 import '../../../core/widgets/premium_controls.dart';
+import '../../../ui/routes.dart';
+import '../../../ui/widgets.dart';
 import '../application/digital_twin_controller.dart';
 import '../application/openclaw_adapter.dart';
 import '../domain/contextos_models.dart';
@@ -24,52 +26,23 @@ class DigitalTwinScreen extends ConsumerWidget {
     final twinAsync = ref.watch(digitalTwinProvider);
 
     return AmbientScaffold(
+      header: ShellPageHeader(
+        title: 'TWIN',
+        subtitle:
+            'A private model of your data, decisions, tone, routines, and relationships.',
+        onGear: () => context.push(AlterRoutes.settings),
+      ),
+      scrollable: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'ALTER Life OS',
-                      style: theme.textTheme.labelLarge?.copyWith(
-                        color: AlterPalette.iris,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 1,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    GradientText(
-                      'Digital Twin',
-                      style: theme.textTheme.displaySmall?.copyWith(
-                        fontWeight: FontWeight.w900,
-                        height: 1.02,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'A private model of your data, decisions, tone, routines, and relationships.',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(
-                          alpha: 0.6,
-                        ),
-                        height: 1.35,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              IconButton.filledTonal(
-                tooltip: 'Privacy',
-                icon: const Icon(LucideIcons.lock, size: 18),
-                onPressed: () => context.go('/privacy'),
-              ),
-            ],
+          Align(
+            alignment: Alignment.centerRight,
+            child: IconButton.filledTonal(
+              tooltip: 'Privacy',
+              icon: const Icon(LucideIcons.lock, size: 18),
+              onPressed: () => context.go(AlterRoutes.privacy),
+            ),
           ),
           const SizedBox(height: 16),
           twinAsync.when(
@@ -554,7 +527,7 @@ class _OpenClawBridge extends ConsumerWidget {
                     OutlinedButton.icon(
                       icon: const Icon(LucideIcons.radio, size: 15),
                       label: const Text('Live feed'),
-                      onPressed: () => context.go('/feed'),
+                      onPressed: () => context.go(AlterRoutes.feed),
                     ),
                     OutlinedButton.icon(
                       icon: const Icon(LucideIcons.wand_sparkles, size: 15),
@@ -564,7 +537,7 @@ class _OpenClawBridge extends ConsumerWidget {
                     OutlinedButton.icon(
                       icon: const Icon(LucideIcons.chevron_right, size: 15),
                       label: const Text('OpenClaw'),
-                      onPressed: () => context.go('/openclaw'),
+                      onPressed: () => context.go(AlterRoutes.openclaw),
                     ),
                   ],
                 ),
@@ -597,7 +570,7 @@ class _OpenClawBridge extends ConsumerWidget {
         content: const Text('Queued Digital Twin setup in OpenClaw.'),
         action: SnackBarAction(
           label: 'Open',
-          onPressed: () => context.go('/openclaw'),
+          onPressed: () => context.go(AlterRoutes.openclaw),
         ),
       ),
     );

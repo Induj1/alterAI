@@ -3,13 +3,14 @@ import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../ui/routes.dart';
 import '../../../core/theme/alter_palette.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../core/widgets/ambient_scaffold.dart';
 import '../../../core/widgets/glass_panel.dart';
-import '../../../core/widgets/gradient_text.dart';
 import '../../../core/widgets/metric_tile.dart';
 import '../../../core/widgets/premium_controls.dart';
+import '../../../ui/widgets.dart';
 import '../../profile/application/profile_provider.dart';
 import '../application/dashboard_controller.dart';
 import '../application/daytwin_controller.dart';
@@ -29,43 +30,28 @@ class ContextMissionControlScreen extends ConsumerWidget {
     final queue = ref.watch(openClawQueueProvider);
     final day = ref.watch(dayTwinControllerProvider).result;
     final future = ref.watch(futureTwinControllerProvider).result;
-    final cloudOn = ref.watch(openAIServiceProvider) != null;
+    final profile = ref.watch(userProfileProvider).asData?.value;
+    final cloudOn = profile?.openaiKey.isNotEmpty == true;
 
     final pending = queue.where((a) => a.stage == ClawStage.queued).length;
 
     return AmbientScaffold(
+      header: ShellPageHeader(
+        title: 'CONTROL',
+        subtitle: 'OfficeKit — the full ContextOS loop in one view.',
+        onGear: () => context.push(AlterRoutes.settings),
+      ),
+      scrollable: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    GradientText(
-                      'Mission Control',
-                      style: theme.textTheme.displaySmall?.copyWith(
-                        fontWeight: FontWeight.w900,
-                        height: 1.02,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'OfficeKit — the full ContextOS loop in one view.',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              IconButton(
-                tooltip: 'Refresh',
-                icon: const Icon(LucideIcons.refresh_cw),
-                onPressed: () => ref.read(contextDashboardProvider.notifier).refresh(),
-              ),
-            ],
+          Align(
+            alignment: Alignment.centerRight,
+            child: IconButton(
+              tooltip: 'Refresh',
+              icon: const Icon(LucideIcons.refresh_cw),
+              onPressed: () => ref.read(contextDashboardProvider.notifier).refresh(),
+            ),
           ),
           const SizedBox(height: 14),
           // Edge / cloud / private status — always visible.
@@ -75,12 +61,12 @@ class ContextMissionControlScreen extends ConsumerWidget {
             children: [
               _StatusPill(
                 icon: LucideIcons.cpu,
-                label: 'Edge active (on-device)',
+                label: 'Pattern check',
                 color: AlterPalette.mint,
               ),
               _StatusPill(
                 icon: cloudOn ? LucideIcons.cloud : LucideIcons.cloud_off,
-                label: cloudOn ? 'Cloud connected' : 'Cloud offline',
+                label: cloudOn ? 'Cloud AI ready' : 'Cloud AI off',
                 color: cloudOn ? AlterPalette.cyan : AlterPalette.slate,
               ),
               _StatusPill(
@@ -454,7 +440,7 @@ class _DayCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return GlassPanel(
-      onTap: () => context.go('/daytwin'),
+      onTap: () => context.go(AlterRoutes.dayTwin),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -490,7 +476,7 @@ class _FutureCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return GlassPanel(
-      onTap: () => context.go('/futuretwin'),
+      onTap: () => context.go(AlterRoutes.futureTwin),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

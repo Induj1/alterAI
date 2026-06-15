@@ -109,65 +109,26 @@ class ApiGatewayService:
         month = now.strftime("%B")
         return LifeFeedResponse(
             user_id=user_id,
-            greeting="Good morning.",
-            date_summary=f"{weekday}, {now.day} {month} · 4 things need you today",
-            focus_title="Start the literature review for Project B",
-            focus_rationale=(
-                "Doing it this morning cuts next week's overload by ~40%."
-            ),
-            items_needing_attention=4,
-            tasks=[
-                LifeFeedTask(
-                    title="Finish ML assignment A",
-                    meta="Done · 2.5h",
-                    badge="2.5h",
-                    done=True,
-                ),
-                LifeFeedTask(
-                    title="Start literature review · Project B",
-                    meta="Today · cuts next-week load 40%",
-                    badge="Now",
-                    hot=True,
-                ),
-                LifeFeedTask(
-                    title="Reply to Prof. Nair",
-                    meta="Pending · research lab slot",
-                    badge="2pm",
-                ),
-            ],
-            opportunities=[
-                LifeFeedOpportunity(
-                    tag="HACKATHON",
-                    match_score=94,
-                    title="GenAI Hack · Bengaluru",
-                    meta="Deadline in 6 days · 3 sponsors on your list",
-                ),
-                LifeFeedOpportunity(
-                    tag="INTERNSHIP",
-                    match_score=88,
-                    title="ML Engineer Intern · Sarvam AI",
-                    meta="Matches React + Python · Remote",
-                ),
-                LifeFeedOpportunity(
-                    tag="GSoC",
-                    match_score=81,
-                    title="Open-source · LLM tooling",
-                    meta="Good-first-issue in a repo you watch",
-                ),
-            ],
+            greeting="Still inferring…",
+            date_summary=f"{weekday}, {now.day} {month}",
+            focus_title="",
+            focus_rationale="",
+            items_needing_attention=0,
+            tasks=[],
+            opportunities=[],
         )
 
     def user_settings(self, user_id: UUID) -> UserSettingsResponse:
         return UserSettingsResponse(
             user_id=user_id,
-            languages=["English", "Hindi"],
-            role="Student",
+            languages=[],
+            role="",
             permissions={
-                "wake": True,
-                "calendar": True,
-                "resume": True,
+                "wake": False,
+                "calendar": False,
+                "resume": False,
                 "location": False,
-                "notif": True,
+                "notif": False,
                 "comm": False,
             },
         )
@@ -187,20 +148,7 @@ class ApiGatewayService:
     def integrations(self, user_id: UUID) -> IntegrationsResponse:
         return IntegrationsResponse(
             user_id=user_id,
-            platforms=[
-                PlatformIntegration(
-                    id="notion",
-                    name="Notion",
-                    connected=True,
-                    status="Synced",
-                ),
-                PlatformIntegration(
-                    id="github",
-                    name="GitHub",
-                    connected=True,
-                    status="Synced",
-                ),
-            ],
+            platforms=[],
         )
 
     async def future_os_demo(self, request: DemoRunRequest) -> DemoRunResponse:

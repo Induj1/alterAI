@@ -20,18 +20,42 @@ dependencies:
   http: ^1.6.0
   nfc_manager: ^4.2.1
   nfc_manager_ndef: ^1.1.0
-  supabase_flutter: ^2.10.3
-  flutter_gemma: ^0.13.6
+  flutter_gemma: ^0.16.5
   url_launcher: ^6.3.2
   speech_to_text: ^7.4.0
   flutter_tts: ^4.2.5
+  just_audio: ^0.9.46
+  shared_preferences: ^2.5.3
   flutter_contacts: ^2.1.0
   notification_listener_service: ^0.3.5
+  connectivity_plus: ^6.1.4
+  sqflite_sqlcipher: ^3.4.0
+  path_provider: ^2.1.5
+  path: ^1.9.1
+  flutter_image_compress: ^2.4.0
+  flutter_secure_storage: ^9.2.4
+  local_auth: ^2.3.0
+  crypto: ^3.0.6
+  uuid: ^4.5.1
+  sherpa_onnx: ^1.12.0
+  record: ^6.0.0
+  archive: ^4.0.7
+  supabase_flutter: ^2.14.2
 
 dev_dependencies:
   flutter_lints: ^6.0.0
   flutter_test:
     sdk: flutter
 
+dependency_overrides:
+  sqflite:
+    git:
+      url: https://www.github.com/davidmartos96/sqflite_sqlcipher.git
+      path: sqflite
+      ref: fmdb_override
+
 flutter:
   uses-material-design: true
+  assets:
+    - assets/images/alter_logo.png
+    - assets/images/alter_mark.png

@@ -2,6 +2,9 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../identity/application/identity_engine.dart';
+import '../../memory/application/memory_retriever.dart';
+import '../../council/application/five_persona_council.dart';
 import '../../profile/application/profile_provider.dart';
 import '../domain/council.dart';
 
@@ -55,9 +58,18 @@ class DecisionCouncilController extends Notifier<CouncilState> {
       return;
     }
 
+    if (!FivePersonaCouncil.shouldDeliberate(topic)) {
+      state = state.copyWith(
+        error: 'Routine action — council not needed. Try a decision question.',
+      );
+      return;
+    }
+
     final openai = ref.read(openAIServiceProvider);
     if (openai == null) {
-      state = state.copyWith(result: CouncilResult.sample(topic), error: '');
+      state = state.copyWith(
+        error: 'Sign in and add an OpenAI key to convene the council.',
+      );
       return;
     }
 
@@ -68,12 +80,16 @@ class DecisionCouncilController extends Notifier<CouncilState> {
           ? ''
           : 'The person is ${profile.displayName}'
               '${profile.role.isNotEmpty ? ', ${profile.role}' : ''}. ';
+      final memoryBlock = await ref
+          .read(memoryRetrieverProvider)
+          .retrieveContext(query: topic, maxChars: 3000);
+      final identityBlock = ref.read(identityEngineProvider.notifier).promptBlock();
       final raw = await openai.chat(
         jsonMode: true,
         temperature: 0.7,
         maxTokens: 1700,
         messages: [
-          {'role': 'system', 'content': _system()},
+          {'role': 'system', 'content': _system(identityBlock, memoryBlock)},
           {'role': 'user', 'content': '${who}Decision/moment: $topic'},
         ],
       );
@@ -85,31 +101,27 @@ class DecisionCouncilController extends Notifier<CouncilState> {
     } catch (e) {
       state = state.copyWith(
         isConvening: false,
-        result: CouncilResult.sample(topic),
         error:
-            'Council unavailable (${e.toString().replaceFirst('Exception: ', '')}). Showing on-device council.',
+            'Council unavailable (${e.toString().replaceFirst('Exception: ', '')}).',
       );
     }
   }
 
-  String _system() =>
-      'You are ALTER\'s DecisionCouncil. Convene FIVE distinct inner voices to '
-      'weigh the user\'s decision or moment, then synthesize. The voices are:\n'
-      '- practical (Practical Me): the sensible, get-it-done view.\n'
-      '- risk (Risk Me): guards the downside, worst-case.\n'
-      '- future (Future Me): thinks in years, second-order effects.\n'
-      '- skeptic (Skeptic Me): distrusts framing, asks what is unsaid.\n'
-      '- action (Action Me): turns it into concrete next moves.\n'
-      'Each voice must genuinely differ. Do not give final medical/legal/'
-      'financial decisions — frame as perspectives. Respond with ONLY JSON:\n'
+  String _system(String identityBlock, String memoryBlock) =>
+      'You are ALTER\'s DecisionCouncil — five personas sharing one memory core. '
+      'Convene sequentially: Present Self, Future Self, Realist, Strategist, Values Self. '
+      'Each must genuinely differ. Use only evidence below — do not invent traits.\n'
+      'Identity evidence:\n${identityBlock.isEmpty ? 'none yet' : identityBlock}\n'
+      'Memories:\n${memoryBlock.isEmpty ? 'none retrieved' : memoryBlock}\n'
+      'Respond with ONLY JSON:\n'
       '{\n'
-      '  "voices": [ {"agent": "practical"|"risk"|"future"|"skeptic"|"action", "stance": string, "take": string, "confidence": number} ],\n'
+      '  "voices": [ {"agent": "present"|"future"|"realist"|"strategist"|"values", "stance": string, "take": string, "confidence": number} ],\n'
       '  "consensus": string,\n'
       '  "recommendation": string,\n'
-      '  "dissent": string\n'
+      '  "dissent": string,\n'
+      '  "experiment": {"action": string, "deadline": "48 hours", "success_metric": string}\n'
       '}\n'
-      'Exactly 5 voices, one per agent. stance is <= 8 words. confidence 0..1. '
-      'dissent names the strongest disagreement.';
+      'Exactly 5 voices. dissent names strongest disagreement. experiment is a small test.';
 
   String _strip(String raw) {
     var s = raw.trim();

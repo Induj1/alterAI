@@ -7,11 +7,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/alter_palette.dart';
 import '../../../core/utils/responsive.dart';
-import '../../../core/widgets/ambient_scaffold.dart';
 import '../../../core/widgets/glass_panel.dart';
-import '../../../core/widgets/gradient_text.dart';
 import '../../../core/widgets/metric_tile.dart';
 import '../../../core/widgets/premium_controls.dart';
+import '../../../ui/theme.dart';
+import '../../../ui/widgets.dart';
 import '../../../domain/entities/alter_models.dart';
 import '../../shared/application/alter_data_providers.dart';
 
@@ -23,26 +23,14 @@ class OpportunityRadarScreen extends ConsumerWidget {
     final opportunities = ref.watch(opportunitySignalsProvider);
     final theme = Theme.of(context);
 
-    return AmbientScaffold(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return DeepScaffold(
+      title: 'OPPORTUNITY RADAR',
+      subtitle:
+          'Live signal discovery across web, memory, social graph, and office context.',
+      bg: const [Color(0xFF0D5C40), Color(0xFF0D2620), AppColors.bg],
+      bgCenter: const Alignment(0.4, -1.0),
+      child: ListView(
         children: [
-          GradientText(
-            'Opportunity Radar',
-            style: theme.textTheme.displaySmall?.copyWith(
-              fontWeight: FontWeight.w900,
-              height: 1.02,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Live signal discovery across web, memory, social graph, and office context.',
-            style: theme.textTheme.bodyLarge?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.62),
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 20),
           ResponsiveGrid(
             mediumColumns: 2,
             expandedColumns: 3,

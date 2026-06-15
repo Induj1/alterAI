@@ -31,8 +31,20 @@ from .schemas import (
     UserSettingsResponse,
     VoiceActionRuntimeRequest,
     VoiceActionRuntimeResponse,
+    WebResearchRequest,
+    WebResearchResponse,
+    WebFetchRequest,
+    WebFetchResponse,
+    MarketplaceSearchRequest,
+    MarketplaceSearchResponse,
+    OpportunityQueryRequest,
+    OpportunityQueryResponse,
+    WebResearchHit,
+    MarketplaceListing,
+    OpportunityHit,
 )
 from .service import ApiGatewayService, create_api_gateway_service
+from . import web_research as web_research_service
 
 app = FastAPI(
     title="ALTER API Gateway",
@@ -222,3 +234,58 @@ async def voice_action_runtime(
     request: VoiceActionRuntimeRequest,
 ) -> VoiceActionRuntimeResponse:
     return await get_service().voice_action_runtime(request)
+
+
+@app.post("/v1/web/research", response_model=WebResearchResponse)
+async def web_research_route(request: WebResearchRequest) -> WebResearchResponse:
+    settings = get_settings()
+    rows = await web_research_service.firecrawl_search(
+        settings,
+        request.query,
+        limit=request.limit,
+    )
+    return WebResearchResponse(
+        query=request.query,
+        results=[WebResearchHit(**row) for row in rows],
+    )
+
+
+@app.post("/v1/web/fetch", response_model=WebFetchResponse)
+async def web_fetch_route(request: WebFetchRequest) -> WebFetchResponse:
+    settings = get_settings()
+    page = await web_research_service.firecrawl_scrape(settings, request.url)
+    return WebFetchResponse(**page)
+
+
+@app.post("/v1/web/marketplace", response_model=MarketplaceSearchResponse)
+async def marketplace_search_route(
+    request: MarketplaceSearchRequest,
+) -> MarketplaceSearchResponse:
+    settings = get_settings()
+    rows = await web_research_service.search_marketplace(
+        settings,
+        query=request.query,
+        platform=request.platform,
+        limit=request.limit,
+    )
+    return MarketplaceSearchResponse(
+        query=request.query,
+        platform=request.platform,
+        listings=[MarketplaceListing(**row) for row in rows],
+    )
+
+
+@app.post("/v1/opportunities/query", response_model=OpportunityQueryResponse)
+async def opportunities_query_route(
+    request: OpportunityQueryRequest,
+) -> OpportunityQueryResponse:
+    settings = get_settings()
+    rows = await web_research_service.query_opportunities(
+        settings,
+        query=request.query,
+        limit=request.limit,
+    )
+    return OpportunityQueryResponse(
+        query=request.query,
+        opportunities=[OpportunityHit(**row) for row in rows],
+    )
